@@ -11,7 +11,7 @@ export function UploadForm({ quoteId }: { quoteId: string }) {
 
   return (
     <form action={action} className="card">
-      <label htmlFor="images">Add supplier screenshots (PNG, JPG or WebP, up to 10 MB each)</label>
+      <label htmlFor="images">Add supplier screenshots (PNG, JPG or WebP, up to 7 MB each)</label>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
         <input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple />
         <button type="submit" disabled={pending}>

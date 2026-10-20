@@ -9,7 +9,8 @@ export type UploadState = { message?: string; error?: string };
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp"]);
 const EXT: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
-const MAX_BYTES = 10 * 1024 * 1024;
+// Claude accepts images up to 10 MB once base64-encoded (about 33% bigger), so cap uploads at 7 MB.
+const MAX_BYTES = 7 * 1024 * 1024;
 
 export async function uploadImages(
   quoteId: string,
@@ -36,7 +37,7 @@ export async function uploadImages(
       continue;
     }
     if (file.size > MAX_BYTES) {
-      rejected.push(`${file.name} (over 10 MB)`);
+      rejected.push(`${file.name} (over 7 MB)`);
       continue;
     }
 

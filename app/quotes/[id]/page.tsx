@@ -1,10 +1,32 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { one } from "@/lib/relations";
+import { PROMPT_VERSION } from "@/lib/extraction/prompts";
+import type { ExtractionResult } from "@/lib/extraction/types";
 import { removeImage } from "./actions";
+import { ExtractButton } from "./extract-button";
 import { UploadForm } from "./upload-form";
 
 export const dynamic = "force-dynamic";
+// Extraction runs inside the request. Lower this to 60 if your Vercel plan rejects 300.
+export const maxDuration = 300;
+
+type ExtractionRow = {
+  image_id: string;
+  status: "pending" | "running" | "done" | "failed";
+  image_type: string | null;
+  result: ExtractionResult | null;
+  error: string | null;
+};
+
+function summarise(result: ExtractionResult | null): string {
+  const items = result?.items ?? [];
+  if (items.length === 0) return "No services found";
+  const counts = new Map<string, number>();
+  items.forEach((i) => counts.set(i.kind, (counts.get(i.kind) ?? 0) + 1));
+  return [...counts].map(([k, n]) => `${n} ${k.replace("_", " ")}`).join(", ");
+}
 
 export default async function QuotePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,10 +34,12 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
 
   const { data: quote } = await supabase
     .from("quotes")
-    .select("id, reference, title, client_name, created_at")
+    .select("id, reference, created_at, trips(reference, title, clients(client_no, full_name))")
     .eq("id", id)
     .maybeSingle();
   if (!quote) notFound();
+  const trip = one(quote.trips);
+  const client = one(trip?.clients);
 
   const [{ data: images }, { data: versions }] = await Promise.all([
     supabase
@@ -30,6 +54,21 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
       .eq("quote_id", id)
       .order("version_no", { ascending: false }),
   ]);
+
+  // Extractions for these images, made with the current prompts.
+  const extractions = new Map<string, ExtractionRow>();
+  if (images && images.length > 0) {
+    const { data: rows } = await supabase
+      .from("extractions")
+      .select("image_id, status, image_type, result, error")
+      .in(
+        "image_id",
+        images.map((i) => i.id),
+      )
+      .eq("prompt_version", PROMPT_VERSION);
+    (rows as ExtractionRow[] | null)?.forEach((r) => extractions.set(r.image_id, r));
+  }
+  const waiting = (images ?? []).filter((i) => extractions.get(i.id)?.status !== "done").length;
 
   // Private bucket: short-lived signed links for thumbnails.
   const urls = new Map<string, string>();
@@ -51,9 +90,12 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         <Link href="/">← All quotes</Link>
       </p>
       <h1>
-        {quote.reference} · {quote.title}
+        {quote.reference}
+        {trip?.title ? ` · ${trip.title}` : ""}
       </h1>
-      <p className="sub">{quote.client_name ? `Prepared for ${quote.client_name}` : "No client name set"}</p>
+      <p className="sub">
+        {client ? `Prepared for ${client.full_name} (${client.client_no}) · trip ${trip?.reference}` : "No client set"}
+      </p>
 
       <h2>Source images</h2>
       <UploadForm quoteId={quote.id} />
@@ -62,33 +104,71 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
         {(!images || images.length === 0) && <p className="empty">No images yet.</p>}
         {images && images.length > 0 && (
           <div className="images">
-            {images.map((img) => (
-              <div className="thumb" key={img.id}>
-                {urls.get(img.storage_path) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={urls.get(img.storage_path)} alt={img.filename} />
-                ) : (
-                  <div style={{ height: 140 }} />
-                )}
-                <div className="meta">
-                  <span className="name" title={img.filename}>
-                    {img.filename}
-                  </span>
-                  <form action={removeImage.bind(null, quote.id, img.id)}>
-                    <button type="submit" className="danger">
-                      Remove
-                    </button>
-                  </form>
+            {images.map((img) => {
+              const ex = extractions.get(img.id);
+              return (
+                <div className="thumb" key={img.id}>
+                  {urls.get(img.storage_path) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={urls.get(img.storage_path)} alt={img.filename} />
+                  ) : (
+                    <div style={{ height: 140 }} />
+                  )}
+                  <div className="meta">
+                    <span className="name" title={img.filename}>
+                      {img.filename}
+                    </span>
+                    <form action={removeImage.bind(null, quote.id, img.id)}>
+                      <button type="submit" className="danger">
+                        Remove
+                      </button>
+                    </form>
+                  </div>
+                  <div className="status">
+                    {!ex && <span className="badge">Not extracted</span>}
+                    {ex?.status === "running" && <span className="badge">Reading…</span>}
+                    {ex?.status === "done" && (
+                      <span className="badge ok">
+                        {ex.image_type} · {summarise(ex.result)}
+                      </span>
+                    )}
+                    {ex?.status === "failed" && (
+                      <span className="badge bad" title={ex.error ?? ""}>
+                        Failed: {ex.error}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
+      {images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} />}
+
+      {images && images.some((i) => extractions.get(i.id)?.status === "done") && (
+        <>
+          <h2>Extracted data</h2>
+          <p className="sub">Read-only for now. The editing screen comes next.</p>
+          {images.map((img) => {
+            const ex = extractions.get(img.id);
+            if (ex?.status !== "done") return null;
+            return (
+              <details className="card" key={img.id} style={{ marginBottom: 10 }}>
+                <summary>
+                  <b>{img.filename}</b> · {summarise(ex.result)}
+                </summary>
+                <pre>{JSON.stringify(ex.result, null, 2)}</pre>
+              </details>
+            );
+          })}
+        </>
+      )}
+
       <h2>Versions</h2>
       {(!versions || versions.length === 0) && (
-        <p className="empty">No versions yet. Extraction and PDF generation come in the next milestone.</p>
+        <p className="empty">No versions yet. Quote assembly and PDF generation come in a later milestone.</p>
       )}
       {versions && versions.length > 0 && (
         <table>

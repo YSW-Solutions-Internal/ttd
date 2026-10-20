@@ -7,18 +7,23 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 ## What works now
 
 - Email and password sign-in; every page except `/login` requires it
-- Create a quote (references are generated as `QUO-0001`, `QUO-0002`, ...)
+- Create a quote: pick an existing client or type a new name, optional trip title. The database creates the client (code like `RW001` from initials), the trip (`TRIP-RW001-001`) and the quote (`QU-RW001-001`) in one step
 - Upload screenshots to a private bucket
 - Duplicate images within a quote are detected by SHA-256 and skipped
 - Removing an image is a soft remove; re-uploading the same file restores it
-- Database schema ready for extractions, corrections (overrides), manual items, versions and airports
+- **Extract data** button: sends each image that has no finished extraction to Claude (classify, then extract), stores the JSON in `extractions`, and shows it read-only on the quote page
+- Images already extracted with the current prompts are never sent again (revisions only process new images)
+- Database schema ready for extractions, corrections (overrides), manual items, versions, booking tracking, fee schedules and destinations
 
-Not built yet: AI extraction, the edit screen, versions and PDF generation, airport loading.
+Not built yet: the edit screen, quote assembly, versions and PDF generation, airport loading, fee lookup in code.
 
 ## Setup
 
 1. Create a Supabase project. Choose the South Africa (Cape Town) region if offered.
 2. In the SQL editor, run `supabase/migrations/0001_init.sql`.
+   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations) and `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff).
+   0002 is a **draft**: it stops if `public.quotes` has rows (old data is discarded by design). Read the notes at its top first.
+   The app needs 0002 to be run: its New quote form calls `start_quote()`.
 3. Authentication -> Providers -> Email: turn **off** "Allow new users to sign up". Add staff with **Invite user** (or Add user in the dashboard).
 4. `cp .env.example .env.local` and fill in the project URL and keys (Project Settings -> API).
 5. Install and run:
@@ -39,6 +44,7 @@ app/                      pages and server actions
 proxy.ts                  session refresh + redirect to /login (Next 16 name for middleware)
 lib/supabase/server.ts    Supabase client for server code
 lib/hash.ts               SHA-256 helper used for duplicate detection
+lib/extraction/           prompts (with PROMPT_VERSION), the Claude call, JSON parsing, item types
 supabase/migrations/      database schema, RLS, storage bucket
 ```
 
@@ -51,8 +57,8 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Next milestones
 
-1. Airport table loader (replaces the monday.com Airport Ref board)
-2. Extraction: classifier and per-type agents called from a background job, results into `extractions`
+1. Airport table loader (replaces the monday.com Airport Ref board; waiting for the real airport export)
+2. Move extraction into a background job runner (it currently runs inside the page request) and replace the starter prompts with your canonical agent prompts
 3. Deterministic assembler: AI data, then overrides and manual items, then pricing, into quote JSON
 4. Edit screen (form and side-by-side with image)
 5. Render service: port `render_lib.py` and the template, Puppeteer PDF into storage, one per version
