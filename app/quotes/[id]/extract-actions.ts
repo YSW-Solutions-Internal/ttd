@@ -21,16 +21,24 @@ function mediaTypeFor(path: string): MediaType {
 type ImageRow = { id: string; filename: string; storage_path: string };
 
 /** Process one image start to finish and record the outcome. Never throws. */
-async function processImage(supabase: SupabaseClient, image: ImageRow): Promise<"done" | "failed"> {
+async function processImage(
+  supabase: SupabaseClient,
+  image: ImageRow,
+): Promise<"done" | "failed" | "busy"> {
   const key = { image_id: image.id, prompt_version: PROMPT_VERSION };
 
-  // Mark as running (creates the row the first time, resets it on a retry).
-  await supabase
-    .from("extractions")
-    .upsert(
-      { ...key, status: "running", error: null, model: MODEL },
-      { onConflict: "image_id,prompt_version" },
-    );
+  // Mark as running, atomically (claim_extraction in migration 0006): if another
+  // run already has this image, or finished it meanwhile, leave it alone.
+  const { data: claimed, error: claimErr } = await supabase.rpc("claim_extraction", {
+    p_image_id: image.id,
+    p_prompt_version: PROMPT_VERSION,
+    p_model: MODEL,
+  });
+  if (claimErr) {
+    console.error("claim_extraction failed:", image.id, claimErr.message);
+    return "failed";
+  }
+  if (!claimed) return "busy";
 
   try {
     const { data: blob, error: dlErr } = await supabase.storage
@@ -102,11 +110,13 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
   // 4. Work through them a few at a time.
   let ok = 0;
   let failed = 0;
+  let busy = 0;
   for (let i = 0; i < todo.length; i += CONCURRENCY) {
     const batch = todo.slice(i, i + CONCURRENCY);
     const outcomes = await Promise.all(batch.map((img) => processImage(supabase, img)));
     ok += outcomes.filter((o) => o === "done").length;
     failed += outcomes.filter((o) => o === "failed").length;
+    busy += outcomes.filter((o) => o === "busy").length;
   }
 
   revalidatePath(`/quotes/${quoteId}`);
@@ -114,6 +124,7 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
   const skipped = images.length - todo.length;
   const parts = [`${ok} extracted`];
   if (skipped) parts.push(`${skipped} skipped (already processed)`);
+  if (busy) parts.push(`${busy} skipped (already being extracted)`);
   if (failed) {
     return { message: parts.join(", "), error: `${failed} failed. See the error under each image.` };
   }

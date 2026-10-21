@@ -22,7 +22,7 @@ Not built yet: the edit screen, quote assembly, versions and PDF generation, air
 
 1. Create a Supabase project. Choose the South Africa (Cape Town) region if offered.
 2. In the SQL editor, run `supabase/migrations/0001_init.sql`.
-   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff) and `0005_user_roles.sql` (roles and invitation-only accounts).
+   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) and `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed).
    0002 is a **draft**: it stops if `public.quotes` has rows (old data is discarded by design). Read the notes at its top first.
    The app needs 0002 to be run: its New quote form calls `start_quote()`.
 3. Accounts are by invitation only, and the database enforces it (0005): any new account that does not match an admin's invitation is rejected, whatever the dashboard's sign-up settings say.
