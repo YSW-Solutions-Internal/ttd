@@ -33,7 +33,9 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLogin = request.nextUrl.pathname.startsWith("/login");
-  if (!user && !isLogin) {
+  // The invite link arrives before the user has a session.
+  const isInviteLink = request.nextUrl.pathname === "/auth/confirm";
+  if (!user && !isLogin && !isInviteLink) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

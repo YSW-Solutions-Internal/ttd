@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getProfile } from "@/lib/auth";
 import { signOut } from "./login/actions";
 import "./globals.css";
 
@@ -10,10 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const profile = await getProfile();
 
   return (
     <html lang="en">
@@ -22,9 +19,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Link href="/" className="brand">
             TTD Quotes
           </Link>
-          {user && (
+          {profile && (
             <div className="who">
-              <span>{user.email}</span>
+              {profile.role === "admin" && <Link href="/admin/users">Users</Link>}
+              <span>{profile.email}</span>
               <form action={signOut}>
                 <button type="submit" className="link">
                   Sign out

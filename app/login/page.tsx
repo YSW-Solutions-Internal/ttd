@@ -1,15 +1,25 @@
 "use client";
 
-import { useActionState } from "react";
+import { use, useActionState } from "react";
 import { signIn, type LoginState } from "./actions";
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const [state, action, pending] = useActionState<LoginState, FormData>(signIn, {});
+  const { error: linkError } = use(searchParams);
 
   return (
     <main className="login">
       <h1>Sign in</h1>
       <p className="sub">TTD staff only. Ask an admin if you need an invite.</p>
+      {linkError === "invite" && (
+        <div className="msg error" style={{ marginBottom: 12 }}>
+          That invite link is invalid or has expired. Ask an admin to invite you again.
+        </div>
+      )}
       <form action={action} className="card">
         <div className="field">
           <label htmlFor="email">Email</label>
