@@ -12,7 +12,16 @@ export async function signIn(_prev: LoginState, formData: FormData): Promise<Log
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: "Those details didn't work. Check them and try again." };
+  if (error) {
+    console.error("Sign-in failed:", error.code, error.status, error.message);
+    const known: Record<string, string> = {
+      invalid_credentials: "Wrong email or password, or this user has no password yet.",
+      email_not_confirmed: "This email is not confirmed yet. Confirm the user in Supabase (Authentication, Users).",
+      user_banned: "This user is blocked.",
+    };
+    const reason = (error.code && known[error.code]) || error.message;
+    return { error: `Could not sign in: ${reason}` };
+  }
 
   redirect("/");
 }
