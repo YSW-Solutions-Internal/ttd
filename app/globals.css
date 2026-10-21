@@ -40,7 +40,7 @@ th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacin
 td { padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: middle; }
 
 label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
-input[type="text"], input[type="email"], input[type="password"] {
+input[type="text"], input[type="email"], input[type="password"], textarea {
   width: 100%; padding: 8px 10px; border: 1px solid #cfc9c0; background: #fff; font: inherit;
 }
 select { width: 100%; padding: 8px 10px; border: 1px solid #cfc9c0; background: #fff; font: inherit; }

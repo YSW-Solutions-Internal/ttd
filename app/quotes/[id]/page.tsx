@@ -34,7 +34,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
 
   const { data: quote } = await supabase
     .from("quotes")
-    .select("id, reference, created_at, trips(reference, title, clients(client_no, full_name))")
+    .select("id, reference, created_at, trips(id, reference, title, clients(client_code, full_name))")
     .eq("id", id)
     .maybeSingle();
   if (!quote) notFound();
@@ -87,14 +87,14 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
   return (
     <main className="container">
       <p className="sub">
-        <Link href="/">← All quotes</Link>
+        <Link href={trip ? `/trips/${trip.id}` : "/"}>← Trip {trip?.reference}</Link>
       </p>
       <h1>
         {quote.reference}
         {trip?.title ? ` · ${trip.title}` : ""}
       </h1>
       <p className="sub">
-        {client ? `Prepared for ${client.full_name} (${client.client_no}) · trip ${trip?.reference}` : "No client set"}
+        {client ? `Prepared for ${client.full_name} (${client.client_code}) · trip ${trip?.reference}` : "No client set"}
       </p>
 
       <h2>Source images</h2>

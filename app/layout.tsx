@@ -21,6 +21,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </Link>
           {profile && (
             <div className="who">
+              <Link href="/clients">Clients</Link>
               {profile.role === "admin" && <Link href="/admin/users">Users</Link>}
               <span>{profile.email}</span>
               <form action={signOut}>

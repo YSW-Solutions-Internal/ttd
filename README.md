@@ -8,7 +8,9 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 
 - Email and password sign-in; every page except `/login` requires it
 - Invitation-only accounts with two roles, **Administrator** and **Standard user**. Administrators invite staff by email from the Users page (`/admin/users`) and change roles, including promoting someone to administrator. Invited users follow the email link and choose their password. Standard users never see the page and are redirected away from it
-- Create a quote: pick an existing client or type a new name, optional trip title. The database creates the client (code like `RW001` from initials), the trip (`TRIP-RW001-001`) and the quote (`QU-RW001-001`) in one step
+- Clients (`/clients`): add and edit clients (first and last name, email, phone, notes, active), upload their ID and passport copies and open them in a new tab. The client code (`RWOL01`: first initial, three letters of the surname, two digits) is made by the database and never changes
+- Every client has one Consultant. Standard users see and work on only their own clients and everything under them (documents, trips, quotes, files); administrators see everything and hand clients over. Enforced in the database (see `docs/adr/0001-access-follows-client-consultant.md`)
+- Trips (`/`, `/trips/new`): create a trip for a client (`TRIP-RWOL01-001`), then add quotes to it (`QU-RWOL01-001`)
 - Upload screenshots to a private bucket
 - Duplicate images within a quote are detected by SHA-256 and skipped
 - Removing an image is a soft remove; re-uploading the same file restores it
@@ -22,9 +24,8 @@ Not built yet: the edit screen, quote assembly, versions and PDF generation, air
 
 1. Create a Supabase project. Choose the South Africa (Cape Town) region if offered.
 2. In the SQL editor, run `supabase/migrations/0001_init.sql`.
-   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) and `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed).
+   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed) and `0007_clients_and_access.sql` (client codes, Consultants, access per Consultant). 0007 stops if `public.clients` has rows; the message tells you what to delete.
    0002 is a **draft**: it stops if `public.quotes` has rows (old data is discarded by design). Read the notes at its top first.
-   The app needs 0002 to be run: its New quote form calls `start_quote()`.
 3. Accounts are by invitation only, and the database enforces it (0005): any new account that does not match an admin's invitation is rejected, whatever the dashboard's sign-up settings say.
 4. Make yourself an administrator. 0005 sets every existing account to Standard user, so run this once in the SQL editor:
 
@@ -56,6 +57,8 @@ Not built yet: the edit screen, quote assembly, versions and PDF generation, air
 app/                      pages and server actions
   login/                  sign-in
   admin/users/            admin-only: invite users, change roles
+  clients/                client list, add/edit, documents (View opens a one-minute signed link)
+  trips/                  new trip, trip page with its quotes
   auth/confirm/           invite link landing: token -> session
   account/set-password/   invited user chooses a password
   quotes/[id]/            quote page: image upload, image list, versions
@@ -74,7 +77,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 - **Corrections** live in `overrides`, keyed to an item's `entity_id` and field, not to an image. They are applied on top of the AI output every time a version is assembled, so they survive revisions and image removal.
 - **Extractions** are keyed to the image, so a revision only sends new images to the AI.
 - **Manual items** (`manual_items`) hold flights, hotels, etc. entered by hand with no source image.
-- RLS: any signed-in user is staff and can see all quotes. Tighten with `created_by` checks if needed.
+- RLS: a standard user sees only clients they are the Consultant for, and everything under them. `trips.consultant_id` and `quotes.owner_id` are labels and grant no access.
 - **Invitation-only** is enforced by `handle_new_user`: every new auth user must match an open row in `invitations`, which only admins can write, and the role comes from that row. Anything else that tries to create an account (public sign-up, magic link, OAuth, the dashboard's own Add/Invite user) fails.
 - **Roles** are enforced in the app and again in the database. Every user-management server action calls `requireAdminAction()` first, because a server action can be posted to directly, not just from our own UI; hiding the nav link is cosmetic. Underneath, the `guard_role_change` trigger refuses any role change not made by an admin, and refuses to demote the last admin. Role changes run with the admin's own session, not the service key, so the trigger always sees who is asking.
 - Role is read from the database on every request, so promoting or demoting someone takes effect immediately rather than when their session expires.
