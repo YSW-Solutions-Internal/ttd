@@ -29,6 +29,18 @@ a:hover { text-decoration: underline; }
 .topbar .brand { font-weight: 800; font-style: italic; letter-spacing: 0.05em; text-transform: uppercase; color: var(--teal-deep); }
 .topbar .who { color: var(--muted); font-size: 13px; display: flex; gap: 14px; align-items: center; }
 
+.shell { display: flex; align-items: flex-start; }
+.shell-main { flex: 1; min-width: 0; }
+.sidenav { width: 180px; flex-shrink: 0; display: flex; flex-direction: column; padding: 20px 0; position: sticky; top: 0; }
+.sidenav a { padding: 8px 24px; color: var(--ink); border-left: 3px solid transparent; }
+.sidenav a[aria-current="page"] { border-left-color: var(--teal); color: var(--teal-deep); font-weight: 600; background: #fff; }
+@media (max-width: 700px) {
+  .shell { flex-direction: column; align-items: stretch; }
+  .sidenav { width: auto; flex-direction: row; padding: 0; border-bottom: 1px solid var(--line); background: #fff; position: static; }
+  .sidenav a { padding: 10px 16px; border-left: 0; border-bottom: 3px solid transparent; }
+  .sidenav a[aria-current="page"] { border-bottom-color: var(--teal); }
+}
+
 .container { max-width: 960px; margin: 28px auto; padding: 0 20px; }
 h1 { font-size: 22px; margin-bottom: 4px; }
 h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--teal-deep); margin: 28px 0 10px; }

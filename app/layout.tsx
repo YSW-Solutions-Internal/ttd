@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { signOut } from "./login/actions";
+import { SideNav } from "./side-nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,8 +22,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </Link>
           {profile && (
             <div className="who">
-              <Link href="/clients">Clients</Link>
-              {profile.role === "admin" && <Link href="/admin/users">Users</Link>}
               <span>{profile.email}</span>
               <form action={signOut}>
                 <button type="submit" className="link">
@@ -32,7 +31,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           )}
         </header>
-        {children}
+        {profile ? (
+          <div className="shell">
+            <SideNav isAdmin={profile.role === "admin"} />
+            <div className="shell-main">{children}</div>
+          </div>
+        ) : (
+          children
+        )}
       </body>
     </html>
   );
