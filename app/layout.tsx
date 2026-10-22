@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { getProfile } from "@/lib/auth";
 import { signOut } from "./login/actions";
-import { SideNav } from "./side-nav";
+import { NavShell } from "./side-nav";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,33 +19,38 @@ export default async function RootLayout({
   modal: React.ReactNode;
 }) {
   const profile = await getProfile();
+  const navOpen = (await cookies()).get("nav")?.value === "open";
 
   return (
     <html lang="en">
       <body>
-        <header className="topbar">
-          <Link href="/" className="brand">
-            TTD Quotes
-          </Link>
-          {profile && (
-            <div className="who">
-              <span>{profile.email}</span>
-              <form action={signOut}>
-                <button type="submit" className="link">
-                  Sign out
-                </button>
-              </form>
-            </div>
-          )}
-        </header>
         {profile ? (
-          <div className="shell">
-            <SideNav isAdmin={profile.role === "admin"} />
+          <NavShell
+            isAdmin={profile.role === "admin"}
+            initialOpen={navOpen}
+            who={
+              <div className="who">
+                <span>{profile.email}</span>
+                <form action={signOut}>
+                  <button type="submit" className="link">
+                    Sign out
+                  </button>
+                </form>
+              </div>
+            }
+          >
             <div className="shell-main">{children}</div>
             {modal}
-          </div>
+          </NavShell>
         ) : (
-          children
+          <>
+            <header className="topbar">
+              <Link href="/" className="brand">
+                TTD Quotes
+              </Link>
+            </header>
+            {children}
+          </>
         )}
       </body>
     </html>

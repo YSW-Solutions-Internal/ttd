@@ -18,7 +18,7 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 - Images already extracted with the current prompts are never sent again (revisions only process new images)
 - Database schema ready for extractions, corrections (overrides), manual items, versions, booking tracking, fee schedules and destinations
 
-Not built yet: the edit screen, quote assembly, versions and PDF generation, airport loading, fee lookup in code.
+Not built yet: the edit screen, quote assembly, versions and PDF generation, fee lookup in code.
 
 ## Setup
 
@@ -91,7 +91,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Next milestones
 
-1. Airport table loader (replaces the monday.com Airport Ref board; waiting for the real airport export)
+1. ~~Airport table loader~~ Done: airport data is loaded (replaces the monday.com Airport Ref board)
 2. Move extraction into a background job runner (it currently runs inside the page request) and replace the starter prompts with your canonical agent prompts
 3. Deterministic assembler: AI data, then overrides and manual items, then pricing, into quote JSON
 4. Edit screen (form and side-by-side with image), in the Edit section of the Quote modal
