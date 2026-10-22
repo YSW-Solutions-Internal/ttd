@@ -1,0 +1,191 @@
+{
+  "quote": {
+    "reference": "",
+    "date": "",
+    "valid_until": "",
+    "consultant": {
+      "name": "",
+      "email": "",
+      "address": ""
+    },
+    "client": {
+      "name": "",
+      "file_ref": ""
+    },
+    "trip": {
+      "title": "",
+      "destinations": [],
+      "dates_display": "",
+      "year": "",
+      "nights": null,
+      "travellers_main": "",
+      "travellers_sub": ""
+    },
+    "itinerary_overview": [
+      {
+        "dates": "",
+        "destination": "",
+        "nights": null,
+        "highlight": ""
+      }
+    ],
+    "flights_tag": "",
+    "flight_options": [
+      {
+        "label": "",
+        "headline": "",
+        "airlines": "",
+        "summary_line": "",
+        "groups": [
+          {
+            "label": "",
+            "meta": "",
+            "fare": null,
+            "fare_basis": "",
+            "flights": [
+              {
+                "airline": "",
+                "flight_no": "",
+                "aircraft": null,
+                "from_city": "",
+                "from_code": "",
+                "to_city": "",
+                "to_code": "",
+                "date": "",
+                "departs": "",
+                "arrives": "",
+                "next_day": false,
+                "flying_time": "",
+                "stops": null,
+                "baggage": "",
+                "cabin": ""
+              }
+            ]
+          }
+        ],
+        "fare_rules": "",
+        "seating": "",
+        "notes": "",
+        "pricing": {
+          "currency": "",
+          "vat": null,
+          "markup": null,
+          "transaction_fee": null,
+          "cancellation_fee": null,
+          "change_fee": null,
+          "note": "",
+          "lines": [
+            {
+              "pax_label": "",
+              "count": null,
+              "fare_pp": null,
+              "taxes_pp": null
+            }
+          ]
+        }
+      }
+    ],
+    "accommodation": [
+      {
+        "name": "",
+        "dates": "",
+        "nights": null,
+        "options": [
+          {
+            "name": "",
+            "star": null,
+            "room": "",
+            "meals": "",
+            "check_in": "",
+            "check_out": "",
+            "currency": "",
+            "price": null,
+            "markup": null,
+            "transaction_fee": null,
+            "cancellation_fee": null,
+            "change_fee": null,
+            "cxl_type": "",
+            "cxl": null,
+            "address": "",
+            "geo_url": "",
+            "url": "",
+            "url_label": "",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "car_rentals": [
+      {
+        "company": "",
+        "vehicle": "",
+        "pickup_location": "",
+        "dropoff_location": "",
+        "pickup_datetime": "",
+        "dropoff_datetime": "",
+        "currency": "",
+        "price": null,
+        "markup": null,
+        "transaction_fee": null,
+        "cancellation_fee": null,
+        "change_fee": null
+      }
+    ],
+    "transfers": [
+      {
+        "date": "",
+        "supplier": "",
+        "route": "",
+        "vehicle": "",
+        "currency": "",
+        "rate": null,
+        "markup": null,
+        "transaction_fee": null,
+        "cancellation_fee": null,
+        "change_fee": null
+      }
+    ],
+    "rail": [
+      {
+        "date": "",
+        "service": "",
+        "from_city": "",
+        "to_city": "",
+        "currency": "",
+        "rate": null,
+        "markup": null,
+        "transaction_fee": null,
+        "cancellation_fee": null,
+        "change_fee": null
+      }
+    ],
+    "experiences": [
+      {
+        "name": "",
+        "location": "",
+        "date": "",
+        "description": "",
+        "currency": "",
+        "price": null,
+        "markup": null,
+        "transaction_fee": null,
+        "cancellation_fee": null,
+        "change_fee": null
+      }
+    ],
+    "visa_info": null,
+    "health_info": null,
+    "insurance_info": null,
+    "not_yet_included": [],
+    "extra_sections": [
+      {
+        "title": "",
+        "tag": "",
+        "intro": "",
+        "items": []
+      }
+    ],
+    "terms_profile": "",
+    "custom_notes": []
+  }
+}
