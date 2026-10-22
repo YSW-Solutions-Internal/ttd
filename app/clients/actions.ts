@@ -48,7 +48,7 @@ export async function saveClient(_prev: ClientFormState, formData: FormData): Pr
     return { notice: "Saved." };
   }
 
-  const { data, error } = await supabase.from("clients").insert(fields).select("id").single();
+  const { data, error } = await supabase.from("clients").insert({ ...fields, created_by: profile.id }).select("id").single();
   if (error || !data) return { error: `Could not add the client: ${error?.message ?? "unknown error"}` };
 
   revalidatePath("/clients");
