@@ -1,7 +1,9 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { redirect, RedirectType } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isTripStatus } from "@/lib/trip-status";
 
 export type CreateTripState = { error?: string };
 
@@ -24,7 +26,8 @@ export async function createTrip(_prev: CreateTripState, formData: FormData): Pr
     .select("id")
     .single();
   if (error || !data) return { error: `Could not create the trip: ${error?.message ?? "unknown error"}` };
-  redirect(`/trips/${data.id}`);
+  // Replace, so Back from the new Trip returns to the list rather than the empty form.
+  redirect(`/trips/${data.id}`, RedirectType.replace);
 }
 
 export async function createQuote(tripId: string) {
@@ -41,4 +44,15 @@ export async function createQuote(tripId: string) {
     .single();
   if (error || !data) throw new Error(`Could not create the quote: ${error?.message ?? "unknown error"}`);
   redirect(`/quotes/${data.id}`);
+}
+
+// RLS limits the update to the trip's Consultant or an admin; any status may follow any other.
+export async function setTripStatus(tripId: string, formData: FormData) {
+  const status = formData.get("status");
+  if (!isTripStatus(status)) throw new Error("Unknown trip status.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("trips").update({ status }).eq("id", tripId);
+  if (error) throw new Error(`Could not change the status: ${error.message}`);
+  revalidatePath("/", "layout");
 }

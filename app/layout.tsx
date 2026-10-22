@@ -10,7 +10,13 @@ export const metadata: Metadata = {
   description: "Travel quote builder for The Travel Department staff",
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+  modal,
+}: {
+  children: React.ReactNode;
+  modal: React.ReactNode;
+}) {
   const profile = await getProfile();
 
   return (
@@ -35,6 +41,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="shell">
             <SideNav isAdmin={profile.role === "admin"} />
             <div className="shell-main">{children}</div>
+            {modal}
           </div>
         ) : (
           children

@@ -26,6 +26,10 @@ _Avoid_: Client number, client no, client ID
 One journey for one Client. Quotes are always made for a Trip, never directly for a Client.
 _Avoid_: Booking, itinerary
 
+**Trip status**:
+Where a Trip stands: In progress, Completed or Cancelled. A new Trip is In progress. Its Consultant or an Administrator can change it in any direction, including reopening a Cancelled Trip.
+_Avoid_: State, stage, "current trip" (say In progress)
+
 **Quote**:
 A priced proposal for a Trip. A Trip can have several Quotes.
 _Avoid_: Estimate, proposal

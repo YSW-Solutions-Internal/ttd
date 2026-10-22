@@ -87,5 +87,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 1. Airport table loader (replaces the monday.com Airport Ref board; waiting for the real airport export)
 2. Move extraction into a background job runner (it currently runs inside the page request) and replace the starter prompts with your canonical agent prompts
 3. Deterministic assembler: AI data, then overrides and manual items, then pricing, into quote JSON
-4. Edit screen (form and side-by-side with image)
+4. Edit screen (form and side-by-side with image), in the Edit section of the Quote modal
 5. Render service: port `render_lib.py` and the template, Puppeteer PDF into storage, one per version
+6. Trips list: filter by Consultant, for admins
+7. Review the Trips list for pagination once there are a few hundred trips (it loads and sorts every matching trip today)
