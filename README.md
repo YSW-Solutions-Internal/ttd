@@ -2,7 +2,7 @@
 
 Staff-only web app for building travel quotes: upload supplier screenshots, extract data with AI, correct it, and produce one PDF per quote version.
 
-**Stack:** Next.js 16 (TypeScript, App Router) · Supabase (Auth, Postgres, private Storage) · Claude API (next milestone) · Puppeteer for PDFs (next milestone)
+**Stack:** Next.js 16 (TypeScript, App Router) · Supabase (Auth, Postgres, private Storage) · Claude API (image extraction) · Puppeteer for PDFs (next milestone)
 
 ## What works now
 
@@ -41,7 +41,14 @@ Not built yet: the edit screen, quote assembly, versions and PDF generation, air
    ```
 
    and set Authentication -> URL Configuration -> Site URL to the app's address. Invite emails need SMTP configured.
-6. `cp .env.example .env.local` and fill in the project URL and keys (Project Settings -> API).
+6. Set these environment variables locally and in Vercel (Project Settings -> Environment Variables). The Supabase values are under Project Settings -> API; the Anthropic key comes from console.anthropic.com:
+
+   ```
+   NEXT_PUBLIC_SUPABASE_URL
+   NEXT_PUBLIC_SUPABASE_ANON_KEY
+   SUPABASE_SERVICE_ROLE_KEY
+   ANTHROPIC_API_KEY
+   ```
 7. Install and run:
 
    ```bash
