@@ -7,7 +7,7 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 ## What works now
 
 - Email and password sign-in; every page except `/login` requires it
-- Invitation-only accounts with two roles, **Administrator** and **Standard user**. Administrators invite staff by email from the Users page (`/admin/users`) and change roles, including promoting someone to administrator. Invited users follow the email link and choose their password. Standard users never see the page and are redirected away from it
+- Invitation-only accounts with two roles, **Administrator** and **Standard user**. Administrators invite staff by email from the Users page (`/admin/users`) and change roles, including promoting someone to administrator. Invited users follow the email link and choose their password. Anyone can request a password reset from Sign in; the same Set password screen finishes it. Standard users never see the page and are redirected away from it
 - Clients (`/clients`): add and edit clients (first and last name, email, phone, notes, active), upload their ID and passport copies and open them in a new tab. The client code (`RWOL01`: first initial, three letters of the surname, two digits) is made by the database and never changes
 - Every client has one Consultant. Standard users see and work on only their own clients and everything under them (documents, trips, quotes, files); administrators see everything and hand clients over. Enforced in the database (see `docs/adr/0001-access-follows-client-consultant.md`)
 - Trips (`/`, `/trips/new`): create a trip for a client (`TRIP-RWOL01-001`), then add quotes to it (`QU-RWOL01-001`)
@@ -34,13 +34,19 @@ Not built yet: the edit screen, quote assembly, versions and PDF generation, air
    ```
 
    From then on, invite staff at `/admin/users`.
-5. Authentication -> Emails -> **Invite user** template: set the link to
+5. Authentication -> Emails -> Templates. In **Invite user**, replace `{{ .ConfirmationURL }}` with
 
    ```
    {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite
    ```
 
-   and set Authentication -> URL Configuration -> Site URL to the app's address. Invite emails need SMTP configured.
+   and in **Reset password** with
+
+   ```
+   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery
+   ```
+
+   With the default links, people land on Sign in instead of choosing a password. Then set Authentication -> URL Configuration -> Site URL to the app's address, and the minimum password length to 8 (Authentication -> Policies) to match the form. Invite and reset emails need SMTP configured.
 6. Set these environment variables locally and in Vercel (Project Settings -> Environment Variables). The Supabase values are under Project Settings -> API; the Anthropic key comes from console.anthropic.com:
 
    ```
@@ -66,8 +72,9 @@ app/                      pages and server actions
   admin/users/            admin-only: invite users, change roles
   clients/                client list, add/edit, documents (View opens a one-minute signed link)
   trips/                  new trip, trip page with its quotes
-  auth/confirm/           invite link landing: token -> session
-  account/set-password/   invited user chooses a password
+  login/forgot/           request a password reset email
+  auth/confirm/           invite and reset link landing: token -> session
+  account/set-password/   invited or resetting user chooses a password
   quotes/[id]/            quote page: image upload, image list, versions
 proxy.ts                  session refresh + redirect to /login (Next 16 name for middleware)
 lib/auth.ts               getProfile, requireAdminPage, requireAdminAction

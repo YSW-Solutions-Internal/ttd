@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { use, useActionState } from "react";
 import { signIn, type LoginState } from "./actions";
 
@@ -15,9 +16,10 @@ export default function LoginPage({
     <main className="login">
       <h1>Sign in</h1>
       <p className="sub">TTD staff only. Ask an admin if you need an invite.</p>
-      {linkError === "invite" && (
+      {linkError === "link" && (
         <div className="msg error" style={{ marginBottom: 12 }}>
-          That invite link is invalid or has expired. Ask an admin to invite you again.
+          That link has expired or was already used. Use <Link href="/login/forgot">Forgot password?</Link> to
+          get a new one.
         </div>
       )}
       <form action={action} className="card">
@@ -34,6 +36,9 @@ export default function LoginPage({
         </button>
         {state.error && <div className="msg error">{state.error}</div>}
       </form>
+      <p className="sub" style={{ marginTop: 12 }}>
+        <Link href="/login/forgot">Forgot password?</Link>
+      </p>
     </main>
   );
 }
