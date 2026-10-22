@@ -57,6 +57,9 @@ input[type="text"], input[type="email"], input[type="password"], textarea {
 }
 select { width: 100%; padding: 8px 10px; border: 1px solid #cfc9c0; background: #fff; font: inherit; }
 input[type="file"] { font: inherit; }
+.file-drop { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 10px; border: 1px dashed #cfc9c0; }
+.file-drop.over { border-color: #333; background: #f5f2ed; }
+.file-drop-hint { color: #777; font-size: 0.9em; }
 .row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
 .field { margin-bottom: 12px; }
 

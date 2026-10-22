@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { FileDrop } from "@/app/file-drop";
 import { saveClient, uploadDocument, type ClientFormState } from "./actions";
 
 export type ClientValues = {
@@ -115,7 +116,7 @@ export function DocumentUploadForm({ clientId }: { clientId: string }) {
           <option value="passport_copy">Passport copy</option>
           <option value="other">Other</option>
         </select>
-        <input id="file" name="file" type="file" accept="application/pdf,image/jpeg,image/png" required />
+        <FileDrop id="file" name="file" accept="application/pdf,image/jpeg,image/png" required />
         <button type="submit" disabled={pending}>
           {pending ? "Uploading…" : "Upload"}
         </button>

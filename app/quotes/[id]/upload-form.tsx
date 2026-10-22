@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { FileDrop } from "@/app/file-drop";
 import { uploadImages, type UploadState } from "./actions";
 
 export function UploadForm({ quoteId }: { quoteId: string }) {
@@ -13,7 +14,7 @@ export function UploadForm({ quoteId }: { quoteId: string }) {
     <form action={action} className="card">
       <label htmlFor="images">Add supplier screenshots (PNG, JPG or WebP, up to 7 MB each)</label>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <input id="images" name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple />
+        <FileDrop id="images" name="images" accept="image/png,image/jpeg,image/webp" multiple />
         <button type="submit" disabled={pending}>
           {pending ? "Uploading…" : "Upload"}
         </button>
