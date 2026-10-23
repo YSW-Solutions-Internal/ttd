@@ -135,7 +135,7 @@ export async function QuoteView({ id }: { id: string }) {
                     {ex?.status === "running" && <span className="badge">Reading…</span>}
                     {ex?.status === "done" && (
                       <span className="badge ok">
-                        {ex.image_type} · {summarise(ex.result)}
+                        {ex.image_type && `${ex.image_type} · `}{summarise(ex.result)}
                       </span>
                     )}
                     {ex?.status === "failed" && (

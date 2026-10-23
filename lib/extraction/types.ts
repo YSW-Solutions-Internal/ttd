@@ -15,6 +15,10 @@ export type ExtractedItem = {
   data: Record<string, unknown>;
 };
 
+/** What kind of screen the image's flights came from; null when the image has no flight. */
+export type FlightSource = { type: string; confidence: string; reason: string | null };
+
 export type ExtractionResult = {
   items: ExtractedItem[];
+  source: FlightSource | null;
 };

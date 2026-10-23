@@ -14,7 +14,7 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 - Upload screenshots to a private bucket
 - Duplicate images within a quote are detected by SHA-256 and skipped
 - Removing an image is a soft remove; re-uploading the same file restores it
-- **Extract data** button: sends each image that has no finished extraction to Claude (classify, then extract), stores the JSON in `extractions`, and shows it read-only on the quote page
+- **Extract data** button: sends each image that has no finished extraction to Claude (one call per image, answer forced into a JSON schema), stores the JSON in `extractions`, and shows it read-only on the quote page
 - Images already extracted with the current prompts are never sent again (revisions only process new images)
 - Database schema ready for extractions, corrections (overrides), manual items, versions, booking tracking, fee schedules and destinations
 
@@ -75,7 +75,7 @@ lib/roles.ts              role names and labels (safe to import in Client Compon
 lib/supabase/server.ts    Supabase client for server code
 lib/supabase/admin.ts     service-role client, used only to send invites
 lib/hash.ts               SHA-256 helper used for duplicate detection
-lib/extraction/           prompts (with PROMPT_VERSION), the Claude call, JSON parsing, item types
+lib/extraction/           prompt (with PROMPT_VERSION), its JSON schema, the Claude call, parsing, item types
 supabase/migrations/      database schema, RLS, storage bucket
 ```
 
@@ -92,7 +92,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 ## Next milestones
 
 1. Airport table loader (replaces the monday.com Airport Ref board; waiting for the real airport export)
-2. Move extraction into a background job runner (it currently runs inside the page request) and replace the starter prompts with your canonical agent prompts
+2. Move extraction into a background job runner (it currently runs inside the page request)
 3. Deterministic assembler: AI data, then overrides and manual items, then pricing, into quote JSON
 4. Edit screen (form and side-by-side with image), in the Edit section of the Quote modal
 5. Render service: port `render_lib.py` and the template, Puppeteer PDF into storage, one per version

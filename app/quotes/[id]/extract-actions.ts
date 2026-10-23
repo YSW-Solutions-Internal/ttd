@@ -53,9 +53,9 @@ async function processImage(
       .from("extractions")
       .update({
         status: "done",
-        image_type: result.imageType,
+        image_type: result.source?.type ?? null,
         model: result.model,
-        result: { items: result.items },
+        result: { items: result.items, source: result.source },
         error: null,
       })
       .match(key);

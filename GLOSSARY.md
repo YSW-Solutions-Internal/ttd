@@ -42,6 +42,14 @@ _Avoid_: AI scan, parse
 One bookable service found on an image or entered by hand, such as one flight option, one Accommodation option or one car rental.
 _Avoid_: Line, entry
 
+**Flight option**:
+One complete way of flying the Trip, as offered by a supplier: every Direction and flight in it, with one price for the whole option. Each fare or cabin choice shown on a screen is its own Flight option.
+_Avoid_: Flight quote, fare, booking
+
+**Direction**:
+One part of a Flight option travelled in one go, such as the outbound or the return, or one leg of a multi-city trip. It may contain several flights joined by connections. It has no price of its own.
+_Avoid_: Bound, leg, group, segment
+
 **Accommodation**:
 A place the Client stays: hotel, lodge, guesthouse, B&B and so on. "Hotel" is accepted as an everyday synonym.
 _Avoid_: Lodging, stay
