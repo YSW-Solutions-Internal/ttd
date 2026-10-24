@@ -45,7 +45,6 @@ const flight = obj({
 });
 
 const flightOption = obj({
-  selected: bool,
   label: str,
   directions: arr(
     obj({
@@ -67,7 +66,6 @@ const flightOption = obj({
 });
 
 const hotel = obj({
-  selected: bool,
   location_name: str,
   hotel_name: str,
   star: str,
@@ -78,6 +76,7 @@ const hotel = obj({
   check_out_date: str,
   check_out_time: str,
   nights: str,
+  rooms: str,
   currency: str,
   price: price,
   cxl_type: { type: "string", enum: ["free", "nonref", ""] },
@@ -90,7 +89,6 @@ const hotel = obj({
 });
 
 const carRental = obj({
-  selected: bool,
   company: str,
   vehicle: str,
   pickup_location: str,
@@ -105,7 +103,6 @@ const carRental = obj({
 });
 
 const excursion = obj({
-  selected: bool,
   provider_name: str,
   description: str,
   location: str,
@@ -113,6 +110,33 @@ const excursion = obj({
   start_time: str,
   end_date: str,
   end_time: str,
+  currency: str,
+  price: price,
+  notes: str,
+});
+
+const transfer = obj({
+  supplier: str,
+  from: str,
+  to: str,
+  date: str,
+  time: str,
+  vehicle: str,
+  passengers: str,
+  currency: str,
+  price: price,
+  notes: str,
+});
+
+const rail = obj({
+  operator: str,
+  service: str,
+  from_station: str,
+  to_station: str,
+  date: str,
+  departs: str,
+  arrives: str,
+  class: str,
   currency: str,
   price: price,
   notes: str,
@@ -129,4 +153,6 @@ export const EXTRACTION_SCHEMA = obj({
   hotel: arr(hotel),
   car_rental: arr(carRental),
   excursion: arr(excursion),
+  transfer: arr(transfer),
+  rail: arr(rail),
 });

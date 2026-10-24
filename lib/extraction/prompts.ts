@@ -7,7 +7,7 @@
  * for re-extraction, while an unchanged version means an image is never sent to
  * the AI twice.
  */
-export const PROMPT_VERSION = "2026-10-23.1";
+export const PROMPT_VERSION = "2026-10-24.1";
 
 export const EXTRACTION_PROMPT = `You transcribe one screenshot from a travel agency's supplier material into JSON. Staff check your output and code does every calculation afterwards, so copy exactly what is printed. Never calculate, convert, look up or guess. A missing value is always better than a wrong one.
 
@@ -17,7 +17,9 @@ Find every bookable option on the image and put each in the array for its kind:
 - "hotel": one room or rate option at a hotel, lodge, guesthouse or other accommodation.
 - "car_rental": one car hire option.
 - "excursion": one tour, activity or experience.
-An image can hold several options of the same kind (two rooms, two cars, three fares side by side) and occasionally of different kinds. Every option shown is a separate entry, even if they share the same flights or the same hotel. Set "selected" to true only on an option the screen clearly marks as chosen or highlighted, otherwise false. If the image holds no bookable option, return empty arrays.
+- "transfer": one road transfer between two places (airport to hotel, hotel to hotel), by shuttle, private car or coach.
+- "rail": one train journey.
+An image can hold several options of the same kind (two rooms, two cars, three fares side by side) and occasionally of different kinds. Every option shown is a separate entry, even if they share the same flights or the same hotel. If the image holds no bookable option, return empty arrays.
 
 VALUES
 - A value that is not shown, cannot be read, or is ambiguous is "" (empty string). Never fill a field with text that belongs to a neighbouring field or label.
@@ -26,7 +28,7 @@ VALUES
 - Codes, names, cabin letters and fare labels are copied exactly as printed.
 
 NUMBERS
-- Counts (stops, count, star, nights) are digit strings such as "0" or "2", and only when printed or directly visible. Otherwise "".
+- Counts (stops, count, star, nights, rooms, passengers) are digit strings such as "0" or "2", and only when printed or directly visible. Otherwise "".
 - Every price is two fields: "text" is the figure exactly as printed, including the currency symbol and separators (for example "R 13 111,80"); "amount" is the same figure as a bare number with no currency, no spaces and no thousands separators, and a full stop for the decimal point (for example "13111.80").
 - To build "amount", decide from the way the figure is printed which mark is the decimal separator. In "13,111.80" the comma groups thousands; in "13 111,80" or "13.111,80" the comma is the decimal point. A separator followed by exactly two digits at the end is normally the decimal point. If you cannot tell, "amount" is "" and "text" is still filled.
 - "currency" is the 3-letter ISO 4217 code of the price (R is ZAR, $ alone is whatever the page makes clear, otherwise ""). It belongs to the same figure used as the price.
@@ -70,7 +72,7 @@ Reading guidance by source:
 
 HOTELS
 - "hotel_name" is the property, "room" the room type, "meals" the board basis as printed (Room only, B&B, Half board...).
-- "nights" and "star" only when printed.
+- "nights", "star" and "rooms" (the number of rooms booked) only when printed.
 - "cxl_type" is "free" if the rate is refundable or free to cancel until some date, "nonref" if non-refundable, "" if not stated. "cxl" is the free-cancellation deadline (a date in the date format above, or the deadline text as printed) when cxl_type is "free", otherwise "".
 - "geo_url", "url" and "url_label" only if a link is visibly printed.
 
@@ -79,5 +81,12 @@ CAR RENTALS
 
 EXCURSIONS
 - "provider_name" is the operator, "description" what the activity is, as printed.
+
+TRANSFERS
+- "supplier" is the transfer company, "from" and "to" the pick-up and drop-off places as printed, "time" the pick-up time.
+- "passengers" only when printed.
+
+RAIL
+- "operator" is the rail company, "service" the train name or number, "from_station" and "to_station" as printed, "class" the travel class exactly as printed.
 
 Before answering, check: every option shown has its own entry; every flight option has all its directions; each price was chosen by its label and appears on the image exactly as in "text"; no value was calculated or guessed; anything not shown is "".`;

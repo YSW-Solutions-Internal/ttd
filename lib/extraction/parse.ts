@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { ExtractedItem, ExtractionResult, ItemKind } from "./types";
 
 // Only `import type` above, so this file also runs under plain `node` for parse.test.mjs.
-const KINDS = ["flight", "hotel", "car_rental", "excursion"] as const satisfies readonly ItemKind[];
+const KINDS = ["flight", "hotel", "car_rental", "excursion", "transfer", "rail"] as const satisfies readonly ItemKind[];
 
 /** Wire fields that carry a number as a digit string (see schema.ts). */
-const NUMBER_KEYS = new Set(["amount", "stops", "count", "star", "nights"]);
+const NUMBER_KEYS = new Set(["amount", "stops", "count", "star", "nights", "rooms", "passengers"]);
 
 /** "13111.80" -> 13111.8. Anything that is not plain digits with at most one "." is unreadable: null. */
 export function toNumber(value: unknown): number | null {

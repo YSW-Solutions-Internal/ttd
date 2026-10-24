@@ -1,4 +1,4 @@
-export const ITEM_KINDS = ["flight", "hotel", "car_rental", "excursion"] as const;
+export const ITEM_KINDS = ["flight", "hotel", "car_rental", "excursion", "transfer", "rail"] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
 /**
