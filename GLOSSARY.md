@@ -55,7 +55,7 @@ A place the Client stays: hotel, lodge, guesthouse, B&B and so on. "Hotel" is ac
 _Avoid_: Lodging, stay
 
 **Stay**:
-One stop on the Trip's itinerary: one place, from an arrival date to a departure date, with an optional highlight. A Stay holds the Accommodation options offered for it. Options with no dates belong to no Stay until staff place them, and a Quote cannot be issued while any are unplaced.
+One stop on the Trip's itinerary: one place, from an arrival date to a departure date, with an optional highlight. A Stay holds the Accommodation options offered for it. Options with no dates belong to no Stay until staff place them, and a Version cannot be generated while any are unplaced.
 _Avoid_: Trip stop, leg, segment
 
 **Experience**:
@@ -63,11 +63,51 @@ A tour, activity or outing the Client can book. "Excursion" is accepted as an ev
 _Avoid_: Activity, tour
 
 **Fee schedule**:
-The agency's list of service fees (ticketing, booking, refund and so on). A Client may have their own; otherwise the standard one applies. Claude never sets or reads fees.
+The agency's fees for each kind of Item, Fee region and (for flights) cabin: a Transaction fee, Change fee, Refund fee and Pre-payment fee, all including VAT. A Client may have their own; otherwise the standard one applies. Claude never sets or reads fees.
 _Avoid_: Tariff, price list
 
+**Transaction fee**:
+The agency's fee for booking one Item, taken from the Fee schedule. It is added to the Item's total. It is also what the Client pays if they cancel an Item before it is issued.
+_Avoid_: Service fee, booking fee, professional fee
+
+**Markup**:
+A Rand amount the Consultant adds to one Item by hand. It is added to the Item's total.
+_Avoid_: Margin, commission
+
+**Fee region**:
+Which Fee schedule line applies to an Item: Domestic (South Africa), Neighbouring (Mozambique, Botswana, Zimbabwe, Namibia, Eswatini, Lesotho, Zambia), Local international (within one other country) or International (anywhere else). It is worked out from where the Item takes place, and the Consultant can change it per Item.
+_Avoid_: Zone, area, local
+
+**Item total**:
+What the Client pays for one Item, for everyone on the Trip: the supplier's price as shown (taxes included) plus the Transaction fee, the Markup and, if the Item is prepaid, the Pre-payment fee. It is always in Rand, and it is the only price the Quote shows for an Item.
+_Avoid_: Rate, price
+
+**Issued**:
+An Item is issued once the supplier has confirmed and ticketed it. Only Items are issued; Versions are generated.
+_Avoid_: Confirmed, ticketed (for the state), issued (for a Version)
+
+**Refund fee**:
+What the agency charges if the Client cancels an Item after it has been issued. Taken from the Fee schedule; the Consultant can change it. Shown on the Quote as the cancellation / refund fee, never added to the Item total.
+_Avoid_: Cancellation fee, cxl fee
+
+**Change fee**:
+What the agency charges to change an Item after it has been issued, such as reissuing a ticket. Taken from the Fee schedule (only flights have one as standard); the Consultant can change it. Shown on the Quote, never added to the Item total.
+_Avoid_: Reissue fee, amendment fee
+
+**Pre-payment fee**:
+What the agency charges when it pays the supplier upfront or bills the Client back for an Item. Taken from the Fee schedule; charged only when the Consultant marks the Item as prepaid, and then added to the Item total.
+_Avoid_: Bill-back fee, prepay fee
+
+**Transfer**:
+A road trip from one place to another as part of the Trip, such as airport to hotel. Read from images like any other Item.
+_Avoid_: Shuttle, pickup
+
+**Rail journey**:
+A train trip that is part of the Trip. Read from images like any other Item.
+_Avoid_: Train, rail ticket
+
 **Version**:
-One issued edition of a Quote (V1, V2 ...), with exactly one PDF. Made by Generating a version: a frozen copy of the Quote's Working content at that moment. Versions are never edited; changes go into the Working content and become the next Version.
+One generated edition of a Quote (V1, V2 ...), with exactly one PDF. Made by Generating a version: a frozen copy of the Quote's Working content at that moment. Versions are never edited; changes go into the Working content and become the next Version.
 _Avoid_: Revision, draft
 
 **Working content**:
