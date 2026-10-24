@@ -75,7 +75,7 @@ A Rand amount the Consultant adds to one Item by hand. It is added to the Item's
 _Avoid_: Margin, commission
 
 **Fee region**:
-Which Fee schedule line applies to an Item: Domestic (South Africa), Neighbouring (Mozambique, Botswana, Zimbabwe, Namibia, Eswatini, Lesotho, Zambia), Local international (within one other country) or International (anywhere else). It is worked out from where the Item takes place, and the Consultant can change it per Item.
+Which Fee schedule line applies to an Item: Domestic (South Africa), Neighbouring (Mozambique, Botswana, Zimbabwe, Namibia, Eswatini, Lesotho, Zambia), Local international (flights only: within one other country) or International (anywhere else). It is worked out from where the Item takes place, and the Consultant can change it per Item.
 _Avoid_: Zone, area, local
 
 **Item total**:
