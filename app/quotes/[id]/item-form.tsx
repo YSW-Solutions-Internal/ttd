@@ -219,7 +219,6 @@ export function ItemForm({
           <div className="field" key={f.name}>
             <label htmlFor={`${formId}-${f.name}`}>{f.label}</label>
             <Input field={f} value={row[f.name]} id={`${formId}-${f.name}`} />
-            {f.name === "price" && row.price_text != null && <small>As printed: {str(row.price_text)}</small>}
             {f.name === "price" && row.price_note != null && <small className="warn">{str(row.price_note)}</small>}
           </div>
         ))}

@@ -5,7 +5,7 @@ import type { ExtractedItem, ExtractionResult, ItemKind } from "./types";
 const KINDS = ["flight", "hotel", "car_rental", "excursion", "transfer", "rail"] as const satisfies readonly ItemKind[];
 
 /** Wire fields that carry a number as a digit string (see schema.ts). */
-const NUMBER_KEYS = new Set(["amount", "stops", "count", "star", "nights", "rooms", "passengers"]);
+const NUMBER_KEYS = new Set(["price", "total_price", "fare_pp", "taxes_pp", "stops", "count", "star", "nights", "rooms", "passengers"]);
 
 /** "13111.80" -> 13111.8. Anything that is not plain digits with at most one "." is unreadable: null. */
 export function toNumber(value: unknown): number | null {
@@ -52,7 +52,7 @@ export function toExtractionResult(raw: unknown): ExtractionResult {
     items,
     source:
       type && type !== "NONE"
-        ? { type, confidence: obj.source_confidence as string, reason: obj.source_reason as string | null }
+        ? { type }
         : null,
   };
 }

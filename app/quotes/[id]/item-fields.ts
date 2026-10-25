@@ -79,8 +79,7 @@ export const ITEM_FIELDS: Record<ItemTable, Field[]> = {
 
 /** Every Item has these (migration 0009). Fee region, variant and the fees are drawn separately. */
 export const PRICE_FIELDS: Field[] = [
-  t("currency", "Currency"),
-  t("price", "Price", "number"),
+  t("price", "Price (R)", "number"),
   t("markup", "Markup (R)", "number"),
   t("prepaid", "Prepaid", "checkbox"),
   t("notes", "Notes", "textarea"),

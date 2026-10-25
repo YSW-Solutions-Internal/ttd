@@ -29,17 +29,14 @@ export function priceRows(rows: ItemRows, stays: Stay[], rates: FeeRate[], airpo
 }
 
 type Data = Record<string, any>;
-type Price = { amount: number | null; text: string | null } | null | undefined;
 
 /** The columns every Item table has. Every row of one table must have the same keys. */
-function common(quoteId: string, imageId: string, item: ExtractedItem, currency: unknown, price: Price) {
+function common(quoteId: string, imageId: string, item: ExtractedItem, price: unknown) {
   return {
     quote_id: quoteId,
     image_id: imageId,
     entity_id: item.entity_id,
-    currency: currency ?? null,
-    price: price?.amount ?? null,
-    price_text: price?.text ?? null,
+    price: (price ?? null) as number | null, // Rand; parse.ts already made it a number
     price_note: null as string | null,
     notes: item.data.notes ?? null,
     // Filled in by applyFees (lib/fees.ts) before the rows are stored.
@@ -61,8 +58,8 @@ function totalFromLines(lines: Data[] | null | undefined): number | null {
   if (!lines?.length) return null;
   let total = 0;
   for (const l of lines) {
-    if (l.count == null || l.fare_pp?.amount == null) return null;
-    total += l.count * (l.fare_pp.amount + (l.taxes_pp?.amount ?? 0));
+    if (l.count == null || l.fare_pp == null) return null;
+    total += l.count * (l.fare_pp + (l.taxes_pp ?? 0));
   }
   return Math.round(total * 100) / 100;
 }
@@ -90,13 +87,13 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
         const id = randomUUID();
         const row = {
           id,
-          ...common(quoteId, imageId, item, d.pricing?.currency, d.pricing?.total_price),
+          ...common(quoteId, imageId, item, d.total_price),
           label: d.label ?? null,
           fare_rules: d.fare_rules ?? null,
           seating: d.seating ?? null,
         };
         if (row.price == null) {
-          const worked = totalFromLines(d.pricing?.lines);
+          const worked = totalFromLines(d.lines);
           if (worked != null) {
             row.price = worked;
             row.price_note = "Worked out from the per-passenger prices; check it against the image.";
@@ -133,7 +130,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
       }
       case "hotel":
         rows.accommodation_options.push({
-          ...common(quoteId, imageId, item, d.currency, d.price),
+          ...common(quoteId, imageId, item, d.price),
           location_name: d.location_name ?? null,
           hotel_name: d.hotel_name ?? null,
           star: d.star ?? null,
@@ -148,14 +145,12 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
           cxl_type: d.cxl_type ?? null,
           cxl: day(d.cxl),
           address: d.address ?? null,
-          geo_url: d.geo_url ?? null,
           url: d.url ?? null,
-          url_label: d.url_label ?? null,
         });
         break;
       case "car_rental":
         rows.car_rentals.push({
-          ...common(quoteId, imageId, item, d.currency, d.price),
+          ...common(quoteId, imageId, item, d.price),
           company: d.company ?? null,
           vehicle: d.vehicle ?? null,
           pickup_location: d.pickup_location ?? null,
@@ -168,7 +163,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
         break;
       case "transfer":
         rows.transfers.push({
-          ...common(quoteId, imageId, item, d.currency, d.price),
+          ...common(quoteId, imageId, item, d.price),
           supplier: d.supplier ?? null,
           from_place: d.from ?? null,
           to_place: d.to ?? null,
@@ -180,7 +175,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
         break;
       case "rail":
         rows.rail_journeys.push({
-          ...common(quoteId, imageId, item, d.currency, d.price),
+          ...common(quoteId, imageId, item, d.price),
           operator: d.operator ?? null,
           service: d.service ?? null,
           from_station: d.from_station ?? null,
@@ -193,7 +188,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
         break;
       case "excursion":
         rows.excursions.push({
-          ...common(quoteId, imageId, item, d.currency, d.price),
+          ...common(quoteId, imageId, item, d.price),
           provider_name: d.provider_name ?? null,
           description: d.description ?? null,
           location: d.location ?? null,

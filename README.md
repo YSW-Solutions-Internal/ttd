@@ -18,13 +18,13 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 - Images already extracted with the current prompts are never sent again (revisions only process new images)
 - Database schema ready for Items (one table per kind, read from images or entered by hand), the AI call log, versions, booking tracking, fee schedules and destinations
 
-Not built yet: quote assembly, versions and PDF generation, exchange rates.
+Not built yet: quote assembly, versions and PDF generation.
 
 ## Setup
 
 1. Create a Supabase project. Choose the South Africa (Cape Town) region if offered.
 2. In the SQL editor, run `supabase/migrations/0001_init.sql`.
-   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed) `0007_clients_and_access.sql` (client codes, Consultants, access per Consultant) `0008_fee_rates.sql` (the VAT-inclusive fee grid per Item type and Fee region) `0009_item_tables_and_ai_log.sql` (Item tables, AI call log; wipes existing extractions, which are test data) and `0010_stays_and_flight_editing.sql` (Accommodation options placed in Stays, saving a Flight option's flights in one go). 0007 stops if `public.clients` has rows; the message tells you what to delete.
+   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed) `0007_clients_and_access.sql` (client codes, Consultants, access per Consultant) `0008_fee_rates.sql` (the VAT-inclusive fee grid per Item type and Fee region) `0009_item_tables_and_ai_log.sql` (Item tables, AI call log; wipes existing extractions, which are test data) `0010_stays_and_flight_editing.sql` (Accommodation options placed in Stays, saving a Flight option's flights in one go) and `0011_rand_only.sql` (drops currency and the printed price: every price is in Rand). 0007 stops if `public.clients` has rows; the message tells you what to delete.
    0002 is a **draft**: it stops if `public.quotes` has rows (old data is discarded by design). Read the notes at its top first.
 3. Accounts are by invitation only, and the database enforces it (0005): any new account that does not match an admin's invitation is rejected, whatever the dashboard's sign-up settings say.
 4. Make yourself an administrator. 0005 sets every existing account to Standard user, so run this once in the SQL editor:

@@ -7,7 +7,7 @@
  * extraction is never sent to the AI again, whatever version made it, because
  * staff corrections are keyed to the Items of that extraction.
  */
-export const PROMPT_VERSION = "2026-10-24.1";
+export const PROMPT_VERSION = "2026-10-25.1";
 
 export const EXTRACTION_PROMPT = `You transcribe one screenshot from a travel agency's supplier material into JSON. Staff check your output and code does every calculation afterwards, so copy exactly what is printed. Never calculate, convert, look up or guess. A missing value is always better than a wrong one.
 
@@ -29,9 +29,8 @@ VALUES
 
 NUMBERS
 - Counts (stops, count, star, nights, rooms, passengers) are digit strings such as "0" or "2", and only when printed or directly visible. Otherwise "".
-- Every price is two fields: "text" is the figure exactly as printed, including the currency symbol and separators (for example "R 13 111,80"); "amount" is the same figure as a bare number with no currency, no spaces and no thousands separators, and a full stop for the decimal point (for example "13111.80").
-- To build "amount", decide from the way the figure is printed which mark is the decimal separator. In "13,111.80" the comma groups thousands; in "13 111,80" or "13.111,80" the comma is the decimal point. A separator followed by exactly two digits at the end is normally the decimal point. If you cannot tell, "amount" is "" and "text" is still filled.
-- "currency" is the 3-letter ISO 4217 code of the price (R is ZAR, $ alone is whatever the page makes clear, otherwise ""). It belongs to the same figure used as the price.
+- Every price is in Rand. Write it as a bare number with no currency symbol, no spaces and no thousands separators, and a full stop for the decimal point: "R 13 111,80" is "13111.80".
+- Decide from the way the figure is printed which mark is the decimal separator. In "13,111.80" the comma groups thousands; in "13 111,80" or "13.111,80" the comma is the decimal point. A separator followed by exactly two digits at the end is normally the decimal point. If you cannot tell, the price is "".
 
 PRICES (applies to every kind)
 The price of an option is the single all-inclusive amount payable for that whole option: every direction, night and passenger, taxes and fees included. Find it on the image; never compute it.
@@ -42,16 +41,15 @@ The price of an option is the single all-inclusive amount payable for that whole
   2. The price inside or right next to the main action button (Continue, Book, Select, Checkout, Reserve, Pay), if it is not labelled per person or per night.
   3. In GDS fare-quote text, the TOTAL or GRAND TOTAL line, or the figure after TTL. Never the BASE, FARE, TAX, XT or per-passenger lines.
   4. If exactly one all-inclusive price for the whole option is printed anywhere, that figure.
-  5. Otherwise the price is "" (both amount and text).
-- If both a VAT-inclusive and a VAT-exclusive figure are shown, the price is the VAT-inclusive one, and the VAT amount goes in "vat" (flights only).
+  5. Otherwise the price is "".
+- If both a VAT-inclusive and a VAT-exclusive figure are shown, the price is the VAT-inclusive one.
 - Sanity check, by comparison only: the chosen price must not be smaller than, or equal to, any labelled taxes figure or labelled base fare for the same option. If it is, you picked a component; go back to the ladder.
 - Copy only the digits of the price itself, ignoring nearby icons, info glyphs, buttons and footnote markers.
 
 FLIGHTS
 - Directions: before extracting, look at the whole image and count every direction (outbound, return, each leg of a multi-city trip). Each direction is one entry in "directions" with every flight in it, in order. A round trip normally has two. Do not stop after the first.
-- "price_shown" on a direction is filled only when the image prints a price for that direction on its own. It is never a share of a combined total.
-- "pricing.total_price" follows PRICES. If the image prints only per-direction prices and no combined figure, total_price is "" and the per-direction figures stay in "price_shown".
-- "pricing.lines" is one entry per passenger type only when the image breaks the price down per passenger (pax_label, count, fare_pp, taxes_pp). Never multiply or divide to fill these.
+- "total_price" follows PRICES. If the image prints only per-direction prices and no combined figure, total_price is "".
+- "lines" is one entry per passenger type only when the image breaks the price down per passenger (pax_label, count, fare_pp, taxes_pp). Never multiply or divide to fill these.
 - "stops" is the number of intermediate stops within that single flight itself, almost always "0". A "1 stop" label describing a connection between two flights is not a stop of either flight.
 - "arrives" only when the arrival time is printed. Never work it out from the departure time and flying time.
 - "next_day" is true only when the image explicitly marks the arrival as the next day ("+1", or a next-day arrival date printed beside it). Never infer it by comparing dates.
@@ -63,7 +61,6 @@ FLIGHT SOURCE
 - "GALILEO_GDS": a Galileo or other GDS terminal screen or raw PNR display. Monospace, dense uppercase text, no styling or branding, 3-letter codes only, status codes (HK1, RR), dates without a year (15SEP), coded lines such as "1 BA 075 Y 15SEP 2 LHRJNB HK1 2115 0900+1 15SEP E BA/ABC123".
 - "BOOKING_PAD": the BookingPad web app (AirGateway's NDC platform for travel agencies). BookingPad or AirGateway branding, a clean agent-facing web app, NDC terms (NDC, Order ID, Shop and Orders tabs), selectable fare or cabin cards, fare labels such as Private, Negotiated, Corporate, Published.
 - "UNKNOWN": there are flights but the screen matches none of the above.
-"source_confidence" is how sure you are of source_type. "source_reason" names the visual evidence only (for example "monospace text, IATA codes, no branding"), never booking content.
 
 Reading guidance by source:
 - GENERIC_QUOTE: ignore marketing banners and struck-through or "was" prices. When several fares or cabins are shown side by side, each one is a separate flight option.
@@ -74,7 +71,7 @@ HOTELS
 - "hotel_name" is the property, "room" the room type, "meals" the board basis as printed (Room only, B&B, Half board...).
 - "nights", "star" and "rooms" (the number of rooms booked) only when printed.
 - "cxl_type" is "free" if the rate is refundable or free to cancel until some date, "nonref" if non-refundable, "" if not stated. "cxl" is the free-cancellation deadline (a date in the date format above, or the deadline text as printed) when cxl_type is "free", otherwise "".
-- "geo_url", "url" and "url_label" only if a link is visibly printed.
+- "url" only if a link is visibly printed.
 
 CAR RENTALS
 - One entry per car or rate shown. If the same total is printed twice (a line item and a final total), use the final total once.
@@ -89,4 +86,4 @@ TRANSFERS
 RAIL
 - "operator" is the rail company, "service" the train name or number, "from_station" and "to_station" as printed, "class" the travel class exactly as printed.
 
-Before answering, check: every option shown has its own entry; every flight option has all its directions; each price was chosen by its label and appears on the image exactly as in "text"; no value was calculated or guessed; anything not shown is "".`;
+Before answering, check: every option shown has its own entry; every flight option has all its directions; each price was chosen by its label and is the figure printed on the image; no value was calculated or guessed; anything not shown is "".`;

@@ -5,6 +5,10 @@
  * per request and this schema has far more unknowable values. So a value that is
  * not shown comes back as "", and numbers come back as digit strings
  * ("13111.80"). parse.ts turns "" into null and digit strings into numbers.
+ *
+ * Keep it small: the API compiles the schema into a grammar and rejects one that is
+ * too large ("The compiled grammar is too large"). Every price is one digit string,
+ * in Rand (all prices are), with no currency, printed text, VAT or per-direction price.
  */
 
 const str = { type: "string" } as const;
@@ -22,9 +26,6 @@ function obj(properties: Record<string, unknown>) {
 function arr(items: unknown) {
   return { type: "array", items } as const;
 }
-
-/** A price as Claude read it: the bare number, and the text exactly as printed. */
-const price = obj({ amount: str, text: str });
 
 const flight = obj({
   airline: str,
@@ -50,19 +51,14 @@ const flightOption = obj({
     obj({
       label: str,
       fare_basis: str,
-      price_shown: price,
       flights: arr(flight),
     }),
   ),
   fare_rules: str,
   seating: str,
   notes: str,
-  pricing: obj({
-    currency: str,
-    total_price: price,
-    vat: price,
-    lines: arr(obj({ pax_label: str, count: str, fare_pp: price, taxes_pp: price })),
-  }),
+  total_price: str,
+  lines: arr(obj({ pax_label: str, count: str, fare_pp: str, taxes_pp: str })),
 });
 
 const hotel = obj({
@@ -77,14 +73,11 @@ const hotel = obj({
   check_out_time: str,
   nights: str,
   rooms: str,
-  currency: str,
-  price: price,
+  price: str,
   cxl_type: { type: "string", enum: ["free", "nonref", ""] },
   cxl: str,
   address: str,
-  geo_url: str,
   url: str,
-  url_label: str,
   notes: str,
 });
 
@@ -97,8 +90,7 @@ const carRental = obj({
   pickup_time: str,
   dropoff_date: str,
   dropoff_time: str,
-  currency: str,
-  price: price,
+  price: str,
   notes: str,
 });
 
@@ -110,8 +102,7 @@ const excursion = obj({
   start_time: str,
   end_date: str,
   end_time: str,
-  currency: str,
-  price: price,
+  price: str,
   notes: str,
 });
 
@@ -123,8 +114,7 @@ const transfer = obj({
   time: str,
   vehicle: str,
   passengers: str,
-  currency: str,
-  price: price,
+  price: str,
   notes: str,
 });
 
@@ -137,8 +127,7 @@ const rail = obj({
   departs: str,
   arrives: str,
   class: str,
-  currency: str,
-  price: price,
+  price: str,
   notes: str,
 });
 
@@ -147,8 +136,6 @@ export type SourceType = (typeof SOURCE_TYPES)[number];
 
 export const EXTRACTION_SCHEMA = obj({
   source_type: { type: "string", enum: SOURCE_TYPES },
-  source_confidence: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
-  source_reason: str,
   flight: arr(flightOption),
   hotel: arr(hotel),
   car_rental: arr(carRental),
