@@ -2,10 +2,10 @@
  * The extraction prompt: one call per image (ADR 0003). The answer's shape is
  * enforced by EXTRACTION_SCHEMA, so this text only says what to read and how.
  *
- * Bump PROMPT_VERSION whenever the prompt or the schema changes. Extractions are
- * stored per (image, PROMPT_VERSION), so a new version makes every image eligible
- * for re-extraction, while an unchanged version means an image is never sent to
- * the AI twice.
+ * Bump PROMPT_VERSION whenever the prompt or the schema changes. It records which
+ * prompt read each image. It does not re-read images: an image with a finished
+ * extraction is never sent to the AI again, whatever version made it, because
+ * staff corrections are keyed to the Items of that extraction.
  */
 export const PROMPT_VERSION = "2026-10-24.1";
 

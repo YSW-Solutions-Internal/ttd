@@ -89,7 +89,7 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
     .is("removed_at", null);
   if (!images || images.length === 0) return { error: "Add at least one image first." };
 
-  // 2. Which of them already have a finished extraction with the current prompts?
+  // 2. Which of them already have a finished extraction, made with any prompt version?
   const { data: finished } = await supabase
     .from("extractions")
     .select("image_id")
@@ -97,11 +97,11 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
       "image_id",
       images.map((i) => i.id),
     )
-    .eq("prompt_version", PROMPT_VERSION)
     .eq("status", "done");
   const alreadyDone = new Set((finished ?? []).map((f) => f.image_id));
 
-  // 3. Only the rest go to the AI. This is the revision rule: unchanged images are never re-processed.
+  // 3. Only the rest go to the AI. An image is read once; a later prompt change does not re-read it,
+  //    because staff corrections are keyed to the Items of its stored extraction.
   const todo = images.filter((i) => !alreadyDone.has(i.id));
   if (todo.length === 0) {
     return { message: `Nothing new to extract. All ${images.length} images were already processed.` };

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
-import { PROMPT_VERSION } from "@/lib/extraction/prompts";
 import type { ExtractionResult } from "@/lib/extraction/types";
 import { removeImage } from "./actions";
 import { ExtractButton } from "./extract-button";
@@ -51,7 +50,8 @@ export async function QuoteView({ id }: { id: string }) {
       .order("version_no", { ascending: false }),
   ]);
 
-  // Extractions for these images, made with the current prompts.
+  // Extractions for these images, whatever prompt version made them. A finished one wins
+  // over a later failed or running attempt; otherwise the latest attempt shows.
   const extractions = new Map<string, ExtractionRow>();
   if (images && images.length > 0) {
     const { data: rows } = await supabase
@@ -61,8 +61,10 @@ export async function QuoteView({ id }: { id: string }) {
         "image_id",
         images.map((i) => i.id),
       )
-      .eq("prompt_version", PROMPT_VERSION);
-    (rows as ExtractionRow[] | null)?.forEach((r) => extractions.set(r.image_id, r));
+      .order("created_at", { ascending: true });
+    (rows as ExtractionRow[] | null)?.forEach((r) => {
+      if (extractions.get(r.image_id)?.status !== "done") extractions.set(r.image_id, r);
+    });
   }
   const waiting = (images ?? []).filter((i) => extractions.get(i.id)?.status !== "done").length;
 
