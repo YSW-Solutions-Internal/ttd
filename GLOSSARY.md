@@ -35,7 +35,7 @@ A priced proposal for a Trip. A Trip can have several Quotes.
 _Avoid_: Estimate, proposal
 
 **Extraction**:
-What Claude read off one image attached to a Quote: the Items it found, copied exactly as shown. Each image is read once; a Quote's PDF is built from its images' Extractions plus staff corrections, never by Claude.
+What Claude read off one image attached to a Quote: the Items it found, copied exactly as shown. Each image is read once; the Items found become part of the Quote's Working content, where staff correct them directly. A Quote's PDF is built from that, never by Claude.
 _Avoid_: AI scan, parse
 
 **Item**:
@@ -111,7 +111,7 @@ One generated edition of a Quote (V1, V2 ...), with exactly one PDF. Made by Gen
 _Avoid_: Revision, draft
 
 **Working content**:
-The editable state of a Quote: the Items from its images' Extractions, staff corrections, Items entered by hand, their placement in Stays, and fees. Editing a Quote means changing its Working content.
+The editable state of a Quote: its Items (read from its images or entered by hand, as corrected by staff), their placement in Stays, and fees. Editing a Quote means changing its Working content.
 _Avoid_: Draft, current version
 
 **Generate version**:
