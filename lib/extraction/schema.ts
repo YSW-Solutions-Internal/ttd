@@ -27,11 +27,14 @@ function arr(items: unknown) {
 const flight = obj({
   airline: str,
   flight_no: str,
+  operated_by: str,
   aircraft: str,
-  from_city: str,
   from_code: str,
-  to_city: str,
+  from_city: str,
+  from_airport: str,
   to_code: str,
+  to_city: str,
+  to_airport: str,
   date: str,
   departs: str,
   arrives: str,
@@ -39,6 +42,7 @@ const flight = obj({
   flying_time: str,
   stops: str,
   baggage: str,
+  booking_class: str,
   cabin: str,
 });
 

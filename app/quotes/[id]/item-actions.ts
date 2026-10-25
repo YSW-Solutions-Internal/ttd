@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { applyFees, autoRegion, FEE_FIELDS, FEE_REGIONS, VARIANTS } from "@/lib/fees";
-import { airportCountries, loadFeeContext } from "@/lib/fee-context";
+import { countriesOf, loadFeeContext, loadPlaces } from "@/lib/fee-context";
+import { fillFlightNames } from "@/lib/codes";
 import { FLIGHT_FIELDS, ITEM_FIELDS, PRICE_FIELDS, type Field } from "./item-fields";
 
 export type ItemFormState = { error?: string; notice?: string };
@@ -79,8 +80,9 @@ export async function saveItem(
   if (table === "car_rentals") row.ten_percent_fee = formData.get("ten_percent_fee") === "on";
 
   const ctx = await loadFeeContext(supabase, quoteId);
-  const airports = await airportCountries(supabase, flights.flatMap((f) => [f.from_code, f.to_code]));
-  applyFees(kind, row, prev, autoRegion(kind, row, flights, ctx.stays, airports), ctx.rates);
+  const places = await loadPlaces(supabase, flights.flatMap((f) => [f.from_code, f.to_code]));
+  for (const f of flights) fillFlightNames(f, places);
+  applyFees(kind, row, prev, autoRegion(kind, row, flights, ctx.stays, countriesOf(places)), ctx.rates);
 
   const { data, error } = await supabase.from(table).update(row).eq("id", id).select("id");
   if (error) return { error: `Could not save: ${error.message}` };
@@ -118,5 +120,21 @@ export async function deleteItem(quoteId: string, table: string, id: string): Pr
   // Flights go with their option (on delete cascade). The AI's reading stays in ai_calls.
   const { error } = await supabase.from(table).delete().eq("id", id);
   if (error) throw new Error(`Could not delete the Item: ${error.message}`);
+  revalidatePath(`/quotes/${quoteId}`);
+}
+
+/** A Consultant confirms or corrects an airline's name once, for everyone (migration 0012). */
+export async function confirmAirline(quoteId: string, formData: FormData): Promise<void> {
+  const iata = String(formData.get("iata") ?? "").trim().toUpperCase();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!/^[A-Z0-9]{2}$/.test(iata) || !name) return;
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) redirect("/login");
+
+  const { error } = await supabase
+    .from("airlines")
+    .upsert({ iata, name, confirmed: true, confirmed_by: auth.user.id, updated_at: new Date().toISOString() });
+  if (error) throw new Error(`Could not save the airline: ${error.message}`);
   revalidatePath(`/quotes/${quoteId}`);
 }

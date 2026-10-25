@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { applyFees, autoRegion, fillYear, type FeeRate, type Stay } from "../fees.ts";
 import { TABLE_KIND, type ItemTable } from "./tables.ts";
+import { fillFlightNames, type Place } from "../codes.ts";
 import type { ExtractedItem } from "./types";
 
 // No path aliases, so this file also runs under plain `node` for rows.test.mjs.
@@ -17,8 +18,13 @@ export type ItemRows = Record<
   Record<string, unknown>[]
 >;
 
-/** Fills Fee region, variant and fees on a freshly read image's rows (lib/fees.ts applyFees). */
-export function priceRows(rows: ItemRows, stays: Stay[], rates: FeeRate[], airports: Map<string, string | null>): ItemRows {
+/**
+ * Fills a freshly read image's rows: flight city, airport and cabin names from their
+ * codes (lib/codes.ts), then Fee region, variant and fees (lib/fees.ts applyFees).
+ */
+export function priceRows(rows: ItemRows, stays: Stay[], rates: FeeRate[], places: Map<string, Place>): ItemRows {
+  for (const f of rows.flights) fillFlightNames(f, places);
+  const airports = new Map([...places].map(([code, p]) => [code, p.country]));
   for (const [table, kind] of Object.entries(TABLE_KIND) as [ItemTable, string][]) {
     for (const row of rows[table]) {
       const flights = kind === "flight" ? rows.flights.filter((f) => f.flight_option_id === row.id) : [];
@@ -111,9 +117,12 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
               airline: f.airline ?? null,
               flight_no: f.flight_no ?? null,
               aircraft: f.aircraft ?? null,
+              operated_by: f.operated_by ?? null,
               from_city: f.from_city ?? null,
+              from_airport: f.from_airport ?? null,
               from_code: f.from_code ?? null,
               to_city: f.to_city ?? null,
+              to_airport: f.to_airport ?? null,
               to_code: f.to_code ?? null,
               date: day(f.date),
               departs: f.departs ?? null,
@@ -122,6 +131,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
               flying_time: f.flying_time ?? null,
               stops: f.stops ?? null,
               baggage: f.baggage ?? null,
+              booking_class: f.booking_class ?? null,
               cabin: f.cabin ?? null,
             }),
           ),

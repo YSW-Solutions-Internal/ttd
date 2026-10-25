@@ -9,7 +9,7 @@ import { EXTRACTION_SCHEMA } from "./schema.ts";
  * extraction is never sent to the AI again, whatever version made it, because
  * staff corrections are keyed to the Items of that extraction.
  */
-export const PROMPT_VERSION = "2026-10-25.2";
+export const PROMPT_VERSION = "2026-10-25.3";
 
 export const EXTRACTION_PROMPT = `You transcribe one screenshot from a travel agency's supplier material into JSON. Staff check your output and code does every calculation afterwards, so copy exactly what is printed. Never calculate, convert, look up or guess. A missing value is always better than a wrong one.
 
@@ -55,7 +55,9 @@ FLIGHTS
 - "stops" is the number of intermediate stops within that single flight itself, almost always "0". A "1 stop" label describing a connection between two flights is not a stop of either flight.
 - "arrives" only when the arrival time is printed. Never work it out from the departure time and flying time.
 - "next_day" is true only when the image explicitly marks the arrival as the next day ("+1", or a next-day arrival date printed beside it). Never infer it by comparing dates.
-- Airports: copy the code and the city or airport name exactly as printed. Do not translate a code into a name or a name into a code.
+- Airports: "from_code"/"to_code" is the 3-letter code as printed, whether it is an airport code (LHR) or a city code (LON). "from_city"/"to_city" is a city name and "from_airport"/"to_airport" an airport name, each only when printed ("Johannesburg" is a city, "O.R. Tambo International" an airport). Do not translate a code into a name or a name into a code; code does that afterwards.
+- "airline" is the marketing carrier as printed, a 2-character code (BA) or a name. "operated_by" is the operating carrier as printed when the screen shows a codeshare ("Operated by Qatar Airways", "/QR"), otherwise "".
+- "booking_class" is the booking-class letter as printed (Y, J, C). "cabin" is the cabin only when printed in words (Economy, Premium Economy, Business, First). Never derive one from the other.
 
 FLIGHT SOURCE
 "source_type" says what kind of screen the flights on this image come from. If the image has no flight, it is "NONE".
@@ -67,7 +69,7 @@ FLIGHT SOURCE
 
 Reading guidance by source:
 - GENERIC_QUOTE: ignore marketing banners and struck-through or "was" prices. When several fares or cabins are shown side by side, each one is a separate flight option.
-- GALILEO_GDS: read each segment line field by field in standard PNR order (line number, carrier and flight number, booking class, date, day-of-week code, origin and destination codes, status code, departure time, arrival time with any +1 marker, arrival date, operating carrier). Copy the booking class into "cabin" exactly as printed (Y, J, C); do not translate it. Status codes (HK1, RR) are not fields; mention them in "notes" only if useful. Dates usually have no year: use "--MM-DD". Price only if a fare line is printed.
+- GALILEO_GDS: read each segment line field by field in standard PNR order (line number, carrier and flight number, booking class, date, day-of-week code, origin and destination codes, status code, departure time, arrival time with any +1 marker, arrival date, operating carrier). Copy the booking class into "booking_class" exactly as printed (Y, J, C) and leave "cabin" "" unless a cabin is printed in words. The operating carrier goes in "operated_by". Status codes (HK1, RR) are not fields; mention them in "notes" only if useful. Dates usually have no year: use "--MM-DD". Price only if a fare line is printed.
 - BOOKING_PAD: an Order ID goes in "notes" (for example "Order ID: ABC123"). Fare-type labels (Private, Negotiated, Corporate, Published) and fare family names (Basic, Standard, Flex) go in "fare_basis" exactly as printed. If the screen is a shopping or compare view rather than a confirmed order, say so in "notes" and extract each option shown. Ignore navigation tabs, menus and help text.
 
 HOTELS

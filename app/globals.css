@@ -133,3 +133,7 @@ th a.sort { color: inherit; }
 .stays input[type="date"] { padding: 7px 8px; border: 1px solid #cfc9c0; font: inherit; }
 .stays .stay-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .stays .stay-actions .msg { margin-top: 0; }
+.confirm-airlines { margin-bottom: 18px; }
+.confirm-airlines .sub { margin: 4px 0 10px; }
+.confirm-airlines form { margin-bottom: 8px; }
+.confirm-airlines input[type="text"] { max-width: 320px; }

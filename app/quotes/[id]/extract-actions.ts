@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MODEL, answerToResult, extractFromImage, type ClaudeCall, type MediaType } from "@/lib/extraction/claude";
 import { PROMPT_VERSION } from "@/lib/extraction/prompts";
 import { priceRows, toItemRows } from "@/lib/extraction/rows";
-import { airportCountries, loadFeeContext, type FeeContext } from "@/lib/fee-context";
+import { countriesOf, loadFeeContext, loadPlaces, type FeeContext } from "@/lib/fee-context";
 import type { ExtractionResult } from "@/lib/extraction/types";
 
 export type ExtractState = { message?: string; error?: string };
@@ -87,8 +87,8 @@ async function processImage(
     const result = await callAndLog(supabase, image.id, bytes, mediaTypeFor(image.storage_path));
 
     const rows = toItemRows(quoteId, image.id, result.items, ctx.createdOn);
-    const airports = await airportCountries(supabase, rows.flights.flatMap((f) => [f.from_code, f.to_code]));
-    priceRows(rows, ctx.stays, ctx.rates, airports);
+    const places = await loadPlaces(supabase, rows.flights.flatMap((f) => [f.from_code, f.to_code]));
+    priceRows(rows, ctx.stays, ctx.rates, places);
 
     // Writes the Items and marks the image done in one transaction (migration 0009).
     const { error: storeErr } = await supabase.rpc("store_extraction", {

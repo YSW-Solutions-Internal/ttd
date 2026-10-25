@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { one } from "@/lib/relations";
 import type { FeeRate, Stay } from "@/lib/fees";
+import { placeCodes, placesFrom, type AirportRow, type Place } from "@/lib/codes";
 
 export type FeeContext = { createdOn: string; stays: Stay[]; rates: FeeRate[] };
 
@@ -49,10 +50,19 @@ export async function loadFeeContext(supabase: SupabaseClient, quoteId: string):
   };
 }
 
-/** Upper-case IATA code -> country code, for the codes given. Unknown codes are left out. */
-export async function airportCountries(supabase: SupabaseClient, codes: unknown[]): Promise<Map<string, string | null>> {
-  const wanted = [...new Set(codes.filter((c): c is string => typeof c === "string" && c.trim() !== "").map((c) => c.trim().toUpperCase()))];
+/** Airport or city code -> place (lib/codes.ts placesFrom), for the codes given. Unknown codes are left out. */
+export async function loadPlaces(supabase: SupabaseClient, codes: unknown[]): Promise<Map<string, Place>> {
+  const wanted = placeCodes(codes); // only A-Z codes, so they are safe inside the filter string
   if (wanted.length === 0) return new Map();
-  const { data } = await supabase.from("airports").select("iata, country_code").in("iata", wanted);
-  return new Map((data ?? []).map((a) => [a.iata.toUpperCase(), a.country_code]));
+  const list = wanted.join(",");
+  const { data } = await supabase
+    .from("airports")
+    .select("iata, name, city, city_code, country_code")
+    .or(`iata.in.(${list}),city_code.in.(${list})`);
+  return placesFrom((data ?? []) as AirportRow[], wanted);
+}
+
+/** Code -> country, the form lib/fees.ts autoRegion takes. */
+export function countriesOf(places: Map<string, Place>): Map<string, string | null> {
+  return new Map([...places].map(([code, p]) => [code, p.country]));
 }

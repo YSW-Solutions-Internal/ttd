@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadFeeContext } from "@/lib/fee-context";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { AddItemForm, ItemForm, type StayOption } from "./item-form";
+import { confirmAirline } from "./item-actions";
 
 type Row = Record<string, unknown>;
 type Image = { id: string; filename: string; url?: string };
@@ -26,6 +27,22 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
     ? await supabase.from("flights").select("*").in("flight_option_id", optionIds).order("direction_no").order("seq")
     : { data: [] };
 
+  // Airline codes on this Quote whose name no Consultant has confirmed yet (migration 0012).
+  const airlineCodes = [
+    ...new Set(
+      ((flights ?? []) as Row[])
+        .flatMap((f) => [f.airline, f.operated_by])
+        .filter((c): c is string => typeof c === "string" && /^[A-Za-z0-9]{2}$/.test(c.trim()))
+        .map((c) => c.trim().toUpperCase()),
+    ),
+  ];
+  const { data: known } = airlineCodes.length
+    ? await supabase.from("airlines").select("iata, name, confirmed").in("iata", airlineCodes)
+    : { data: [] };
+  const toConfirm = airlineCodes
+    .map((code) => ({ code, suggestion: known?.find((a) => a.iata === code) }))
+    .filter((a) => !a.suggestion?.confirmed);
+
   const stays: StayOption[] = (stops ?? []).map((s) => ({
     id: s.id,
     label: [s.destination, s.starts_on && s.ends_on ? `${s.starts_on} to ${s.ends_on}` : null].filter(Boolean).join(", "),
@@ -49,6 +66,31 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
 
   return (
     <>
+      {toConfirm.length > 0 && (
+        <section className="card confirm-airlines">
+          <b>Airline names to confirm</b>
+          <p className="sub">
+            Confirm or correct each name once; it is then used on every Quote. Until then the PDF shows only the code.
+          </p>
+          {toConfirm.map(({ code, suggestion }) => (
+            <form key={code} action={confirmAirline.bind(null, quoteId)} className="inline-form">
+              <input type="hidden" name="iata" value={code} />
+              <label htmlFor={`airline-${code}`}>{code}</label>
+              <input
+                id={`airline-${code}`}
+                type="text"
+                name="name"
+                required
+                defaultValue={suggestion?.name ?? ""}
+                placeholder="Airline name"
+              />
+              <button type="submit">Confirm</button>
+              {!suggestion && <small>Not in the list</small>}
+            </form>
+          ))}
+        </section>
+      )}
+
       {images.map((img) => {
         const items = rows.filter((r) => r.row.image_id === img.id);
         if (items.length === 0) return null;
