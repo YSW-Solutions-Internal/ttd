@@ -129,3 +129,7 @@ th a.sort { color: inherit; }
   .edit-block { grid-template-columns: 1fr; }
   .edit-image { position: static; max-width: 360px; }
 }
+.stays td { padding: 6px 8px; }
+.stays input[type="date"] { padding: 7px 8px; border: 1px solid #cfc9c0; font: inherit; }
+.stays .stay-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.stays .stay-actions .msg { margin-top: 0; }
