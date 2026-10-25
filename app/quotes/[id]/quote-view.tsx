@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
-import type { ExtractionResult } from "@/lib/extraction/types";
 import { removeImage } from "./actions";
 import { ExtractButton } from "./extract-button";
 import { UploadForm } from "./upload-form";
@@ -11,16 +10,23 @@ type ExtractionRow = {
   image_id: string;
   status: "pending" | "running" | "done" | "failed";
   image_type: string | null;
-  result: ExtractionResult | null;
   error: string | null;
 };
 
-function summarise(result: ExtractionResult | null): string {
-  const items = result?.items ?? [];
-  if (items.length === 0) return "No services found";
-  const counts = new Map<string, number>();
-  items.forEach((i) => counts.set(i.kind, (counts.get(i.kind) ?? 0) + 1));
+/** Item counts per kind for one image, e.g. "2 hotel, 1 transfer". */
+function summarise(counts: Map<string, number> | undefined): string {
+  if (!counts || counts.size === 0) return "No services found";
   return [...counts].map(([k, n]) => `${n} ${k.replace("_", " ")}`).join(", ");
+}
+
+/** The AI's raw answer, indented for reading. */
+function pretty(raw: string | undefined): string {
+  if (!raw) return "No AI answer logged for this image.";
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
 }
 
 // Shared by the full Quote page and the Quote modal.
@@ -56,7 +62,7 @@ export async function QuoteView({ id }: { id: string }) {
   if (images && images.length > 0) {
     const { data: rows } = await supabase
       .from("extractions")
-      .select("image_id, status, image_type, result, error")
+      .select("image_id, status, image_type, error")
       .in(
         "image_id",
         images.map((i) => i.id),
@@ -67,6 +73,33 @@ export async function QuoteView({ id }: { id: string }) {
     });
   }
   const waiting = (images ?? []).filter((i) => extractions.get(i.id)?.status !== "done").length;
+
+  // The Quote's Items per image, and what the AI last answered for each image (ai_calls, ADR 0005).
+  const counts = new Map<string, Map<string, number>>();
+  const answers = new Map<string, string>();
+  if (images && images.length > 0) {
+    const [{ data: items }, { data: calls }] = await Promise.all([
+      supabase.from("quote_items").select("image_id, kind").eq("quote_id", id),
+      supabase
+        .from("ai_calls")
+        .select("image_id, raw_output")
+        .in(
+          "image_id",
+          images.map((i) => i.id),
+        )
+        .is("error", null)
+        .order("finished_at", { ascending: false }),
+    ]);
+    items?.forEach((i) => {
+      if (!i.image_id) return;
+      const c = counts.get(i.image_id) ?? new Map<string, number>();
+      c.set(i.kind, (c.get(i.kind) ?? 0) + 1);
+      counts.set(i.image_id, c);
+    });
+    calls?.forEach((c) => {
+      if (!answers.has(c.image_id) && c.raw_output) answers.set(c.image_id, c.raw_output);
+    });
+  }
 
   // Private bucket: short-lived signed links for thumbnails.
   const urls = new Map<string, string>();
@@ -137,7 +170,7 @@ export async function QuoteView({ id }: { id: string }) {
                     {ex?.status === "running" && <span className="badge">Reading…</span>}
                     {ex?.status === "done" && (
                       <span className="badge ok">
-                        {ex.image_type && `${ex.image_type} · `}{summarise(ex.result)}
+                        {ex.image_type && `${ex.image_type} · `}{summarise(counts.get(img.id))}
                       </span>
                     )}
                     {ex?.status === "failed" && (
@@ -164,9 +197,9 @@ export async function QuoteView({ id }: { id: string }) {
             return (
               <details className="card" key={img.id} style={{ marginBottom: 10 }}>
                 <summary>
-                  <b>{img.filename}</b> · {summarise(ex.result)}
+                  <b>{img.filename}</b> · {summarise(counts.get(img.id))}
                 </summary>
-                <pre>{JSON.stringify(ex.result, null, 2)}</pre>
+                <pre>{pretty(answers.get(img.id))}</pre>
               </details>
             );
           })}
