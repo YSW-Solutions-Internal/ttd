@@ -6,7 +6,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test lib/extraction/parse.test.mjs lib/extraction/rows.test.mjs"
+    "test": "node --test lib/extraction/parse.test.mjs lib/extraction/rows.test.mjs lib/fees.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

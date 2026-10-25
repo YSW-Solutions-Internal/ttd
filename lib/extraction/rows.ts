@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { applyFees, autoRegion, fillYear, type FeeRate, type Stay } from "../fees.ts";
+import { TABLE_KIND, type ItemTable } from "./tables.ts";
 import type { ExtractedItem } from "./types";
 
-// Only `import type` above, so this file also runs under plain `node` for rows.test.mjs.
+// No path aliases, so this file also runs under plain `node` for rows.test.mjs.
 
 /** Rows for store_extraction (migration 0009): table name -> rows keyed by column name. */
 export type ItemRows = Record<
@@ -14,6 +16,17 @@ export type ItemRows = Record<
   | "excursions",
   Record<string, unknown>[]
 >;
+
+/** Fills Fee region, variant and fees on a freshly read image's rows (lib/fees.ts applyFees). */
+export function priceRows(rows: ItemRows, stays: Stay[], rates: FeeRate[], airports: Map<string, string | null>): ItemRows {
+  for (const [table, kind] of Object.entries(TABLE_KIND) as [ItemTable, string][]) {
+    for (const row of rows[table]) {
+      const flights = kind === "flight" ? rows.flights.filter((f) => f.flight_option_id === row.id) : [];
+      applyFees(kind, row, null, autoRegion(kind, row, flights, stays, airports), rates);
+    }
+  }
+  return rows;
+}
 
 type Data = Record<string, any>;
 type Price = { amount: number | null; text: string | null } | null | undefined;
@@ -29,6 +42,13 @@ function common(quoteId: string, imageId: string, item: ExtractedItem, currency:
     price_text: price?.text ?? null,
     price_note: null as string | null,
     notes: item.data.notes ?? null,
+    // Filled in by applyFees (lib/fees.ts) before the rows are stored.
+    fee_region: null,
+    variant: "",
+    transaction_fee: null,
+    change_fee: null,
+    refund_fee: null,
+    prepayment_fee: null,
   };
 }
 
@@ -47,7 +67,12 @@ function totalFromLines(lines: Data[] | null | undefined): number | null {
   return Math.round(total * 100) / 100;
 }
 
-export function toItemRows(quoteId: string, imageId: string, items: ExtractedItem[]): ItemRows {
+/**
+ * `createdOn` is the day the Quote was created (YYYY-MM-DD): a date printed without
+ * a year gets the next such day on or after it (lib/fees.ts fillYear).
+ */
+export function toItemRows(quoteId: string, imageId: string, items: ExtractedItem[], createdOn: string): ItemRows {
+  const day = (v: unknown) => fillYear(v ?? null, createdOn);
   const rows: ItemRows = {
     flight_options: [],
     flights: [],
@@ -93,7 +118,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
               from_code: f.from_code ?? null,
               to_city: f.to_city ?? null,
               to_code: f.to_code ?? null,
-              date: f.date ?? null,
+              date: day(f.date),
               departs: f.departs ?? null,
               arrives: f.arrives ?? null,
               next_day: f.next_day === true,
@@ -114,14 +139,14 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
           star: d.star ?? null,
           room: d.room ?? null,
           meals: d.meals ?? null,
-          check_in_date: d.check_in_date ?? null,
+          check_in_date: day(d.check_in_date),
           check_in_time: d.check_in_time ?? null,
-          check_out_date: d.check_out_date ?? null,
+          check_out_date: day(d.check_out_date),
           check_out_time: d.check_out_time ?? null,
           nights: d.nights ?? null,
           rooms: d.rooms ?? 1,
           cxl_type: d.cxl_type ?? null,
-          cxl: d.cxl ?? null,
+          cxl: day(d.cxl),
           address: d.address ?? null,
           geo_url: d.geo_url ?? null,
           url: d.url ?? null,
@@ -135,9 +160,9 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
           vehicle: d.vehicle ?? null,
           pickup_location: d.pickup_location ?? null,
           dropoff_location: d.dropoff_location ?? null,
-          pickup_date: d.pickup_date ?? null,
+          pickup_date: day(d.pickup_date),
           pickup_time: d.pickup_time ?? null,
-          dropoff_date: d.dropoff_date ?? null,
+          dropoff_date: day(d.dropoff_date),
           dropoff_time: d.dropoff_time ?? null,
         });
         break;
@@ -147,7 +172,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
           supplier: d.supplier ?? null,
           from_place: d.from ?? null,
           to_place: d.to ?? null,
-          date: d.date ?? null,
+          date: day(d.date),
           time: d.time ?? null,
           vehicle: d.vehicle ?? null,
           passengers: d.passengers ?? null,
@@ -160,7 +185,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
           service: d.service ?? null,
           from_station: d.from_station ?? null,
           to_station: d.to_station ?? null,
-          date: d.date ?? null,
+          date: day(d.date),
           departs: d.departs ?? null,
           arrives: d.arrives ?? null,
           travel_class: d.class ?? null,
@@ -172,9 +197,9 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
           provider_name: d.provider_name ?? null,
           description: d.description ?? null,
           location: d.location ?? null,
-          start_date: d.start_date ?? null,
+          start_date: day(d.start_date),
           start_time: d.start_time ?? null,
-          end_date: d.end_date ?? null,
+          end_date: day(d.end_date),
           end_time: d.end_time ?? null,
         });
         break;

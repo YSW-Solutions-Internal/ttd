@@ -6,7 +6,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { MODEL, answerToResult, extractFromImage, type ClaudeCall, type MediaType } from "@/lib/extraction/claude";
 import { PROMPT_VERSION } from "@/lib/extraction/prompts";
-import { toItemRows } from "@/lib/extraction/rows";
+import { priceRows, toItemRows } from "@/lib/extraction/rows";
+import { airportCountries, loadFeeContext, type FeeContext } from "@/lib/fee-context";
 import type { ExtractionResult } from "@/lib/extraction/types";
 
 export type ExtractState = { message?: string; error?: string };
@@ -59,6 +60,7 @@ async function callAndLog(
 async function processImage(
   supabase: SupabaseClient,
   quoteId: string,
+  ctx: FeeContext,
   image: ImageRow,
 ): Promise<"done" | "failed" | "busy"> {
 
@@ -84,11 +86,15 @@ async function processImage(
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const result = await callAndLog(supabase, image.id, bytes, mediaTypeFor(image.storage_path));
 
+    const rows = toItemRows(quoteId, image.id, result.items, ctx.createdOn);
+    const airports = await airportCountries(supabase, rows.flights.flatMap((f) => [f.from_code, f.to_code]));
+    priceRows(rows, ctx.stays, ctx.rates, airports);
+
     // Writes the Items and marks the image done in one transaction (migration 0009).
     const { error: storeErr } = await supabase.rpc("store_extraction", {
       p_image_id: image.id,
       p_source_type: result.source?.type ?? null,
-      p_rows: toItemRows(quoteId, image.id, result.items),
+      p_rows: rows,
     });
     if (storeErr) throw new Error(`Could not save what was read: ${storeErr.message}`);
     return "done";
@@ -140,12 +146,13 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
   }
 
   // 4. Work through them a few at a time.
+  const ctx = await loadFeeContext(supabase, quoteId);
   let ok = 0;
   let failed = 0;
   let busy = 0;
   for (let i = 0; i < todo.length; i += CONCURRENCY) {
     const batch = todo.slice(i, i + CONCURRENCY);
-    const outcomes = await Promise.all(batch.map((img) => processImage(supabase, quoteId, img)));
+    const outcomes = await Promise.all(batch.map((img) => processImage(supabase, quoteId, ctx, img)));
     ok += outcomes.filter((o) => o === "done").length;
     failed += outcomes.filter((o) => o === "failed").length;
     busy += outcomes.filter((o) => o === "busy").length;

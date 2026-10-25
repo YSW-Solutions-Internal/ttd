@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
 import { removeImage } from "./actions";
+import { EditSection } from "./edit-section";
 import { ExtractButton } from "./extract-button";
 import { UploadForm } from "./upload-form";
 
@@ -29,8 +30,8 @@ function pretty(raw: string | undefined): string {
   }
 }
 
-// Shared by the full Quote page and the Quote modal.
-export async function QuoteView({ id }: { id: string }) {
+// Shared by the full Quote page and the Quote modal. Only the full page edits (the modal is too small).
+export async function QuoteView({ id, editable = false }: { id: string; editable?: boolean }) {
   const supabase = await createClient();
 
   const { data: quote } = await supabase
@@ -207,10 +208,18 @@ export async function QuoteView({ id }: { id: string }) {
       )}
 
       <h2>Edit</h2>
-      <p className="empty">
-        Editing the Working content and generating a Version come in a later milestone. Extracted data is shown
-        read-only above.
-      </p>
+      {editable && trip ? (
+        <EditSection
+          quoteId={quote.id}
+          tripId={trip.id}
+          images={(images ?? []).map((i) => ({ id: i.id, filename: i.filename, url: urls.get(i.storage_path) }))}
+        />
+      ) : (
+        <p className="empty">
+          {/* A plain link, so it opens the full page instead of this modal again. */}
+          <a href={`/quotes/${quote.id}`}>Open the full Quote page to edit its Items.</a>
+        </p>
+      )}
 
       <h2>Versions</h2>
       {(!versions || versions.length === 0) && (
