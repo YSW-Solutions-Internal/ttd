@@ -145,7 +145,9 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
           cxl_type: d.cxl_type ?? null,
           cxl: day(d.cxl),
           address: d.address ?? null,
+          geo_url: d.geo_url ?? null,
           url: d.url ?? null,
+          url_label: d.url_label ?? null,
         });
         break;
       case "car_rental":

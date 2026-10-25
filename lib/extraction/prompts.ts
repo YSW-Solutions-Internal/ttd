@@ -1,13 +1,15 @@
+import { EXTRACTION_SCHEMA } from "./schema.ts";
+
 /**
  * The extraction prompt: one call per image (ADR 0003). The answer's shape is
- * enforced by EXTRACTION_SCHEMA, so this text only says what to read and how.
+ * EXTRACTION_SCHEMA, given at the end of the prompt and checked by parse.ts.
  *
  * Bump PROMPT_VERSION whenever the prompt or the schema changes. It records which
  * prompt read each image. It does not re-read images: an image with a finished
  * extraction is never sent to the AI again, whatever version made it, because
  * staff corrections are keyed to the Items of that extraction.
  */
-export const PROMPT_VERSION = "2026-10-25.1";
+export const PROMPT_VERSION = "2026-10-25.2";
 
 export const EXTRACTION_PROMPT = `You transcribe one screenshot from a travel agency's supplier material into JSON. Staff check your output and code does every calculation afterwards, so copy exactly what is printed. Never calculate, convert, look up or guess. A missing value is always better than a wrong one.
 
@@ -61,6 +63,7 @@ FLIGHT SOURCE
 - "GALILEO_GDS": a Galileo or other GDS terminal screen or raw PNR display. Monospace, dense uppercase text, no styling or branding, 3-letter codes only, status codes (HK1, RR), dates without a year (15SEP), coded lines such as "1 BA 075 Y 15SEP 2 LHRJNB HK1 2115 0900+1 15SEP E BA/ABC123".
 - "BOOKING_PAD": the BookingPad web app (AirGateway's NDC platform for travel agencies). BookingPad or AirGateway branding, a clean agent-facing web app, NDC terms (NDC, Order ID, Shop and Orders tabs), selectable fare or cabin cards, fare labels such as Private, Negotiated, Corporate, Published.
 - "UNKNOWN": there are flights but the screen matches none of the above.
+"source_confidence" is how sure you are of source_type. "source_reason" names the visual evidence only (for example "monospace text, IATA codes, no branding"), never booking content.
 
 Reading guidance by source:
 - GENERIC_QUOTE: ignore marketing banners and struck-through or "was" prices. When several fares or cabins are shown side by side, each one is a separate flight option.
@@ -71,7 +74,7 @@ HOTELS
 - "hotel_name" is the property, "room" the room type, "meals" the board basis as printed (Room only, B&B, Half board...).
 - "nights", "star" and "rooms" (the number of rooms booked) only when printed.
 - "cxl_type" is "free" if the rate is refundable or free to cancel until some date, "nonref" if non-refundable, "" if not stated. "cxl" is the free-cancellation deadline (a date in the date format above, or the deadline text as printed) when cxl_type is "free", otherwise "".
-- "url" only if a link is visibly printed.
+- "geo_url", "url" and "url_label" only if a link is visibly printed.
 
 CAR RENTALS
 - One entry per car or rate shown. If the same total is printed twice (a line item and a final total), use the final total once.
@@ -86,4 +89,8 @@ TRANSFERS
 RAIL
 - "operator" is the rail company, "service" the train name or number, "from_station" and "to_station" as printed, "class" the travel class exactly as printed.
 
-Before answering, check: every option shown has its own entry; every flight option has all its directions; each price was chosen by its label and is the figure printed on the image; no value was calculated or guessed; anything not shown is "".`;
+Before answering, check: every option shown has its own entry; every flight option has all its directions; each price was chosen by its label and is the figure printed on the image; no value was calculated or guessed; anything not shown is "".
+
+ANSWER FORMAT
+Answer with one JSON object and nothing else: no explanation and no code fence. Include every key of this JSON Schema, with "" for a value that is not shown and [] for a kind that is not on the image:
+${JSON.stringify(EXTRACTION_SCHEMA)}`;

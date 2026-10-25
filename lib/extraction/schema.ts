@@ -1,14 +1,11 @@
 /**
- * The JSON schema Claude's answer must match (structured outputs).
+ * The shape of Claude's answer. It is sent in the prompt, not enforced by the API:
+ * as structured outputs it compiled into a grammar the API rejected as too large
+ * (ADR 0003). parse.ts checks the answer instead.
  *
- * No field is nullable on the wire: the API allows at most 16 union-typed fields
- * per request and this schema has far more unknowable values. So a value that is
- * not shown comes back as "", and numbers come back as digit strings
- * ("13111.80"). parse.ts turns "" into null and digit strings into numbers.
- *
- * Keep it small: the API compiles the schema into a grammar and rejects one that is
- * too large ("The compiled grammar is too large"). Every price is one digit string,
- * in Rand (all prices are), with no currency, printed text, VAT or per-direction price.
+ * A value that is not shown comes back as "", and numbers as digit strings
+ * ("13111.80"); parse.ts turns "" into null and digits into numbers. Every price is
+ * one figure in Rand (all prices are).
  */
 
 const str = { type: "string" } as const;
@@ -77,7 +74,9 @@ const hotel = obj({
   cxl_type: { type: "string", enum: ["free", "nonref", ""] },
   cxl: str,
   address: str,
+  geo_url: str,
   url: str,
+  url_label: str,
   notes: str,
 });
 
@@ -136,6 +135,8 @@ export type SourceType = (typeof SOURCE_TYPES)[number];
 
 export const EXTRACTION_SCHEMA = obj({
   source_type: { type: "string", enum: SOURCE_TYPES },
+  source_confidence: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+  source_reason: str,
   flight: arr(flightOption),
   hotel: arr(hotel),
   car_rental: arr(carRental),

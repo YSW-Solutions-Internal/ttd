@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { EXTRACTION_PROMPT } from "./prompts";
-import { EXTRACTION_SCHEMA } from "./schema";
-import { toExtractionResult } from "./parse";
+import { parseAnswer, toExtractionResult } from "./parse";
 import type { ExtractionResult } from "./types";
 
 export const MODEL = "claude-sonnet-5-5";
@@ -35,7 +34,6 @@ export async function extractFromImage(
     fallbacks: "default", // a safety decline is retried on another model instead of failing the image
     // The prompt is identical on every call, so it is cached; the image follows it.
     system: [{ type: "text", text: EXTRACTION_PROMPT, cache_control: { type: "ephemeral" } }],
-    output_config: { format: { type: "json_schema", schema: EXTRACTION_SCHEMA } },
     messages: [
       {
         role: "user",
@@ -70,5 +68,5 @@ export function answerToResult(call: ClaudeCall): ExtractionResult {
   if (call.stopReason === "refusal") {
     throw new Error("The model declined to read this image.");
   }
-  return toExtractionResult(JSON.parse(call.text));
+  return toExtractionResult(parseAnswer(call.text));
 }
