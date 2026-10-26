@@ -70,6 +70,12 @@ function totalFromLines(lines: Data[] | null | undefined): number | null {
   return Math.round(total * 100) / 100;
 }
 
+/** The schema is not enforced (ADR 0003): anything but the column's check values would fail the whole image. */
+function cxlType(v: unknown): "free" | "nonref" | null {
+  const t = typeof v === "string" ? v.trim().toLowerCase() : null;
+  return t === "free" || t === "nonref" ? t : null;
+}
+
 /**
  * `createdOn` is the day the Quote was created (YYYY-MM-DD): a date printed without
  * a year gets the next such day on or after it (lib/fees.ts fillYear).
@@ -127,7 +133,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
               date: day(f.date),
               departs: f.departs ?? null,
               arrives: f.arrives ?? null,
-              next_day: f.next_day === true,
+              next_day: f.next_day === true || f.next_day === "true", // the schema is not enforced (ADR 0003)
               flying_time: f.flying_time ?? null,
               stops: f.stops ?? null,
               baggage: f.baggage ?? null,
@@ -152,7 +158,7 @@ export function toItemRows(quoteId: string, imageId: string, items: ExtractedIte
           check_out_time: d.check_out_time ?? null,
           nights: d.nights ?? null,
           rooms: d.rooms ?? 1,
-          cxl_type: d.cxl_type ?? null,
+          cxl_type: cxlType(d.cxl_type),
           cxl: day(d.cxl),
           address: d.address ?? null,
           geo_url: d.geo_url ?? null,

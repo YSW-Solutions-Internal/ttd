@@ -25,7 +25,9 @@ export async function extractFromImage(
   bytes: Uint8Array,
   mediaType: MediaType,
 ): Promise<ClaudeCall> {
-  const client = new Anthropic(); // reads ANTHROPIC_API_KEY from the environment
+  // Reads ANTHROPIC_API_KEY. The timeout keeps a call that starts late inside the request's 300 s
+  // (START_BUDGET_MS in extract-actions.ts); no retries, since a retry could not finish in time either.
+  const client = new Anthropic({ timeout: 140_000, maxRetries: 0 });
 
   const res = await client.beta.messages.create({
     model: MODEL,

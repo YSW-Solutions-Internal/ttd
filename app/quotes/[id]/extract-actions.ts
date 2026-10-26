@@ -13,6 +13,9 @@ import type { ExtractionResult } from "@/lib/extraction/types";
 export type ExtractState = { message?: string; error?: string };
 
 const CONCURRENCY = 3; // images sent to Claude at the same time
+// shortcut: extraction runs inside the request (maxDuration 300 s, page.tsx), so no new image starts after
+// this and the calls already running can finish in time; the rest wait for the next click. Background jobs replace this (README milestone 2).
+const START_BUDGET_MS = 140_000;
 
 function mediaTypeFor(path: string): MediaType {
   const ext = path.split(".").pop()?.toLowerCase();
@@ -145,18 +148,18 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
     return { message: `Nothing new to extract. All ${images.length} images were already processed.` };
   }
 
-  // 4. Work through them a few at a time.
+  // 4. Work through them a few at a time: each worker takes the next image as soon as it is free.
   const ctx = await loadFeeContext(supabase, quoteId);
-  let ok = 0;
-  let failed = 0;
-  let busy = 0;
-  for (let i = 0; i < todo.length; i += CONCURRENCY) {
-    const batch = todo.slice(i, i + CONCURRENCY);
-    const outcomes = await Promise.all(batch.map((img) => processImage(supabase, quoteId, ctx, img)));
-    ok += outcomes.filter((o) => o === "done").length;
-    failed += outcomes.filter((o) => o === "failed").length;
-    busy += outcomes.filter((o) => o === "busy").length;
+  const started = Date.now();
+  const queue = [...todo];
+  const count = { done: 0, failed: 0, busy: 0 };
+  async function worker() {
+    while (queue.length > 0 && Date.now() - started < START_BUDGET_MS) {
+      count[await processImage(supabase, quoteId, ctx, queue.shift()!)]++;
+    }
   }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  const { done: ok, failed, busy } = count;
 
   revalidatePath(`/quotes/${quoteId}`);
 
@@ -164,6 +167,7 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
   const parts = [`${ok} extracted`];
   if (skipped) parts.push(`${skipped} skipped (already processed)`);
   if (busy) parts.push(`${busy} skipped (already being extracted)`);
+  if (queue.length) parts.push(`${queue.length} not started in time (click Extract data again)`);
   if (failed) {
     return { message: parts.join(", "), error: `${failed} failed. See the error under each image.` };
   }
