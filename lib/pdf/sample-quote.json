@@ -2,11 +2,21 @@
   "reference": "QU-RWOL01-001 V2",
   "date": "26 Oct 2026",
   "valid_until": "2 Nov 2026",
-  "consultant": { "name": "Dan K", "email": "dan@example.co.za", "address": "12 Example Road, Johannesburg" },
-  "client": { "name": "Ron Wolovitz", "file_ref": "RWOL01" },
+  "consultant": {
+    "name": "Dan K",
+    "email": "dan@example.co.za",
+    "address": "12 Example Road, Johannesburg"
+  },
+  "client": {
+    "name": "Ron Wolovitz",
+    "file_ref": "RWOL01"
+  },
   "trip": {
     "title": "Italy in spring",
-    "destinations": ["Rome", "Florence"],
+    "destinations": [
+      "Rome",
+      "Florence"
+    ],
     "dates_display": "4 – 12 Apr",
     "year": "2027",
     "nights": 8,
@@ -14,8 +24,18 @@
     "travellers_sub": "1 Child"
   },
   "itinerary_overview": [
-    { "dates": "4 – 8 Apr", "destination": "Rome", "nights": 4, "highlight": "Colosseum & Vatican" },
-    { "dates": "8 – 12 Apr", "destination": "Florence", "nights": "4", "highlight": "Uffizi" }
+    {
+      "dates": "4 – 8 Apr",
+      "destination": "Rome",
+      "nights": 4,
+      "highlight": "Colosseum & Vatican"
+    },
+    {
+      "dates": "8 – 12 Apr",
+      "destination": "Florence",
+      "nights": "4",
+      "highlight": "Uffizi"
+    }
   ],
   "flights_tag": "Economy, return",
   "flight_options": [
@@ -30,41 +50,73 @@
           "label": "Outbound",
           "meta": "4 Apr",
           "flights": [
-            { "airline": "EK", "flight_no": "762", "aircraft": "A380", "from_city": "Johannesburg", "from_code": "JNB", "to_city": "Dubai", "to_code": "DXB", "date": "4 Apr", "departs": "18:35", "arrives": "04:40", "next_day": true, "cabin": "Economy", "flying_time": "8h 05m", "stops": 0, "baggage": "2 x 23kg" },
-            { "airline": "EK", "flight_no": "97", "from_city": "Dubai", "from_code": "DXB", "to_city": "Rome", "to_code": "FCO", "date": "5 Apr", "departs": "09:25", "arrives": "13:25", "stops": 0, "baggage": "2 x 23kg" }
+            {
+              "airline": "EK",
+              "flight_no": "762",
+              "aircraft": "A380",
+              "from_city": "Johannesburg",
+              "from_code": "JNB",
+              "to_city": "Dubai",
+              "to_code": "DXB",
+              "date": "4 Apr",
+              "departs": "18:35",
+              "arrives": "04:40",
+              "next_day": true,
+              "cabin": "Economy",
+              "flying_time": "8h 05m",
+              "stops": 0,
+              "baggage": "2 x 23kg"
+            },
+            {
+              "airline": "EK",
+              "flight_no": "97",
+              "from_city": "Dubai",
+              "from_code": "DXB",
+              "to_city": "Rome",
+              "to_code": "FCO",
+              "date": "5 Apr",
+              "departs": "09:25",
+              "arrives": "13:25",
+              "stops": 0,
+              "baggage": "2 x 23kg"
+            }
           ]
         },
         {
           "label": "Return",
           "meta": "12 Apr",
           "flights": [
-            { "airline": "EK", "flight_no": "98", "from_city": "Florence", "to_city": "Dubai", "to_code": "DXB", "date": "12 Apr", "departs": "15:10", "arrives": "23:05", "flying_time": "5h 55m", "stops": 1 }
+            {
+              "airline": "EK",
+              "flight_no": "98",
+              "from_city": "Florence",
+              "to_city": "Dubai",
+              "to_code": "DXB",
+              "date": "12 Apr",
+              "departs": "15:10",
+              "arrives": "23:05",
+              "flying_time": "5h 55m",
+              "stops": 1
+            }
           ]
         }
       ],
-      "pricing": {
-        "currency": "ZAR",
-        "vat": 412.5,
-        "lines": [
-          { "pax_type": "Adult", "count": 2, "fare_pp": 14250, "taxes_pp": "3 980.40" },
-          { "pax_type": "Child", "count": 1, "fare_pp": 10687.5, "taxes_pp": 3980.4 }
-        ],
-        "markup": 1500,
-        "transaction_fee": 950,
-        "cancellation_fee": 2500,
-        "note": "Fare guaranteed only once ticketed."
-      }
+      "price": 51128.7,
+      "markup": 1500,
+      "transaction_fee": 950,
+      "refund_fee": 2500,
+      "change_fee": 950,
+      "notes": "Fare guaranteed only once ticketed."
     },
     {
       "label": "Option 2",
       "headline": "Qatar via Doha",
       "airlines": "Qatar Airways",
       "groups": [],
-      "pricing": {
-        "currency": "USD",
-        "lines": [{ "pax_type": "Adult", "count": 0, "fare_pp": 900, "taxes_pp": 250 }],
-        "change_fee": 150
-      }
+      "price": "21 340.00",
+      "transaction_fee": 950,
+      "prepayment_fee": 300,
+      "prepaid": true
     }
   ],
   "accommodation": [
@@ -73,8 +125,35 @@
       "dates": "4 – 8 Apr",
       "nights": 4,
       "options": [
-        { "name": "Hotel Artemide", "star": 4, "room": "Family room", "address": "Via Nazionale 22, Rome", "geo_url": "https://maps.example/artemide", "url": "https://www.example.com/artemide", "url_label": "hotelartemide.it", "check_in": "4 Apr", "check_out": "8 Apr", "meals": "Breakfast", "cxl_type": "free", "cxl": "until 1 Apr", "currency": "EUR", "price": 1840, "markup": 120 },
-        { "name": "Albergo del Senato", "star": 4.6, "room": "Deluxe triple", "check_in": "4 Apr", "check_out": "8 Apr", "cxl_type": "nonref", "currency": "EUR", "price": "2 310.00", "desc": "Pantheon views & <rooftop> bar" }
+        {
+          "name": "Hotel Artemide",
+          "star": 4,
+          "room": "Family room",
+          "address": "Via Nazionale 22, Rome",
+          "geo_url": "https://maps.example/artemide",
+          "url": "https://www.example.com/artemide",
+          "url_label": "hotelartemide.it",
+          "check_in": "4 Apr",
+          "check_out": "8 Apr",
+          "meals": "Breakfast",
+          "cxl_type": "free",
+          "cxl": "until 1 Apr",
+          "price": 33580,
+          "markup": 2000,
+          "transaction_fee": 300,
+          "rooms": 2
+        },
+        {
+          "name": "Albergo del Senato",
+          "star": 4.6,
+          "room": "Deluxe triple",
+          "check_in": "4 Apr",
+          "check_out": "8 Apr",
+          "cxl_type": "nonref",
+          "price": "42 150.00",
+          "desc": "Pantheon views & <rooftop> bar",
+          "transaction_fee": 300
+        }
       ]
     },
     {
@@ -82,27 +161,80 @@
       "dates": "8 – 12 Apr",
       "nights": 4,
       "options": [
-        { "name": "Hotel Brunelleschi", "room": "Junior suite", "check_in": "8 Apr", "check_out": "12 Apr", "cxl": "Free until 48h before", "currency": "AUD", "price": 2995, "transaction_fee": 350 }
+        {
+          "name": "Hotel Brunelleschi",
+          "room": "Junior suite",
+          "check_in": "8 Apr",
+          "check_out": "12 Apr",
+          "cxl": "Free until 48h before",
+          "price": null,
+          "transaction_fee": 300,
+          "refund_fee": 300
+        }
       ]
     }
   ],
   "transfers": [
-    { "date": "5 Apr", "supplier": "Rome Cars", "route": "FCO → Hotel Artemide", "vehicle": "Minivan", "currency": "EUR", "rate": 85 },
-    { "date": "12 Apr", "route": "Hotel → FLR" }
+    {
+      "date": "5 Apr",
+      "supplier": "Rome Cars",
+      "route": "FCO → Hotel Artemide",
+      "vehicle": "Minivan",
+      "price": 1650,
+      "transaction_fee": 150
+    },
+    {
+      "date": "12 Apr",
+      "route": "Hotel → FLR"
+    }
   ],
   "rail": [
-    { "date": "8 Apr", "service": "Frecciarossa 9531", "from_city": "Rome", "to_city": "Florence", "currency": "EUR", "rate": 117, "transaction_fee": 15 }
+    {
+      "date": "8 Apr",
+      "service": "Frecciarossa 9531",
+      "from_city": "Rome",
+      "to_city": "Florence",
+      "transaction_fee": 150,
+      "price": 2135
+    }
   ],
   "car_rentals": [
-    { "pickup_datetime": "9 Apr 10:00", "pickup_location": "Florence SMN", "dropoff_datetime": "11 Apr 10:00", "dropoff_location": "Florence SMN", "vehicle": "Fiat 500L", "company": "Hertz", "currency": "EUR", "price": 210 }
+    {
+      "pickup_datetime": "9 Apr 10:00",
+      "pickup_location": "Florence SMN",
+      "dropoff_datetime": "11 Apr 10:00",
+      "dropoff_location": "Florence SMN",
+      "vehicle": "Fiat 500L",
+      "company": "Hertz",
+      "price": 3830,
+      "transaction_fee": 150,
+      "prepayment_fee": 383,
+      "prepaid": true
+    }
   ],
   "experiences": [
-    { "location": "Rome", "start_date": "6 Apr", "provider_name": "Walks of Italy", "currency": "EUR", "price": 240, "description": "Skip-the-line Vatican tour" },
-    { "location": "Florence", "name": "Chianti wine day", "currency": "EUR", "price": 160, "markup": 20 }
+    {
+      "location": "Rome",
+      "start_date": "6 Apr",
+      "provider_name": "Walks of Italy",
+      "price": 4380,
+      "description": "Skip-the-line Vatican tour"
+    },
+    {
+      "location": "Florence",
+      "name": "Chianti wine day",
+      "price": 2920,
+      "markup": 365
+    }
   ],
   "visa_info": "South African passport holders need a Schengen visa.",
   "health_info": "No vaccinations required.",
-  "not_yet_included": ["Travel insurance quote", "Airport lounge access"],
+  "not_yet_included": [
+    "Travel insurance quote",
+    "Airport lounge access"
+  ],
   "terms_profile": "standard_za_international",
-  "custom_notes": ["Rates for the child assume they share the parents' room."]
+  "custom_notes": [
+    "Rates for the child assume they share the parents' room."
+  ]
 }

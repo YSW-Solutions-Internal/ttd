@@ -1,7 +1,5 @@
-// Ported from render_lib.py: totals and money formatting for the quote PDF.
-import type { Amount, Fees, FlightPricing } from "./types";
-
-const SYMS: Record<string, string> = { ZAR: "R", USD: "$", EUR: "€", GBP: "£" };
+// Item totals and money formatting for the quote PDF (GLOSSARY: Item total, Transaction fee, Markup, Pre-payment fee).
+import type { Amount, Priced } from "./types";
 
 /** A number from JSON; null, empty or non-numeric text gives the fallback. */
 export function num(value: Amount | unknown, fallback = 0): number {
@@ -9,33 +7,33 @@ export function num(value: Amount | unknown, fallback = 0): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
   const s = String(value).replaceAll(" ", "");
   const n = Number(s);
-  return s !== "" && Number.isFinite(n) ? n : fallback; // Number("") is 0, Python's float("") fails
+  return s !== "" && Number.isFinite(n) ? n : fallback;
 }
 
-/** Unknown currencies show their code (e.g. AUD) instead of R. */
-export function symFor(currency: string | null | undefined): string {
-  const cur = currency || "ZAR";
-  return SYMS[cur] ?? cur;
-}
-
-/** "R 12 345.67": space as the thousands separator, two decimals. */
-export function money(amount: Amount, sym: string): string {
+/** "R 12 345.67": every price is in Rand, space as the thousands separator, two decimals. */
+export function money(amount: Amount): string {
   const [whole, cents] = Math.abs(num(amount)).toFixed(2).split(".");
   const sign = num(amount) < 0 && Number(`${whole}.${cents}`) !== 0 ? "-" : "";
-  return `${sym} ${sign}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, " ")}.${cents}`;
+  return `R ${sign}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, " ")}.${cents}`;
 }
 
-/** base plus markup and transaction fee; cancellation and change fees are shown only, never added. */
-export function withFees(item: Fees, base: number): number {
-  return base + num(item.markup) + num(item.transaction_fee);
+/**
+ * The Item total: price + Transaction fee (per room for Accommodation) + Markup,
+ * + Pre-payment fee when prepaid. Refund and Change fees are shown, never added.
+ * Null when the price is missing, which can only mean "On request".
+ */
+export function itemTotal(item: Priced, rooms = 1): number | null {
+  if (item.price === null || item.price === undefined || item.price === "") return null;
+  return (
+    num(item.price) +
+    num(item.transaction_fee) * Math.max(1, Math.trunc(num(rooms, 1))) +
+    num(item.markup) +
+    (item.prepaid ? num(item.prepayment_fee) : 0)
+  );
 }
 
-/** All-in total of a flight option: every line's (fare + taxes) x count, plus fees. */
-export function flightTotal(pricing: FlightPricing): number {
-  const lines = (pricing.lines ?? []).reduce((sum, line) => {
-    let n = num(line.count, 1);
-    if (n <= 0) n = 1; // a count can only be 1 and up
-    return sum + (num(line.fare_pp) + num(line.taxes_pp)) * Math.trunc(n);
-  }, 0);
-  return withFees(pricing, lines);
+/** An Item total as printed. */
+export function totalText(item: Priced, rooms = 1): string {
+  const total = itemTotal(item, rooms);
+  return total === null ? "On request" : money(total);
 }

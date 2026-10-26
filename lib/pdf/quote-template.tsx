@@ -1,5 +1,5 @@
 // Ported from template.html (Jinja). Rendered to static HTML, then printed to PDF by Chromium.
-import { flightTotal, money, num, symFor, withFees } from "./money";
+import { money, num, totalText } from "./money";
 import type { Experience, QuoteJson } from "./types";
 
 const CSS = `
@@ -153,7 +153,7 @@ function experienceLine(e: Experience): string {
     e.location,
     e.start_date || e.date,
     e.provider_name || e.provider || e.name,
-    money(withFees(e, num(e.price)), symFor(e.currency)),
+    totalText(e),
     e.description,
   ]
     .filter(Boolean)
@@ -265,7 +265,7 @@ export function QuoteTemplate({
                       <tr key={i}>
                         <td className="lbl">{fo.label}{fo.summary_line && <> <small>· {fo.summary_line}</small></>}</td>
                         <td>{fo.airlines}</td>
-                        <td className="num amt">{money(flightTotal(fo.pricing), symFor(fo.pricing.currency))}</td>
+                        <td className="num amt">{totalText(fo)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -273,8 +273,7 @@ export function QuoteTemplate({
 
                 {/* 2.2+ Each flight option: schedule and information per leg group, then fare rules / seating / notes */}
                 {flights.map((fo, i) => {
-                  const sym = symFor(fo.pricing.currency);
-                  const total = money(flightTotal(fo.pricing), sym);
+                  const total = totalText(fo);
                   return (
                     <div className="opt" key={i}>
                       <div className="opt-head">
@@ -327,14 +326,13 @@ export function QuoteTemplate({
                           <div className="rr"><div className="rk">Fare rules</div><div className="rv">{fo.fare_rules || "As per airline conditions at time of ticketing."}</div></div>
                           <div className="rr"><div className="rk">Seating</div><div className="rv">{fo.seating || "Seat selection is not included; complimentary allocation is generally available at online check-in, subject to the airline."}</div></div>
                           <div className="rr"><div className="rk">Notes</div><div className="rv">{fo.notes || NOT_SPECIFIED}</div></div>
-                          {!!fo.pricing.cancellation_fee && <div className="rr"><div className="rk">Flight Cancellation fee</div><div className="rv">{money(fo.pricing.cancellation_fee, sym)}</div></div>}
-                          {!!fo.pricing.change_fee && <div className="rr"><div className="rk">Flight Change fee</div><div className="rv">{money(fo.pricing.change_fee, sym)}</div></div>}
+                          {!!num(fo.refund_fee) && <div className="rr"><div className="rk">Cancellation / refund fee</div><div className="rv">{money(fo.refund_fee)}</div></div>}
+                          {!!num(fo.change_fee) && <div className="rr"><div className="rk">Change fee</div><div className="rv">{money(fo.change_fee)}</div></div>}
                         </div>
 
                         <div style={{ marginTop: 10, paddingTop: 8, borderTop: "2px solid var(--ink)", display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 13 }}>
                           <span>Total for {fo.label}</span><span className="num">{total}</span>
                         </div>
-                        {fo.pricing.note && <div style={{ fontSize: 10.5, color: "var(--muted)", marginTop: 2 }}>{fo.pricing.note}</div>}
                       </div>
                     </div>
                   );
@@ -347,7 +345,7 @@ export function QuoteTemplate({
               <section className="section">
                 <div className="h-major">Accommodation <span className="tag">Options grouped by destination</span></div>
                 {q.accommodation!.map((dest, d) => {
-                  const options = (dest.options ?? []).map((h) => ({ h, price: money(withFees(h, num(h.price)), symFor(h.currency)) }));
+                  const options = (dest.options ?? []).map((h) => ({ h, price: totalText(h, num(h.rooms, 1)) }));
                   return (
                     <div key={d}>
                       <div className="eyebrow">{dest.name}{dest.dates && <span className="tag">{dest.dates} · {dest.nights} nights</span>}</div>
@@ -412,7 +410,7 @@ export function QuoteTemplate({
                       <tr key={i}>
                         <td>{t.date}</td><td>{t.supplier || DASH}</td><td>{t.route}</td>
                         <td>{t.vehicle || DASH}</td>
-                        <td className="num">{"rate" in t ? money(withFees(t, num(t.rate)), symFor(t.currency)) : DASH}</td>
+                        <td className="num">{totalText(t)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -430,7 +428,7 @@ export function QuoteTemplate({
                     {q.rail!.map((r, i) => (
                       <tr key={i}>
                         <td>{r.date}</td><td>{r.service}</td><td>{r.from_city}</td><td>{r.to_city}</td>
-                        <td className="num">{"rate" in r ? money(withFees(r, num(r.rate)), symFor(r.currency)) : DASH}</td>
+                        <td className="num">{totalText(r)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -451,7 +449,7 @@ export function QuoteTemplate({
                         <td>{c.dropoff_datetime}{c.dropoff_location && ` · ${c.dropoff_location}`}</td>
                         <td>{c.vehicle || DASH}</td>
                         <td>{c.company || DASH}</td>
-                        <td className="num">{money(withFees(c, num(c.price)), symFor(c.currency))}</td>
+                        <td className="num">{totalText(c)}</td>
                       </tr>
                     ))}
                   </tbody>
