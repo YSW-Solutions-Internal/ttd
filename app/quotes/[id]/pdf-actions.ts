@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { one } from "@/lib/relations";
 import { renderQuotePdf } from "@/lib/pdf/render";
 import type { QuoteJson } from "@/lib/pdf/types";
 
@@ -22,7 +21,7 @@ export async function renderVersionPdf(quoteId: string, versionId: string, _prev
 
   const { data: version } = await supabase
     .from("quote_versions")
-    .select("id, version_no, assembled, pdf_path, quotes(reference)")
+    .select("id, version_no, assembled, pdf_path")
     .eq("id", versionId)
     .eq("quote_id", quoteId)
     .maybeSingle();
@@ -30,10 +29,12 @@ export async function renderVersionPdf(quoteId: string, versionId: string, _prev
   if (version.pdf_path) return {};
   if (!version.assembled) return { error: "This version has no quote data to render." };
 
-  const path = `${quoteId}/pdf/${one(version.quotes)?.reference}-v${version.version_no}.pdf`;
+  const quote = version.assembled as QuoteJson;
+  // The frozen reference is the Trip's (docs/adr/0007).
+  const path = `${quoteId}/pdf/${quote.reference}-v${version.version_no}.pdf`;
 
   try {
-    const pdf = await renderQuotePdf(version.assembled as QuoteJson);
+    const pdf = await renderQuotePdf(quote);
     const { error: upErr } = await supabase.storage
       .from("quote-files")
       .upload(path, pdf, { contentType: "application/pdf", upsert: false });

@@ -14,7 +14,6 @@ const COLUMNS = [
   { key: "client", label: "Client" },
   { key: "status", label: "Status" },
   { key: "starts_on", label: "Starts" },
-  { key: "quotes", label: "Quotes", unsortable: true },
   { key: "created_at", label: "Created" },
 ] as const;
 
@@ -29,7 +28,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   // RLS (0007): trips of your own clients, or all of them for an admin.
   let query = supabase
     .from("trips")
-    .select("id, reference, title, status, starts_on, created_at, quotes(id), clients(client_code, full_name)");
+    .select("id, reference, title, status, starts_on, created_at, clients(client_code, full_name)");
   if (status !== "all") query = query.eq("status", status);
   if (client) query = query.eq("client_id", client);
 
@@ -100,7 +99,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   </td>
                   <td>{tripStatusLabel(t.status)}</td>
                   <td>{t.starts_on ? new Date(t.starts_on).toLocaleDateString("en-ZA") : "—"}</td>
-                  <td>{t.quotes?.length ?? 0}</td>
                   <td>{new Date(t.created_at).toLocaleDateString("en-ZA")}</td>
                 </tr>
               );

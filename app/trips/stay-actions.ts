@@ -10,7 +10,7 @@ const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 /**
  * Adds a Stay to the Trip (no `stayId`) or saves one. RLS limits it to the
- * Trip's Consultant or an admin. Stays are shared by every Quote on the Trip.
+ * Trip's Consultant or an admin.
  */
 export async function saveStay(
   tripId: string,

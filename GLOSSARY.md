@@ -23,15 +23,19 @@ _Avoid_: Client number, client no, client ID
 ## Records
 
 **Trip**:
-One journey for one Client. Quotes are always made for a Trip, never directly for a Client.
+One journey for one Client. Each Trip has exactly one Quote, which comes into being with the Trip; there is never a Quote without a Trip, nor a second Quote for the same Trip.
 _Avoid_: Booking, itinerary
 
 **Trip status**:
 Where a Trip stands: In progress, Completed or Cancelled. A new Trip is In progress. Its Consultant or an Administrator can change it in any direction, including reopening a Cancelled Trip.
 _Avoid_: State, stage, "current trip" (say In progress)
 
+**Terms profile**:
+The standard set of terms and conditions printed on a Trip's Quote. Every Trip uses Standard (South Africa, international) unless changed. Staff can add their own lines to it as custom notes.
+_Avoid_: T&Cs, template
+
 **Quote**:
-A priced proposal for a Trip. A Trip can have several Quotes.
+The priced proposal for a Trip: its Working content and the Versions generated from it. Each Trip has exactly one Quote; trying a different offer means changing the Working content and generating another Version, not starting another Quote.
 _Avoid_: Estimate, proposal
 
 **Extraction**:

@@ -30,29 +30,44 @@ export async function createTrip(_prev: CreateTripState, formData: FormData): Pr
   redirect(`/trips/${data.id}`, RedirectType.replace);
 }
 
-export async function createQuote(tripId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+export type TripFormState = { error?: string; notice?: string };
 
-  const { data, error } = await supabase
-    .from("quotes")
-    .insert({ trip_id: tripId, created_by: user.id })
-    .select("id")
-    .single();
-  if (error || !data) throw new Error(`Could not create the quote: ${error?.message ?? "unknown error"}`);
-  redirect(`/quotes/${data.id}`);
-}
+const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
-// RLS limits the update to the trip's Consultant or an admin; any status may follow any other.
-export async function setTripStatus(tripId: string, formData: FormData) {
+/** Saves the Trip's own details. RLS limits it to the Trip's Consultant or an admin; any status may follow any other. */
+export async function saveTrip(tripId: string, _prev: TripFormState, formData: FormData): Promise<TripFormState> {
+  const text = (key: string) => String(formData.get(key) ?? "").trim();
   const status = formData.get("status");
-  if (!isTripStatus(status)) throw new Error("Unknown trip status.");
+  if (!isTripStatus(status)) return { error: "Unknown trip status." };
+  const starts = text("starts_on");
+  const ends = text("ends_on");
+  if ((starts && !isDate(starts)) || (ends && !isDate(ends))) return { error: "Dates must be full dates." };
+  if (starts && ends && ends < starts) return { error: "The Trip cannot end before it starts." };
+  const adults = Number(text("adults"));
+  const children = Number(text("children"));
+  if (!Number.isInteger(adults) || adults < 0 || !Number.isInteger(children) || children < 0) {
+    return { error: "Adults and children must be whole numbers, 0 or more." };
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("trips").update({ status }).eq("id", tripId);
-  if (error) throw new Error(`Could not change the status: ${error.message}`);
+  const { data, error } = await supabase
+    .from("trips")
+    .update({
+      status,
+      title: text("title") || null,
+      starts_on: starts || null,
+      ends_on: ends || null,
+      adults,
+      children,
+      visa_info: text("visa_info") || null,
+      health_info: text("health_info") || null,
+      insurance_info: text("insurance_info") || null,
+      custom_notes: text("custom_notes") || null,
+    })
+    .eq("id", tripId)
+    .select("id");
+  if (error) return { error: `Could not save: ${error.message}` };
+  if (!data || data.length === 0) return { error: "Could not save: only the trip's consultant or an administrator can edit." };
   revalidatePath("/", "layout");
+  return { notice: "Saved." };
 }
