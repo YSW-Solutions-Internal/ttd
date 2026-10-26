@@ -5,6 +5,7 @@ import { one } from "@/lib/relations";
 import { removeImage } from "./actions";
 import { EditSection } from "./edit-section";
 import { ExtractButton } from "./extract-button";
+import { GenerateVersionButton } from "./generate-version-button";
 import { RetryPdfButton } from "./retry-pdf-button";
 import { UploadForm } from "./upload-form";
 
@@ -224,9 +225,8 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
       )}
 
       <h2>Versions</h2>
-      {(!versions || versions.length === 0) && (
-        <p className="empty">No versions yet. Quote assembly and PDF generation come in a later milestone.</p>
-      )}
+      {editable && <GenerateVersionButton quoteId={quote.id} />}
+      {(!versions || versions.length === 0) && <p className="empty">No versions yet.</p>}
       {versions && versions.length > 0 && (
         <table>
           <thead>
