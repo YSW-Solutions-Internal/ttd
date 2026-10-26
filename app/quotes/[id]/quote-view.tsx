@@ -37,7 +37,7 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
 
   const { data: quote } = await supabase
     .from("quotes")
-    .select("id, reference, created_at, trips(id, reference, title, clients(client_code, full_name))")
+    .select("id, created_at, trips(id, reference, title, clients(client_code, full_name))")
     .eq("id", id)
     .maybeSingle();
   if (!quote) notFound();
@@ -132,11 +132,11 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
         <Link href={trip ? `/trips/${trip.id}` : "/"}>← Trip {trip?.reference}</Link>
       </p>
       <h1>
-        {quote.reference}
+        Quote · {trip?.reference}
         {trip?.title ? ` · ${trip.title}` : ""}
       </h1>
       <p className="sub">
-        {client ? `Prepared for ${client.full_name} (${client.client_code}) · trip ${trip?.reference}` : "No client set"}
+        {client ? `Prepared for ${client.full_name} (${client.client_code})` : "No client set"}
       </p>
 
       <h2>Source images</h2>
@@ -238,7 +238,7 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
             {versions.map((v) => (
               <tr key={v.id}>
                 <td>
-                  {quote.reference} V{v.version_no}
+                  {trip?.reference} V{v.version_no}
                 </td>
                 <td>
                   {!v.pdf_path ? (
