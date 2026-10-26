@@ -19,15 +19,15 @@ export type ClaudeCall = {
 /**
  * One call per image (ADR 0003): the answer is forced into EXTRACTION_SCHEMA.
  * Returns the raw answer for logging; answerToResult() then checks and parses it.
- * Throws only if the API call itself fails.
+ * Throws only if the API call itself fails, or runs past `timeoutMs`.
  */
 export async function extractFromImage(
   bytes: Uint8Array,
   mediaType: MediaType,
+  timeoutMs: number,
 ): Promise<ClaudeCall> {
-  // Reads ANTHROPIC_API_KEY. The timeout keeps a call that starts late inside the request's 300 s
-  // (START_BUDGET_MS in extract-actions.ts); no retries, since a retry could not finish in time either.
-  const client = new Anthropic({ timeout: 140_000, maxRetries: 0 });
+  // Reads ANTHROPIC_API_KEY. No retries: the caller gives this call all the time the request has left.
+  const client = new Anthropic({ maxRetries: 0 });
 
   const res = await client.beta.messages.create({
     model: MODEL,
@@ -48,7 +48,7 @@ export async function extractFromImage(
         ],
       },
     ],
-  });
+  }, { timeout: timeoutMs });
 
   return {
     model: res.model,

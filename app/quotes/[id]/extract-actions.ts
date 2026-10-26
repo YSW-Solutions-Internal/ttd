@@ -13,9 +13,11 @@ import type { ExtractionResult } from "@/lib/extraction/types";
 export type ExtractState = { message?: string; error?: string };
 
 const CONCURRENCY = 3; // images sent to Claude at the same time
-// shortcut: extraction runs inside the request (maxDuration 300 s, page.tsx), so no new image starts after
-// this and the calls already running can finish in time; the rest wait for the next click. Background jobs replace this (README milestone 2).
+// shortcut: extraction runs inside the request (maxDuration 300 s, page.tsx). No new image starts after
+// START_BUDGET_MS (the rest wait for the next click), and every Claude call must end by CALL_DEADLINE_MS,
+// leaving time to store what was read. Background jobs replace this (README milestone 2).
 const START_BUDGET_MS = 140_000;
+const CALL_DEADLINE_MS = 270_000;
 
 function mediaTypeFor(path: string): MediaType {
   const ext = path.split(".").pop()?.toLowerCase();
@@ -32,12 +34,13 @@ async function callAndLog(
   imageId: string,
   bytes: Uint8Array,
   mediaType: MediaType,
+  deadline: number,
 ): Promise<ExtractionResult> {
   const startedAt = new Date().toISOString();
   let call: ClaudeCall | null = null;
   let error: string | null = null;
   try {
-    call = await extractFromImage(bytes, mediaType);
+    call = await extractFromImage(bytes, mediaType, deadline - Date.now());
     return answerToResult(call);
   } catch (e) {
     error = e instanceof Error ? e.message : "Unknown error";
@@ -65,6 +68,7 @@ async function processImage(
   quoteId: string,
   ctx: FeeContext,
   image: ImageRow,
+  deadline: number,
 ): Promise<"done" | "failed" | "busy"> {
 
   // Mark as running, atomically (claim_extraction in migration 0006): if another
@@ -87,7 +91,7 @@ async function processImage(
     if (dlErr || !blob) throw new Error("Could not read the image from storage.");
 
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    const result = await callAndLog(supabase, image.id, bytes, mediaTypeFor(image.storage_path));
+    const result = await callAndLog(supabase, image.id, bytes, mediaTypeFor(image.storage_path), deadline);
 
     const rows = toItemRows(quoteId, image.id, result.items, ctx.createdOn);
     const places = await loadPlaces(supabase, rows.flights.flatMap((f) => [f.from_code, f.to_code]));
@@ -155,7 +159,7 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
   const count = { done: 0, failed: 0, busy: 0 };
   async function worker() {
     while (queue.length > 0 && Date.now() - started < START_BUDGET_MS) {
-      count[await processImage(supabase, quoteId, ctx, queue.shift()!)]++;
+      count[await processImage(supabase, quoteId, ctx, queue.shift()!, started + CALL_DEADLINE_MS)]++;
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
