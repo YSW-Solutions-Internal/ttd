@@ -107,7 +107,7 @@ A train trip that is part of the Trip. Read from images like any other Item.
 _Avoid_: Train, rail ticket
 
 **Version**:
-One generated edition of a Quote (V1, V2 ...), with exactly one PDF. Made by Generating a version: a frozen copy of the Quote's Working content at that moment. Versions are never edited; changes go into the Working content and become the next Version.
+One generated edition of a Quote (V1, V2 ...), with exactly one PDF. Made by Generating a version: a frozen copy of the Quote's Working content at that moment. Versions are never edited and their PDF is never re-rendered; changes, including a needed re-render, go into the next Version.
 _Avoid_: Revision, draft
 
 **Working content**:
@@ -115,7 +115,7 @@ The editable state of a Quote: its Items (read from its images or entered by han
 _Avoid_: Draft, current version
 
 **Generate version**:
-The act of freezing a Quote's Working content into its next Version and producing that Version's PDF.
+The act of freezing a Quote's Working content into its next Version and producing that Version's PDF. The freeze is kept even if the PDF fails; producing the PDF is then retried from the frozen copy, never from the Working content. A Version without its PDF cannot be sent.
 _Avoid_: Save, publish, issue, commit
 
 **Client document**:

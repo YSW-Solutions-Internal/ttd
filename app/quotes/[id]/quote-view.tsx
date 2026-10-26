@@ -5,6 +5,7 @@ import { one } from "@/lib/relations";
 import { removeImage } from "./actions";
 import { EditSection } from "./edit-section";
 import { ExtractButton } from "./extract-button";
+import { RetryPdfButton } from "./retry-pdf-button";
 import { UploadForm } from "./upload-form";
 
 type ExtractionRow = {
@@ -52,7 +53,7 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
       .order("created_at", { ascending: true }),
     supabase
       .from("quote_versions")
-      .select("id, version_no, status, pdf_path, created_at")
+      .select("id, version_no, pdf_path, created_at")
       .eq("quote_id", id)
       .order("version_no", { ascending: false }),
   ]);
@@ -116,7 +117,6 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
     });
   }
 
-  // shortcut: assumes PDFs go in quote-files under the quote id; confirm when rendering (milestone 5) lands.
   const pdfUrls = new Map<string, string>();
   const pdfPaths = (versions ?? []).flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
   if (pdfPaths.length > 0) {
@@ -230,7 +230,6 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
           <thead>
             <tr>
               <th>Version</th>
-              <th>Status</th>
               <th>PDF</th>
               <th>Created</th>
             </tr>
@@ -239,11 +238,12 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
             {versions.map((v) => (
               <tr key={v.id}>
                 <td>
-                  {quote.reference} v{v.version_no}
+                  {quote.reference} V{v.version_no}
                 </td>
-                <td>{v.status}</td>
                 <td>
-                  {v.pdf_path && pdfUrls.get(v.pdf_path) ? (
+                  {!v.pdf_path ? (
+                    <RetryPdfButton quoteId={quote.id} versionId={v.id} />
+                  ) : pdfUrls.get(v.pdf_path) ? (
                     <a href={pdfUrls.get(v.pdf_path)} target="_blank" rel="noreferrer">
                       Open PDF
                     </a>

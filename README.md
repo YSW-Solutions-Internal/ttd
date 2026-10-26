@@ -2,7 +2,7 @@
 
 Staff-only web app for building travel quotes: upload supplier screenshots, extract data with AI, correct it, and produce one PDF per quote version.
 
-**Stack:** Next.js 16 (TypeScript, App Router) · Supabase (Auth, Postgres, private Storage) · Claude API (image extraction) · Puppeteer for PDFs (next milestone)
+**Stack:** Next.js 16 (TypeScript, App Router) · Supabase (Auth, Postgres, private Storage) · Claude API (image extraction) · Puppeteer with `@sparticuz/chromium` for PDFs
 
 ## What works now
 
@@ -18,13 +18,15 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 - Images already extracted with the current prompts are never sent again (revisions only process new images)
 - Database schema ready for Items (one table per kind, read from images or entered by hand), the AI call log, versions, booking tracking, fee schedules and destinations
 
-Not built yet: quote assembly, versions and PDF generation.
+- PDF renderer (`lib/pdf/`): quote JSON in the shape of `lib/pdf/sample-quote.json` -> the quotation template -> an A4 PDF. A Version whose PDF failed shows **PDF failed** and **Retry** in the Versions table; the retry renders the Version's frozen JSON, and a Version that has its PDF is never rendered again (see `docs/adr/0006-pdf-rendered-by-chromium-from-frozen-version.md`)
+
+Not built yet: quote assembly and the Generate version button.
 
 ## Setup
 
 1. Create a Supabase project. Choose the South Africa (Cape Town) region if offered.
 2. In the SQL editor, run `supabase/migrations/0001_init.sql`.
-   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed) `0007_clients_and_access.sql` (client codes, Consultants, access per Consultant) `0008_fee_rates.sql` (the VAT-inclusive fee grid per Item type and Fee region) `0009_item_tables_and_ai_log.sql` (Item tables, AI call log; wipes existing extractions, which are test data) `0010_stays_and_flight_editing.sql` (Accommodation options placed in Stays, saving a Flight option's flights in one go) `0011_rand_only.sql` (drops currency and the printed price: every price is in Rand), `0012_airlines_aircraft_flight_names.sql` (airline and aircraft names, airport names and booking class on flights) and `0013_seed_airlines_aircraft.sql` (generated from OpenFlights, ODbL, by `scripts/build-airline-aircraft-seed.py`; airline names go in unconfirmed), then `0014_shorter_extraction_lock.sql` (a stuck extraction can be retried after 5 minutes). 0007 stops if `public.clients` has rows; the message tells you what to delete.
+   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed) `0007_clients_and_access.sql` (client codes, Consultants, access per Consultant) `0008_fee_rates.sql` (the VAT-inclusive fee grid per Item type and Fee region) `0009_item_tables_and_ai_log.sql` (Item tables, AI call log; wipes existing extractions, which are test data) `0010_stays_and_flight_editing.sql` (Accommodation options placed in Stays, saving a Flight option's flights in one go) `0011_rand_only.sql` (drops currency and the printed price: every price is in Rand), `0012_airlines_aircraft_flight_names.sql` (airline and aircraft names, airport names and booking class on flights) and `0013_seed_airlines_aircraft.sql` (generated from OpenFlights, ODbL, by `scripts/build-airline-aircraft-seed.py`; airline names go in unconfirmed), then `0014_shorter_extraction_lock.sql` (a stuck extraction can be retried after 5 minutes). Then `0015_versions_final_from_birth.sql` (no draft versions: a Version is read-only from the start, and only its missing PDF can be filled in). 0007 stops if `public.clients` has rows; the message tells you what to delete.
    0002 is a **draft**: it stops if `public.quotes` has rows (old data is discarded by design). Read the notes at its top first.
 3. Accounts are by invitation only, and the database enforces it (0005): any new account that does not match an admin's invitation is rejected, whatever the dashboard's sign-up settings say.
 4. Make yourself an administrator. 0005 sets every existing account to Standard user, so run this once in the SQL editor:
@@ -55,11 +57,14 @@ Not built yet: quote assembly, versions and PDF generation.
    SUPABASE_SERVICE_ROLE_KEY
    ANTHROPIC_API_KEY
    ```
+
+   Locally only, also set `CHROME_PATH` to a Chrome 138 or chrome-headless-shell 138 executable, so PDFs can render (Vercel uses the Linux Chromium from `@sparticuz/chromium` instead). One way to get it: `npx @puppeteer/browsers install chrome-headless-shell@138.0.7204.168`.
 7. Install and run:
 
    ```bash
    npm install
    npm run dev
+   npm test        # unit tests (Node's built-in runner)
    ```
 
 8. Open http://localhost:3000 and sign in.
@@ -83,6 +88,7 @@ lib/supabase/server.ts    Supabase client for server code
 lib/supabase/admin.ts     service-role client, used only to send invites
 lib/hash.ts               SHA-256 helper used for duplicate detection
 lib/extraction/           prompt (with PROMPT_VERSION), its JSON schema, the Claude call, parsing, item types
+lib/pdf/                  quote JSON types and sample, the quotation template, money formatting, HTML -> PDF
 supabase/migrations/      database schema, RLS, storage bucket
 ```
 
@@ -102,7 +108,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 2. Move extraction into a background job runner (it currently runs inside the page request)
 3. Deterministic assembler: the Quote's Item rows, then pricing, into quote JSON
 4. Edit screen: autosave (each Item has its own Save button today), and warning about unsaved changes on in-app links too
-5. Render service: port `render_lib.py` and the template, Puppeteer PDF into storage, one per version
+5. Generate version button: assemble, save the Version with its frozen JSON and items in one transaction, then render its PDF (the renderer and Retry are ready)
 6. Trips list: filter by Consultant, for admins
 7. Review the Trips list for pagination once there are a few hundred trips (it loads and sorts every matching trip today)
 8. Booking status per Item (booked, issued, cancelled), charging the Transaction fee when the Client cancels before issue

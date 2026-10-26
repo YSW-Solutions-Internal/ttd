@@ -6,13 +6,15 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test lib/extraction/parse.test.mjs lib/extraction/rows.test.mjs lib/fees.test.mjs lib/codes.test.mjs"
+    "test": "node --test lib/extraction/parse.test.mjs lib/extraction/rows.test.mjs lib/fees.test.mjs lib/codes.test.mjs lib/pdf/money.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
+    "@sparticuz/chromium": "138.0.2",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "next": "^16.4.2",
+    "puppeteer-core": "24.15.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
