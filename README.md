@@ -26,7 +26,7 @@ Not built yet: quote assembly and the Generate version button.
 
 1. Create a Supabase project. Choose the South Africa (Cape Town) region if offered.
 2. In the SQL editor, run `supabase/migrations/0001_init.sql`.
-   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed) `0007_clients_and_access.sql` (client codes, Consultants, access per Consultant) `0008_fee_rates.sql` (the VAT-inclusive fee grid per Item type and Fee region) `0009_item_tables_and_ai_log.sql` (Item tables, AI call log; wipes existing extractions, which are test data) `0010_stays_and_flight_editing.sql` (Accommodation options placed in Stays, saving a Flight option's flights in one go) `0011_rand_only.sql` (drops currency and the printed price: every price is in Rand), `0012_airlines_aircraft_flight_names.sql` (airline and aircraft names, airport names and booking class on flights) and `0013_seed_airlines_aircraft.sql` (generated from OpenFlights, ODbL, by `scripts/build-airline-aircraft-seed.py`; airline names go in unconfirmed), then `0014_shorter_extraction_lock.sql` (a stuck extraction can be retried after 5 minutes). Then `0015_versions_final_from_birth.sql` (no draft versions: a Version is read-only from the start, and only its missing PDF can be filled in). 0007 stops if `public.clients` has rows; the message tells you what to delete.
+   Then run `0002_boards_alignment.sql` (clients, trips, client-based references, item selection per version, booking tracking, fee schedules, final-version lock), `0003_seed_destinations.sql` (111 destinations), `0004_seed_fee_schedule.sql` (Ore and Metal 2025 tariff), `0005_user_roles.sql` (roles and invitation-only accounts) `0006_tighten_access.sql` (only admins delete records and files or change pricing settings; emails cannot be changed) `0007_clients_and_access.sql` (client codes, Consultants, access per Consultant) `0008_fee_rates.sql` (the VAT-inclusive fee grid per Item type and Fee region) `0009_item_tables_and_ai_log.sql` (Item tables, AI call log; wipes existing extractions, which are test data) `0010_stays_and_flight_editing.sql` (Accommodation options placed in Stays, saving a Flight option's flights in one go) `0011_rand_only.sql` (drops currency and the printed price: every price is in Rand), `0012_airlines_aircraft_flight_names.sql` (airline and aircraft names, airport names and booking class on flights) and `0013_seed_airlines_aircraft.sql` (generated from OpenFlights, ODbL, by `scripts/build-airline-aircraft-seed.py`; airline names go in unconfirmed), then `0014_shorter_extraction_lock.sql` (a stuck extraction can be retried after 5 minutes). Then `0015_versions_final_from_birth.sql` (no draft versions: a Version is read-only from the start, and only its missing PDF can be filled in). Then `0016_one_quote_per_trip.sql` (one Quote per Trip, created with it) and `0017_background_extraction.sql` (the Extract button queues images and the cron reads them; failed images wait for the button). 0007 stops if `public.clients` has rows; the message tells you what to delete.
    0002 is a **draft**: it stops if `public.quotes` has rows (old data is discarded by design). Read the notes at its top first.
 3. Accounts are by invitation only, and the database enforces it (0005): any new account that does not match an admin's invitation is rejected, whatever the dashboard's sign-up settings say.
 4. Make yourself an administrator. 0005 sets every existing account to Standard user, so run this once in the SQL editor:
@@ -56,7 +56,10 @@ Not built yet: quote assembly and the Generate version button.
    NEXT_PUBLIC_SUPABASE_ANON_KEY
    SUPABASE_SERVICE_ROLE_KEY
    ANTHROPIC_API_KEY
+   CRON_SECRET
    ```
+
+   `CRON_SECRET` is any long random string. Vercel sends it to the extraction cron (`vercel.json`, every minute; needs the Pro plan), and the route refuses calls without it. Locally the cron does not run: images are read right after the click, and anything left over can be read with `curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/cron/extract`.
 
    Locally only, also set `CHROME_PATH` to a Chrome 138 or chrome-headless-shell 138 executable, so PDFs can render (Vercel uses the Linux Chromium from `@sparticuz/chromium` instead). One way to get it: `npx @puppeteer/browsers install chrome-headless-shell@138.0.7204.168`.
 7. Install and run:
@@ -105,7 +108,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 ## Next milestones
 
 1. ~~Airport table loader~~ Done: airport data is loaded (replaces the monday.com Airport Ref board)
-2. Move extraction into a background job runner (it currently runs inside the page request)
+2. ~~Move extraction into a background job runner~~ Done: images are read in the background (ADR 0008)
 3. Deterministic assembler: the Quote's Item rows, then pricing, into quote JSON
 4. Edit screen: autosave (each Item has its own Save button today), and warning about unsaved changes on in-app links too
 5. Generate version button: assemble, save the Version with its frozen JSON and items in one transaction, then render its PDF (the renderer and Retry are ready)

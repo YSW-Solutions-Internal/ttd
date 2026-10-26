@@ -75,6 +75,7 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
     });
   }
   const waiting = (images ?? []).filter((i) => extractions.get(i.id)?.status !== "done").length;
+  const reading = (images ?? []).filter((i) => ["pending", "running"].includes(extractions.get(i.id)?.status ?? "")).length;
 
   // The Quote's Items per image, and what the AI last answered for each image (ai_calls, ADR 0005).
   const counts = new Map<string, Map<string, number>>();
@@ -168,6 +169,7 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
                   </div>
                   <div className="status">
                     {!ex && <span className="badge">Not extracted</span>}
+                    {ex?.status === "pending" && <span className="badge">Queued</span>}
                     {ex?.status === "running" && <span className="badge">Reading…</span>}
                     {ex?.status === "done" && (
                       <span className="badge ok">
@@ -187,7 +189,7 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
         )}
       </div>
 
-      {images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} />}
+      {images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} reading={reading} />}
 
       {images && images.some((i) => extractions.get(i.id)?.status === "done") && (
         <>
