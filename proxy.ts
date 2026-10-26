@@ -35,7 +35,9 @@ export async function proxy(request: NextRequest) {
   const isLogin = request.nextUrl.pathname.startsWith("/login");
   // Invite and reset links arrive before the user has a session.
   const isEmailLink = request.nextUrl.pathname === "/auth/confirm";
-  if (!user && !isLogin && !isEmailLink) {
+  // Vercel Cron has no session; the route checks CRON_SECRET itself.
+  const isCron = request.nextUrl.pathname.startsWith("/api/cron/");
+  if (!user && !isLogin && !isEmailLink && !isCron) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
