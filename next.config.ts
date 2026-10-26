@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Stop `next dev` writing its own AGENTS.md into the repo.
+  agentRules: false,
   experimental: {
     // Quote source images are screenshots; allow several per upload.
     serverActions: { bodySizeLimit: "25mb" },
