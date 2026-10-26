@@ -105,3 +105,35 @@ th a.sort { color: inherit; }
 @media (max-width: 700px) {
   .modal { width: 100vw; height: 100dvh; padding: 18px 16px; }
 }
+
+.edit-block { display: grid; grid-template-columns: 280px 1fr; gap: 16px; margin-bottom: 22px; align-items: start; }
+.edit-image { position: sticky; top: 12px; }
+.edit-image img { display: block; width: 100%; border: 1px solid var(--line); background: #fff; }
+.edit-items { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.item-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 12px; }
+.item-grid small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.item-grid small.warn, small.warn { color: var(--danger); }
+.item-form input[type="number"], .item-form input[type="date"], .item-form input[type="time"] {
+  width: 100%; padding: 8px 10px; border: 1px solid #cfc9c0; background: #fff; font: inherit;
+}
+.item-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.item-actions .msg { margin-top: 0; }
+.flights { overflow-x: auto; margin: 4px 0 14px; }
+.flights th, .flights td { padding: 4px 6px; }
+.flights td input { padding: 4px 6px; border: 1px solid #cfc9c0; font: inherit; min-width: 70px; width: 100%; }
+.flights td input[type="checkbox"] { min-width: 0; width: auto; }
+.flights .handle { cursor: grab; color: var(--muted); user-select: none; }
+.flights tr.dragging { opacity: 0.5; }
+@media (max-width: 900px) {
+  .edit-block { grid-template-columns: 1fr; }
+  .edit-image { position: static; max-width: 360px; }
+}
+.stays td { padding: 6px 8px; }
+.stays input[type="date"] { padding: 7px 8px; border: 1px solid #cfc9c0; font: inherit; }
+.stays .stay-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.stays .stay-actions .msg { margin-top: 0; }
+.confirm-airlines { margin-bottom: 18px; }
+.confirm-airlines .sub { margin: 4px 0 10px; }
+.confirm-airlines form { margin-bottom: 8px; }
+.confirm-airlines input[type="text"] { max-width: 320px; }

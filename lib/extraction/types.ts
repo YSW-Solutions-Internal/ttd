@@ -1,4 +1,4 @@
-export const ITEM_KINDS = ["flight", "hotel", "car_rental", "excursion"] as const;
+export const ITEM_KINDS = ["flight", "hotel", "car_rental", "excursion", "transfer", "rail"] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
 /**
@@ -15,6 +15,10 @@ export type ExtractedItem = {
   data: Record<string, unknown>;
 };
 
+/** What kind of screen the image's flights came from; null when the image has no flight. */
+export type FlightSource = { type: string };
+
 export type ExtractionResult = {
   items: ExtractedItem[];
+  source: FlightSource | null;
 };

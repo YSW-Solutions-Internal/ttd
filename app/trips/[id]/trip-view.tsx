@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
 import { TRIP_STATUSES, tripStatusLabel } from "@/lib/trip-status";
 import { createQuote, setTripStatus } from "../actions";
+import { StayRow } from "./stays-form";
 
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") : null);
 
@@ -19,11 +20,21 @@ export async function TripView({ id }: { id: string }) {
   if (!trip) notFound();
   const client = one(trip.clients);
 
-  const { data: quotes } = await supabase
-    .from("quotes")
-    .select("id, reference, created_at, quote_versions(version_no)")
-    .eq("trip_id", id)
-    .order("created_at", { ascending: false });
+  const [{ data: quotes }, { data: stays }, { data: destinations }] = await Promise.all([
+    supabase
+      .from("quotes")
+      .select("id, reference, created_at, quote_versions(version_no)")
+      .eq("trip_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("trip_stops")
+      .select("id, destination_code, starts_on, ends_on, highlight")
+      .eq("trip_id", id)
+      .order("starts_on", { nullsFirst: false })
+      .order("position"),
+    supabase.from("destinations").select("code, name, country").order("name"),
+  ]);
+  const destinationOptions = (destinations ?? []).map((d) => ({ code: d.code, label: `${d.name}, ${d.country}` }));
 
   return (
     <>
@@ -47,6 +58,26 @@ export async function TripView({ id }: { id: string }) {
         </select>
         <button type="submit">Change</button>
       </form>
+
+      <h2>Stays</h2>
+      <p className="sub">The Trip's itinerary, shared by all its Quotes. Accommodation options are placed in these.</p>
+      <table className="stays">
+        <thead>
+          <tr>
+            <th>Destination</th>
+            <th>Arrive</th>
+            <th>Depart</th>
+            <th>Highlight</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {(stays ?? []).map((s) => (
+            <StayRow key={`${s.id}-${s.destination_code}-${s.starts_on}-${s.ends_on}-${s.highlight}`} tripId={trip.id} stay={s} destinations={destinationOptions} />
+          ))}
+          <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />
+        </tbody>
+      </table>
 
       <h2>Quotes</h2>
       <form action={createQuote.bind(null, trip.id)} style={{ marginBottom: 14 }}>

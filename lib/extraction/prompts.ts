@@ -1,149 +1,98 @@
+import { EXTRACTION_SCHEMA } from "./schema.ts";
+
 /**
- * STARTER PROMPTS. Replace the text below with your canonical agent prompts
- * (classifier, flight, hotel, car rental, excursion) once you are happy with them.
+ * The extraction prompt: one call per image (ADR 0003). The answer's shape is
+ * EXTRACTION_SCHEMA, given at the end of the prompt and checked by parse.ts.
  *
- * Bump PROMPT_VERSION whenever any prompt changes. Extractions are stored per
- * (image, PROMPT_VERSION), so a new version makes every image eligible for
- * re-extraction, while an unchanged version means an image is never sent to the
- * AI twice.
+ * Bump PROMPT_VERSION whenever the prompt or the schema changes. It records which
+ * prompt read each image. It does not re-read images: an image with a finished
+ * extraction is never sent to the AI again, whatever version made it, because
+ * staff corrections are keyed to the Items of that extraction.
  */
-export const PROMPT_VERSION = "2026-10-17.1";
+export const PROMPT_VERSION = "2026-10-25.3";
 
-export const IMAGE_TYPES = ["GENERIC_QUOTE", "GALILEO_GDS", "BOOKING_PAD", "UNKNOWN"] as const;
-export type ImageType = (typeof IMAGE_TYPES)[number];
-
-export const CLASSIFIER_PROMPT = `You are classifying one screenshot from a travel agency's supplier quote workflow.
-
-Choose exactly ONE image_type:
-- GENERIC_QUOTE: a supplier quote or price display (airline, hotel, car hire, tour or excursion) shown as a web page, email, app screen or PDF page.
-- GALILEO_GDS: a text terminal screen from the Galileo / Travelport GDS (monospaced PNR, availability or fare display).
-- BOOKING_PAD: a booking pad or booking summary sheet listing reserved or proposed services.
-- UNKNOWN: anything else, or the image is unreadable.
-
-Return ONLY a JSON object, with no commentary and no code fences:
-{"image_type": "GENERIC_QUOTE"}`;
-
-export const EXTRACTION_PROMPT = `You transcribe travel supplier quotes from a screenshot into JSON.
-You TRANSCRIBE only. Never calculate, convert, infer or correct anything.
+export const EXTRACTION_PROMPT = `You transcribe one screenshot from a travel agency's supplier material into JSON. Staff check your output and code does every calculation afterwards, so copy exactly what is printed. Never calculate, convert, look up or guess. A missing value is always better than a wrong one.
 
 WHAT TO EXTRACT
-Find every bookable service on the image and output one item per service, using these kinds:
-- "flight": one complete flight option (every direction and leg, plus its price block)
-- "hotel": one hotel stay option
-- "car_rental": one car hire
-- "excursion": one tour, activity or experience
-One image can hold several items of different kinds. If the image holds no travel service, return {"items": []}.
+Find every bookable option on the image and put each in the array for its kind:
+- "flight": one flight option, meaning one complete way of flying (every direction and flight in it) with its price.
+- "hotel": one room or rate option at a hotel, lodge, guesthouse or other accommodation.
+- "car_rental": one car hire option.
+- "excursion": one tour, activity or experience.
+- "transfer": one road transfer between two places (airport to hotel, hotel to hotel), by shuttle, private car or coach.
+- "rail": one train journey.
+An image can hold several options of the same kind (two rooms, two cars, three fares side by side) and occasionally of different kinds. Every option shown is a separate entry, even if they share the same flights or the same hotel. If the image holds no bookable option, return empty arrays.
 
-RULES
-1. Copy values exactly as shown. Do not compute totals, nights, durations, connections or dates.
-2. Money: the comma is ALWAYS a thousands separator and the full stop is the decimal point ("18,810.00" means 18810.00). Output prices as bare JSON numbers with no currency symbol. Put the currency code in "currency" (an ISO code such as "ZAR", or null if not shown).
-3. Before extracting a flight, count every direction or price-block section on the image (outbound, return, each multi-city leg). Every section must appear in the output. A missing return leg is a failure.
-4. Missing values: STRING fields are null (never ""). NUMBER fields that are not prices are 0. PRICE fields are null (never 0).
-5. Dates are "YYYY-MM-DD" only when the full date including the year is visible, otherwise null. Times are 24-hour "HH:mm".
-6. If text is unreadable or ambiguous, use null. Never guess.
+VALUES
+- A value that is not shown, cannot be read, or is ambiguous is "" (empty string). Never fill a field with text that belongs to a neighbouring field or label.
+- Dates are "YYYY-MM-DD" when the year is printed. When the year is not printed, write "--MM-DD" (for example "15SEP" is "--09-15"). Never add a year that is not printed.
+- Times are 24-hour "HH:mm". If no time is printed, the time field is "".
+- Codes, names, cabin letters and fare labels are copied exactly as printed.
 
-OUTPUT FORMAT
-Return ONLY one JSON object, with no commentary and no code fences:
-{
-  "items": [
-    {
-      "kind": "flight" or "hotel" or "car_rental" or "excursion",
-      "data": { ...the shape for that kind, below... }
-    }
-  ]
-}
+NUMBERS
+- Counts (stops, count, star, nights, rooms, passengers) are digit strings such as "0" or "2", and only when printed or directly visible. Otherwise "".
+- Every price is in Rand. Write it as a bare number with no currency symbol, no spaces and no thousands separators, and a full stop for the decimal point: "R 13 111,80" is "13111.80".
+- Decide from the way the figure is printed which mark is the decimal separator. In "13,111.80" the comma groups thousands; in "13 111,80" or "13.111,80" the comma is the decimal point. A separator followed by exactly two digits at the end is normally the decimal point. If you cannot tell, the price is "".
 
-SHAPE FOR kind "flight"
-{
-  "label": STRING or null,
-  "airlines": STRING or null,
-  "groups": [
-    {
-      "label": STRING or null,
-      "fare": NUMBER or null,
-      "fare_basis": STRING or null,
-      "flights": [
-        {
-          "airline": STRING or null,
-          "flight_no": STRING or null,
-          "aircraft": STRING or null,
-          "from_city": STRING or null,
-          "from_code": STRING or null,
-          "to_city": STRING or null,
-          "to_code": STRING or null,
-          "date": STRING or null,
-          "departs": STRING or null,
-          "arrives": STRING or null,
-          "next_day": BOOLEAN (true only if the image shows a +1 or next-day marker),
-          "flying_time": STRING or null,
-          "stops": NUMBER,
-          "baggage": STRING or null,
-          "cabin": STRING or null
-        }
-      ]
-    }
-  ],
-  "fare_rules": STRING or null,
-  "notes": STRING or null,
-  "pricing": {
-    "currency": STRING or null,
-    "total_price": NUMBER or null (the all-in total exactly as labelled on the image; never a tax or VAT figure),
-    "vat": NUMBER or null,
-    "lines": [
-      {
-        "pax_label": STRING or null,
-        "count": NUMBER,
-        "fare_pp": NUMBER or null,
-        "taxes_pp": NUMBER or null
-      }
-    ]
-  }
-}
+PRICES (applies to every kind)
+The price of an option is the single all-inclusive amount payable for that whole option: every direction, night and passenger, taxes and fees included. Find it on the image; never compute it.
+- The label decides, not the size. Identify the label attached to each candidate figure (the text above, beside, or in the same row or box) and choose by label. Being biggest or boldest only breaks a tie between candidates that already pass the label test.
+- Never use a figure as the price if its own label contains: tax, taxes, taxes & fees, fees, fee, surcharge, levy, YQ, YR, base fare, fare, air fare, fare only, subtotal, sub-total, per person, per adult, per traveller, per pax, pp, each, per night, avg per night, from, deposit, due now, balance, discount, saving, you save, credit, voucher, points, miles, baggage, seat, extras, insurance, was. Never use a struck-through figure. The taxes line printed just above the total is the most common wrong answer.
+- Work down this ladder and stop at the first rule that applies:
+  1. A figure labelled as the grand total: Total, Total price, Total fare, Total amount, Total cost, Total due, Total payable, Grand total, Amount due, Amount payable, You pay, To pay, Total incl. taxes, All inclusive. In a breakdown table (base fare, taxes, total), take the bottom-most line with a total-type label.
+  2. The price inside or right next to the main action button (Continue, Book, Select, Checkout, Reserve, Pay), if it is not labelled per person or per night.
+  3. In GDS fare-quote text, the TOTAL or GRAND TOTAL line, or the figure after TTL. Never the BASE, FARE, TAX, XT or per-passenger lines.
+  4. If exactly one all-inclusive price for the whole option is printed anywhere, that figure.
+  5. Otherwise the price is "".
+- If both a VAT-inclusive and a VAT-exclusive figure are shown, the price is the VAT-inclusive one.
+- Sanity check, by comparison only: the chosen price must not be smaller than, or equal to, any labelled taxes figure or labelled base fare for the same option. If it is, you picked a component; go back to the ladder.
+- Copy only the digits of the price itself, ignoring nearby icons, info glyphs, buttons and footnote markers.
 
-SHAPE FOR kind "hotel"
-{
-  "name": STRING or null,
-  "star": NUMBER,
-  "room": STRING or null,
-  "meals": STRING or null,
-  "check_in": STRING or null,
-  "check_out": STRING or null,
-  "currency": STRING or null,
-  "price": NUMBER or null,
-  "address": STRING or null,
-  "notes": STRING or null
-}
+FLIGHTS
+- Directions: before extracting, look at the whole image and count every direction (outbound, return, each leg of a multi-city trip). Each direction is one entry in "directions" with every flight in it, in order. A round trip normally has two. Do not stop after the first.
+- "total_price" follows PRICES. If the image prints only per-direction prices and no combined figure, total_price is "".
+- "lines" is one entry per passenger type only when the image breaks the price down per passenger (pax_label, count, fare_pp, taxes_pp). Never multiply or divide to fill these.
+- "stops" is the number of intermediate stops within that single flight itself, almost always "0". A "1 stop" label describing a connection between two flights is not a stop of either flight.
+- "arrives" only when the arrival time is printed. Never work it out from the departure time and flying time.
+- "next_day" is true only when the image explicitly marks the arrival as the next day ("+1", or a next-day arrival date printed beside it). Never infer it by comparing dates.
+- Airports: "from_code"/"to_code" is the 3-letter code as printed, whether it is an airport code (LHR) or a city code (LON). "from_city"/"to_city" is a city name and "from_airport"/"to_airport" an airport name, each only when printed ("Johannesburg" is a city, "O.R. Tambo International" an airport). Do not translate a code into a name or a name into a code; code does that afterwards.
+- "airline" is the marketing carrier as printed, a 2-character code (BA) or a name. "operated_by" is the operating carrier as printed when the screen shows a codeshare ("Operated by Qatar Airways", "/QR"), otherwise "".
+- "booking_class" is the booking-class letter as printed (Y, J, C). "cabin" is the cabin only when printed in words (Economy, Premium Economy, Business, First). Never derive one from the other.
 
-SHAPE FOR kind "car_rental"
-{
-  "company": STRING or null,
-  "vehicle": STRING or null,
-  "pickup_location": STRING or null,
-  "dropoff_location": STRING or null,
-  "pickup_datetime": STRING or null ("YYYY-MM-DD HH:mm"),
-  "dropoff_datetime": STRING or null ("YYYY-MM-DD HH:mm"),
-  "currency": STRING or null,
-  "price": NUMBER or null
-}
+FLIGHT SOURCE
+"source_type" says what kind of screen the flights on this image come from. If the image has no flight, it is "NONE".
+- "GENERIC_QUOTE": an airline website, online travel agency (booking.com, Expedia, Kayak) or other consumer booking site. Branding, marketing copy, plain-English labels, city names spelled out, a styled page layout, prices with a currency symbol.
+- "GALILEO_GDS": a Galileo or other GDS terminal screen or raw PNR display. Monospace, dense uppercase text, no styling or branding, 3-letter codes only, status codes (HK1, RR), dates without a year (15SEP), coded lines such as "1 BA 075 Y 15SEP 2 LHRJNB HK1 2115 0900+1 15SEP E BA/ABC123".
+- "BOOKING_PAD": the BookingPad web app (AirGateway's NDC platform for travel agencies). BookingPad or AirGateway branding, a clean agent-facing web app, NDC terms (NDC, Order ID, Shop and Orders tabs), selectable fare or cabin cards, fare labels such as Private, Negotiated, Corporate, Published.
+- "UNKNOWN": there are flights but the screen matches none of the above.
+"source_confidence" is how sure you are of source_type. "source_reason" names the visual evidence only (for example "monospace text, IATA codes, no branding"), never booking content.
 
-SHAPE FOR kind "excursion"
-{
-  "name": STRING or null,
-  "location": STRING or null,
-  "date": STRING or null,
-  "description": STRING or null,
-  "currency": STRING or null,
-  "price": NUMBER or null
-}
+Reading guidance by source:
+- GENERIC_QUOTE: ignore marketing banners and struck-through or "was" prices. When several fares or cabins are shown side by side, each one is a separate flight option.
+- GALILEO_GDS: read each segment line field by field in standard PNR order (line number, carrier and flight number, booking class, date, day-of-week code, origin and destination codes, status code, departure time, arrival time with any +1 marker, arrival date, operating carrier). Copy the booking class into "booking_class" exactly as printed (Y, J, C) and leave "cabin" "" unless a cabin is printed in words. The operating carrier goes in "operated_by". Status codes (HK1, RR) are not fields; mention them in "notes" only if useful. Dates usually have no year: use "--MM-DD". Price only if a fare line is printed.
+- BOOKING_PAD: an Order ID goes in "notes" (for example "Order ID: ABC123"). Fare-type labels (Private, Negotiated, Corporate, Published) and fare family names (Basic, Standard, Flex) go in "fare_basis" exactly as printed. If the screen is a shopping or compare view rather than a confirmed order, say so in "notes" and extract each option shown. Ignore navigation tabs, menus and help text.
 
-Before you answer, check: valid JSON only, every kind uses its own shape, no prices defaulted to 0, no values you calculated yourself.`;
+HOTELS
+- "hotel_name" is the property, "room" the room type, "meals" the board basis as printed (Room only, B&B, Half board...).
+- "nights", "star" and "rooms" (the number of rooms booked) only when printed.
+- "cxl_type" is "free" if the rate is refundable or free to cancel until some date, "nonref" if non-refundable, "" if not stated. "cxl" is the free-cancellation deadline (a date in the date format above, or the deadline text as printed) when cxl_type is "free", otherwise "".
+- "geo_url", "url" and "url_label" only if a link is visibly printed.
 
-/**
- * Per-type overrides. Add a dedicated prompt for an image type here (for
- * example a Galileo-specific extractor) and it is used instead of the generic one.
- */
-export const EXTRACTION_PROMPTS: Partial<Record<ImageType, string>> = {};
+CAR RENTALS
+- One entry per car or rate shown. If the same total is printed twice (a line item and a final total), use the final total once.
 
-export function extractionPromptFor(type: ImageType): string {
-  return EXTRACTION_PROMPTS[type] ?? EXTRACTION_PROMPT;
-}
+EXCURSIONS
+- "provider_name" is the operator, "description" what the activity is, as printed.
+
+TRANSFERS
+- "supplier" is the transfer company, "from" and "to" the pick-up and drop-off places as printed, "time" the pick-up time.
+- "passengers" only when printed.
+
+RAIL
+- "operator" is the rail company, "service" the train name or number, "from_station" and "to_station" as printed, "class" the travel class exactly as printed.
+
+Before answering, check: every option shown has its own entry; every flight option has all its directions; each price was chosen by its label and is the figure printed on the image; no value was calculated or guessed; anything not shown is "".
+
+ANSWER FORMAT
+Answer with one JSON object and nothing else: no explanation and no code fence. Include every key of this JSON Schema, with "" for a value that is not shown and [] for a kind that is not on the image:
+${JSON.stringify(EXTRACTION_SCHEMA)}`;
