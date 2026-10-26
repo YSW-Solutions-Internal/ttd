@@ -98,7 +98,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Next milestones
 
-1. Airport table loader (replaces the monday.com Airport Ref board; waiting for the real airport export)
+1. ~~Airport table loader~~ Done: airport data is loaded (replaces the monday.com Airport Ref board)
 2. Move extraction into a background job runner (it currently runs inside the page request)
 3. Deterministic assembler: the Quote's Item rows, then pricing, into quote JSON
 4. Edit screen: autosave (each Item has its own Save button today), and warning about unsaved changes on in-app links too
