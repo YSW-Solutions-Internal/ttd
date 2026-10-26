@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { ConfirmButton } from "@/app/confirm-button";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { rateFor, tenPercent, type FeeRate } from "@/lib/fees";
 import { addItem, deleteItem, saveItem, type ItemFormState } from "./item-actions";
@@ -257,16 +258,9 @@ export function ItemForm({
 
       <div className="item-actions">
         <button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
-        <button
-          type="submit"
-          className="danger"
-          formAction={deleteItem.bind(null, quoteId, table, id)}
-          onClick={(e) => {
-            if (!confirm(`Delete this ${ITEM_LABEL[table].toLowerCase()}? This cannot be undone.`)) e.preventDefault();
-          }}
-        >
+        <ConfirmButton className="danger" formAction={deleteItem.bind(null, quoteId, table, id)} confirmLabel="Sure? This cannot be undone">
           Delete
-        </button>
+        </ConfirmButton>
         {state.error && <span className="msg error">{state.error}</span>}
         {state.notice && !dirty && <span className="msg">{state.notice}</span>}
       </div>

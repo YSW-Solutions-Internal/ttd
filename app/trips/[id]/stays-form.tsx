@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ConfirmButton } from "@/app/confirm-button";
 import { deleteStay, saveStay, type StayFormState } from "../stay-actions";
 
 export type StayValues = {
@@ -58,17 +59,14 @@ export function StayRow({
           {pending ? "Saving…" : stay ? "Save" : "Add"}
         </button>
         {stay && (
-          <button
+          <ConfirmButton
             form={formId}
-            type="submit"
             className="danger"
             formAction={deleteStay.bind(null, stay.id)}
-            onClick={(e) => {
-              if (!confirm("Delete this Stay? Accommodation options placed in it become unplaced.")) e.preventDefault();
-            }}
+            confirmLabel="Sure? Its hotels become unplaced"
           >
             Delete
-          </button>
+          </ConfirmButton>
         )}
         {state.error && <span className="msg error">{state.error}</span>}
         {state.notice && <span className="msg">{state.notice}</span>}
