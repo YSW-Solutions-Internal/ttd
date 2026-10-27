@@ -96,10 +96,55 @@ const PLACING_DATE: Record<string, string> = {
   excursion: "start_date",
 };
 
+/** Where an Item that is not a flight says it is, most specific first. */
+const PLACE_FIELDS: Record<string, string[]> = {
+  hotel: ["address", "location_name"],
+  car_rental: ["pickup_location"],
+  transfer: ["from_place"],
+  rail: ["from_station"],
+  excursion: ["location"],
+};
+
+const plain = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z]+/g, " ").trim();
+
+/** Lower-case English country name -> ISO code, from the platform's own list, plus old or short names. */
+let countryNames: Map<string, string> | undefined;
+function countries(): Map<string, string> {
+  if (countryNames) return countryNames;
+  const names = new Intl.DisplayNames(["en"], { type: "region" });
+  const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  countryNames = new Map([["swaziland", "SZ"], ["rsa", "ZA"], ["usa", "US"], ["uk", "GB"], ["uae", "AE"]]);
+  for (const a of A) {
+    for (const b of A) {
+      const name = names.of(a + b);
+      // Retired codes (FX, RH) canonicalise to today's (FR, ZW) and are skipped.
+      const current = Intl.getCanonicalLocales(`und-${a}${b}`)[0] === `und-${a}${b}`;
+      if (current && name && name !== a + b) countryNames.set(plain(name), a + b);
+    }
+  }
+  return countryNames;
+}
+
 /**
- * What applyFees works out when the region is empty: from the airports' countries
- * for a flight option, otherwise from the Stay the Item is in (an Accommodation
- * option's chosen Stay, or the Stay covering the Item's date).
+ * The country an address or place name ends with ("... 75013 Paris, France" -> FR), else null.
+ * shortcut: a US state that shares a country's name ("Atlanta, Georgia") reads as that country;
+ * harmless unless it is one of South Africa's neighbours, and none are.
+ */
+export function countryIn(text: unknown): string | null {
+  if (typeof text !== "string") return null;
+  const words = plain(text);
+  let best: [string, string] | null = null;
+  for (const [name, code] of countries()) {
+    if ((words === name || words.endsWith(` ${name}`)) && (!best || name.length > best[0].length)) best = [name, code];
+  }
+  return best?.[1] ?? null;
+}
+
+/**
+ * What applyFees works out for a region it may fill in: from the airports' countries
+ * for a flight option; otherwise from the country in the Item's own address or place,
+ * failing that the Stay it is in (an Accommodation option's chosen Stay, or the Stay
+ * covering the Item's date).
  * `airports` maps an upper-case IATA code to its country code.
  */
 export function autoRegion(
@@ -114,6 +159,8 @@ export function autoRegion(
     const countries = codes.map((c) => (typeof c === "string" ? airports.get(c.trim().toUpperCase()) : null));
     return { region: feeRegion(countries, true), variant: cabinVariant(flights.map((f) => f.cabin as string)) };
   }
+  const own = (PLACE_FIELDS[kind] ?? []).map((f) => countryIn(row[f])).find(Boolean);
+  if (own) return { region: feeRegion([own], false), variant: "" };
   const chosen = kind === "hotel" && row.stay_id ? stays.find((s) => s.id === row.stay_id) : undefined;
   const stay = chosen ?? stayCovering(stays, row[PLACING_DATE[kind]]);
   return { region: stay ? feeRegion([stay.country_code], false) : null, variant: "" };
@@ -121,8 +168,8 @@ export function autoRegion(
 
 /**
  * Fills an Item row's Fee region, variant and fees before it is written.
- *  - Region and variant are worked out only while the region is empty; a region
- *    already on the row (worked out earlier, or chosen by the Consultant) is kept.
+ *  - Region and variant are worked out while the region is empty or was worked out
+ *    before (fee_region_auto, migration 0019); a region the Consultant chose is kept.
  *  - Fees come from the schedule when the row is new, when its region or variant
  *    changed, or when a fee is empty. A fee the Consultant typed is otherwise kept.
  *  - A prepaid car rental with the 10% fee ticked gets 10% of its price instead.
@@ -135,9 +182,11 @@ export function applyFees(
   auto: { region: FeeRegion | null; variant: Variant },
   rates: FeeRate[],
 ): Row {
-  if (!row.fee_region) {
+  // A worked-out region is kept when nothing can be worked out now, rather than wiping its fees.
+  if (!row.fee_region || (row.fee_region_auto && auto.region)) {
     row.fee_region = auto.region;
     row.variant = kind === "flight" ? auto.variant : "";
+    row.fee_region_auto = true;
   }
   const rate = rateFor(rates, kind, row.fee_region, row.variant);
   const keyChanged = !prev || prev.fee_region !== row.fee_region || prev.variant !== row.variant;
