@@ -112,7 +112,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 3. ~~Deterministic assembler~~ Done: `lib/pdf/assemble.ts`
 4. ~~Edit screen: autosave, and warning about unsaved changes on in-app links too~~ Done: fields save as you leave them
 5. ~~Generate version button~~ Done
-6. Trips list: filter by Consultant, for admins
+6. ~~Trips list: filter by Consultant, for admins~~ Done
 7. Review the Trips list for pagination once there are a few hundred trips (it loads and sorts every matching trip today)
 8. Booking status per Item (booked, issued, cancelled), charging the Transaction fee when the Client cancels before issue
 9. Finalising a Quote: decide when a Version gets a total for the whole Trip (quotes show Item totals only until then)
