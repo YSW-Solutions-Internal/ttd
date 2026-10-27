@@ -24,7 +24,7 @@ const money = (v: unknown) => (typeof v === "number" ? `R${v.toFixed(2)}` : "non
 
 /** A date or time not in the picker's format stays a text box, so saving never loses it. */
 function inputType(field: Field, v: string): string {
-  if (field.type === "number") return "number";
+  if (field.type === "number" || field.type === "money") return "number";
   if (field.type === "date") return v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v) ? "date" : "text";
   if (field.type === "time") return v === "" || /^\d{2}:\d{2}$/.test(v) ? "time" : "text";
   return "text";
@@ -41,7 +41,7 @@ function Input({ field, value, id }: { field: Field; value: unknown; id: string 
       </select>
     );
   }
-  return <input id={id} type={inputType(field, v)} name={field.name} defaultValue={v} step={field.type === "number" ? "any" : undefined} />;
+  return <input id={id} type={inputType(field, v)} name={field.name} defaultValue={v} step={field.type === "money" ? "0.01" : field.type === "number" ? "any" : undefined} />;
 }
 
 /** Flights inside a Flight option: drag a row to move it, or edit its direction and position numbers. */
@@ -242,7 +242,7 @@ export function ItemForm({
         {FEE_LABELS.map(([name, label]) => (
           <div className="field" key={name}>
             <label htmlFor={`${formId}-${name}`}>{label} (R)</label>
-            <input id={`${formId}-${name}`} type="number" step="any" name={name} defaultValue={str(row[name])} />
+            <input id={`${formId}-${name}`} type="number" step="0.01" name={name} defaultValue={str(row[name])} />
             <small>Schedule: {money(rate?.[name as keyof FeeRate])}</small>
           </div>
         ))}

@@ -8,6 +8,7 @@ import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { applyFees, autoRegion, FEE_FIELDS, FEE_REGIONS, VARIANTS } from "@/lib/fees";
 import { countriesOf, loadFeeContext, loadPlaces } from "@/lib/fee-context";
 import { fillFlightNames } from "@/lib/codes";
+import { parseAmount } from "@/lib/form-values";
 import { FLIGHT_FIELDS, ITEM_FIELDS, PRICE_FIELDS, type Field } from "./item-fields";
 
 export type ItemFormState = { error?: string; notice?: string };
@@ -20,6 +21,7 @@ function isTable(t: string): t is ItemTable {
 function parse(field: Field, raw: unknown): unknown {
   if (field.type === "checkbox") return raw === "on" || raw === true;
   const s = typeof raw === "string" ? raw.trim() : raw == null ? "" : String(raw);
+  if (field.type === "money") return parseAmount(s, field.label);
   if (s === "") return null;
   if (field.type === "number") {
     const n = Number(s.replace(",", "."));
@@ -62,7 +64,7 @@ export async function saveItem(
   try {
     row = {};
     for (const field of [...ITEM_FIELDS[table], ...PRICE_FIELDS]) row[field.name] = parse(field, formData.get(field.name));
-    for (const f of FEE_FIELDS) row[f] = parse({ name: f, label: "Each fee", type: "number" }, formData.get(f));
+    for (const f of FEE_FIELDS) row[f] = parse({ name: f, label: "Each fee", type: "money" }, formData.get(f));
     if (kind === "flight") flights = parseFlights(String(formData.get("flights") ?? "[]"));
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not read the form." };

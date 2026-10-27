@@ -2,7 +2,7 @@
 // columns saveItem will write. Shared by the form (client) and the action (server).
 import type { ItemTable } from "@/lib/extraction/tables";
 
-export type FieldType = "text" | "textarea" | "number" | "date" | "time" | "checkbox" | "select";
+export type FieldType = "text" | "textarea" | "number" | "money" | "date" | "time" | "checkbox" | "select";
 export type Field = { name: string; label: string; type: FieldType; options?: [string, string][] };
 
 const t = (name: string, label: string, type: FieldType = "text"): Field => ({ name, label, type });
@@ -79,8 +79,8 @@ export const ITEM_FIELDS: Record<ItemTable, Field[]> = {
 
 /** Every Item has these (migration 0009). Fee region, variant and the fees are drawn separately. */
 export const PRICE_FIELDS: Field[] = [
-  t("price", "Price (R)", "number"),
-  t("markup", "Markup (R)", "number"),
+  t("price", "Price (R)", "money"),
+  t("markup", "Markup (R)", "money"),
   t("prepaid", "Prepaid", "checkbox"),
   t("notes", "Notes", "textarea"),
 ];
