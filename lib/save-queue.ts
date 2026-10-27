@@ -24,6 +24,11 @@ export class SaveQueue {
     return this.fields.size > 0;
   }
 
+  /** Whether this field has a value not yet saved. */
+  has(name: string): boolean {
+    return this.fields.has(name);
+  }
+
   change(name: string, value: string): void {
     this.fields.set(name, value);
     this.send();

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { getProfile } from "@/lib/auth";
 import { signOut } from "./login/actions";
+import { AutosaveProvider } from "./autosave";
 import { NavShell } from "./side-nav";
 import "./globals.css";
 
@@ -24,6 +25,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body>
+        <AutosaveProvider>
         {profile ? (
           <NavShell
             isAdmin={profile.role === "admin"}
@@ -52,6 +54,7 @@ export default async function RootLayout({
             {children}
           </>
         )}
+        </AutosaveProvider>
       </body>
     </html>
   );

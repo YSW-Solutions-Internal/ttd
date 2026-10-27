@@ -39,6 +39,8 @@ test("queues changes made during a save", async () => {
   calls[0].finish({});
   await tick();
   assert.deepEqual(calls.map((c) => c.sent), [{ a: "1" }, { a: "3", b: "2" }]);
+  assert.equal(q.has("a"), true);
+  assert.equal(q.has("c"), false);
   assert.equal(q.unsaved, true);
   calls[1].finish({});
   await q.idle();
