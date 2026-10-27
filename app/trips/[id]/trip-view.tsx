@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
+import { problems } from "@/lib/pdf/assemble";
+import { TABS } from "@/app/quotes/[id]/edit-section";
+import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { StayRow } from "./stays-form";
 import { TripForm } from "./trip-form";
 
@@ -37,6 +40,23 @@ export async function TripView({ id }: { id: string }) {
     supabase.from("destinations").select("code, name, country").order("name"),
   ]);
   const versions = quote?.quote_versions ?? [];
+
+  // The Quote's Items, as Generate version sees them: quote_items leaves out removed images' Items.
+  const [{ data: active }, ...tables] = quote
+    ? await Promise.all([
+        supabase.from("quote_items").select("entity_id").eq("quote_id", quote.id),
+        ...TABS.map(([t]) => supabase.from(t).select("*").eq("quote_id", quote.id).order("created_at")),
+      ])
+    : [{ data: [] }];
+  const keep = new Set((active ?? []).map((r) => r.entity_id));
+  const items = Object.fromEntries(
+    TABS.map(([t], i) => [t, (tables[i]?.data ?? []).filter((r) => keep.has(r.entity_id))]),
+  ) as Record<(typeof TABS)[number][0], Record<string, unknown>[]>;
+  const counts = TABS.flatMap(([t]) => {
+    const n = items[t].length;
+    return n > 0 ? [`${n} ${ITEM_LABEL[t]}${n === 1 ? "" : "s"}`] : [];
+  });
+  const blockers = quote ? problems({ ...items, flights: [] }) : [];
 
   // Private bucket: short-lived signed links for the Version PDFs.
   const pdfUrls = new Map<string, string>();
@@ -96,23 +116,37 @@ export async function TripView({ id }: { id: string }) {
       </table>
 
       <h2>Quote</h2>
-      {quote && (
-        <p>
-          <Link href={`/quotes/${quote.id}`}>Open quote</Link>
-        </p>
-      )}
-      {versions.length === 0 && <p className="empty">No versions yet.</p>}
-      {versions.length > 0 && <p>Latest: {versionLine(versions[0])}</p>}
-      {versions.length > 1 && (
-        <details>
-          <summary>Previous versions ({versions.length - 1})</summary>
-          <ul>
-            {versions.slice(1).map((v) => (
-              <li key={v.id}>{versionLine(v)}</li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <div className="quote-summary">
+        {quote && (
+          <>
+            <p>{counts.length > 0 ? counts.join(" · ") : "No Items yet"}</p>
+            {blockers.length > 0 && (
+              <ul className="problems">
+                {blockers.map((b) => (
+                  <li key={b}>⚠ {b}</li>
+                ))}
+              </ul>
+            )}
+            <p>
+              <Link href={`/quotes/${quote.id}`} className="btn">
+                Edit quote
+              </Link>
+            </p>
+          </>
+        )}
+        {versions.length === 0 && <p className="empty">No versions yet.</p>}
+        {versions.length > 0 && <p>Latest: {versionLine(versions[0])}</p>}
+        {versions.length > 1 && (
+          <details>
+            <summary>Previous versions ({versions.length - 1})</summary>
+            <ul>
+              {versions.slice(1).map((v) => (
+                <li key={v.id}>{versionLine(v)}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
     </>
   );
 }

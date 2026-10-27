@@ -22,18 +22,7 @@ function summarise(counts: Map<string, number> | undefined): string {
   return [...counts].map(([k, n]) => `${n} ${k.replace("_", " ")}`).join(", ");
 }
 
-/** The AI's raw answer, indented for reading. */
-function pretty(raw: string | undefined): string {
-  if (!raw) return "No AI answer logged for this image.";
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
-}
-
-// Shared by the full Quote page and the Quote modal. Only the full page edits (the modal is too small).
-export async function QuoteView({ id, editable = false }: { id: string; editable?: boolean }) {
+export async function QuoteView({ id }: { id: string }) {
   const supabase = await createClient();
 
   const { data: quote } = await supabase
@@ -78,30 +67,15 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
   const waiting = (images ?? []).filter((i) => extractions.get(i.id)?.status !== "done").length;
   const reading = (images ?? []).filter((i) => ["pending", "running"].includes(extractions.get(i.id)?.status ?? "")).length;
 
-  // The Quote's Items per image, and what the AI last answered for each image (ai_calls, ADR 0005).
+  // The Quote's Items per image. The AI's raw answers stay in ai_calls (ADR 0005), for developers only.
   const counts = new Map<string, Map<string, number>>();
-  const answers = new Map<string, string>();
   if (images && images.length > 0) {
-    const [{ data: items }, { data: calls }] = await Promise.all([
-      supabase.from("quote_items").select("image_id, kind").eq("quote_id", id),
-      supabase
-        .from("ai_calls")
-        .select("image_id, raw_output")
-        .in(
-          "image_id",
-          images.map((i) => i.id),
-        )
-        .is("error", null)
-        .order("finished_at", { ascending: false }),
-    ]);
+    const { data: items } = await supabase.from("quote_items").select("image_id, kind").eq("quote_id", id);
     items?.forEach((i) => {
       if (!i.image_id) return;
       const c = counts.get(i.image_id) ?? new Map<string, number>();
       c.set(i.kind, (c.get(i.kind) ?? 0) + 1);
       counts.set(i.image_id, c);
-    });
-    calls?.forEach((c) => {
-      if (!answers.has(c.image_id) && c.raw_output) answers.set(c.image_id, c.raw_output);
     });
   }
 
@@ -192,40 +166,17 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
 
       {images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} reading={reading} />}
 
-      {images && images.some((i) => extractions.get(i.id)?.status === "done") && (
-        <>
-          <h2>Extracted data</h2>
-          {images.map((img) => {
-            const ex = extractions.get(img.id);
-            if (ex?.status !== "done") return null;
-            return (
-              <details className="card" key={img.id} style={{ marginBottom: 10 }}>
-                <summary>
-                  <b>{img.filename}</b> · {summarise(counts.get(img.id))}
-                </summary>
-                <pre>{pretty(answers.get(img.id))}</pre>
-              </details>
-            );
-          })}
-        </>
-      )}
-
       <h2>Edit</h2>
-      {editable && trip ? (
+      {trip && (
         <EditSection
           quoteId={quote.id}
           tripId={trip.id}
           images={(images ?? []).map((i) => ({ id: i.id, filename: i.filename, url: urls.get(i.storage_path) }))}
         />
-      ) : (
-        <p className="empty">
-          {/* A plain link, so it opens the full page instead of this modal again. */}
-          <a href={`/quotes/${quote.id}`}>Open the full Quote page to edit its Items.</a>
-        </p>
       )}
 
       <h2>Versions</h2>
-      {editable && <GenerateVersionButton quoteId={quote.id} />}
+      <GenerateVersionButton quoteId={quote.id} />
       {(!versions || versions.length === 0) && <p className="empty">No versions yet.</p>}
       {versions && versions.length > 0 && (
         <table>
