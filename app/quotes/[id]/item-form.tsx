@@ -169,6 +169,7 @@ export function ItemForm({
   flights,
   stays,
   rates,
+  lastOfImage = false,
 }: {
   quoteId: string;
   table: ItemTable;
@@ -176,6 +177,8 @@ export function ItemForm({
   flights?: Row[];
   stays: StayOption[];
   rates: FeeRate[];
+  /** The only Item left from its image, so deleting it removes the image too. */
+  lastOfImage?: boolean;
 }) {
   const id = String(row.id);
   const formId = `item-${id}`;
@@ -267,7 +270,7 @@ export function ItemForm({
       </div>
 
       <div className="item-actions">
-        <ConfirmButton className="danger" formAction={deleteItem.bind(null, quoteId, table, id)} confirmLabel="Sure? This cannot be undone">
+        <ConfirmButton className="danger" formAction={deleteItem.bind(null, quoteId, table, id)} confirmLabel={lastOfImage ? "Sure? This also removes the image" : "Sure? This cannot be undone"}>
           Delete
         </ConfirmButton>
         <AutosaveStatus autosave={autosave} />

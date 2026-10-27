@@ -141,8 +141,21 @@ export async function deleteItem(quoteId: string, table: string, id: string): Pr
   if (!isTable(table)) return;
   const supabase = await createClient();
   // Flights go with their option (on delete cascade). The AI's reading stays in ai_calls.
-  const { error } = await supabase.from(table).delete().eq("id", id);
+  const { data: gone, error } = await supabase.from(table).delete().eq("id", id).select("image_id");
   if (error) throw new Error(`Could not delete the Item: ${error.message}`);
+
+  // The image's last Item takes the image with it (removed like the Remove button, purged later).
+  const imageId = gone?.[0]?.image_id as string | null | undefined;
+  if (imageId) {
+    const { data: left } = await supabase.from("quote_items").select("entity_id").eq("image_id", imageId).limit(1);
+    if (left && left.length === 0) {
+      await supabase
+        .from("images")
+        .update({ removed_at: new Date().toISOString() })
+        .eq("id", imageId)
+        .eq("quote_id", quoteId);
+    }
+  }
   revalidatePath(`/quotes/${quoteId}`);
 }
 

@@ -5,6 +5,7 @@ import { problems } from "@/lib/pdf/assemble";
 import { AddItemForm, ItemForm, type StayOption } from "./item-form";
 import { confirmAirline } from "./item-actions";
 import { EditTabs, type EditTab } from "./edit-tabs";
+import { ImageViewer } from "./image-links";
 
 type Row = Record<string, unknown>;
 type Image = { id: string; filename: string; url?: string };
@@ -71,6 +72,7 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
       flights={table === "flight_options" ? ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id) : undefined}
       stays={stays}
       rates={ctx.rates}
+      lastOfImage={row.image_id != null && rows.filter((r) => r.row.image_id === row.image_id).length === 1}
     />
   );
 
@@ -120,14 +122,9 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
             const items = ofKind.filter((r) => r.row.image_id === img.id);
             if (items.length === 0) return null;
             return (
-              <section className="edit-block" key={img.id}>
+              <section className="edit-block" key={img.id} id={`block-${id}-${img.id}`}>
                 <div className="edit-image">
-                  {img.url && (
-                    <a href={img.url} target="_blank" rel="noreferrer" title="Open full size">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.url} alt={img.filename} />
-                    </a>
-                  )}
+                  {img.url && <ImageViewer src={img.url} alt={img.filename} />}
                   <small>{img.filename}</small>
                 </div>
                 <div className="edit-items">{items.map(form)}</div>
@@ -152,7 +149,7 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
     <>
       <EditTabs tabs={tabs} />
       {rows.length > visible.length && (
-        <p className="empty">Items from removed images are kept but left out. Re-add the image to bring them back.</p>
+        <p className="empty">Items from removed images are left out. Uploading the same image again within 90 days brings them back.</p>
       )}
     </>
   );

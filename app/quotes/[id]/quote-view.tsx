@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
 import { removeImage } from "./actions";
-import { EditSection } from "./edit-section";
+import { TABLE_KIND } from "@/lib/extraction/tables";
+import { EditSection, TABS } from "./edit-section";
+import { JumpToItems } from "./image-links";
 import { ExtractButton } from "./extract-button";
 import { GenerateVersionButton } from "./generate-version-button";
 import { RetryPdfButton } from "./retry-pdf-button";
@@ -15,6 +17,11 @@ type ExtractionRow = {
   image_type: string | null;
   error: string | null;
 };
+
+/** The tabs (id, label) holding Items from one image, in tab order. */
+function tabsOf(counts: Map<string, number> | undefined): [string, string][] {
+  return TABS.filter(([table]) => counts?.has(TABLE_KIND[table])).map(([, id, label]) => [id, label]);
+}
 
 /** Item counts per kind for one image, e.g. "2 hotel, 1 transfer". */
 function summarise(counts: Map<string, number> | undefined): string {
@@ -127,8 +134,10 @@ export async function QuoteView({ id }: { id: string }) {
               return (
                 <div className="thumb" key={img.id}>
                   {urls.get(img.storage_path) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={urls.get(img.storage_path)} alt={img.filename} />
+                    <JumpToItems imageId={img.id} tabs={tabsOf(counts.get(img.id))}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={urls.get(img.storage_path)} alt={img.filename} />
+                    </JumpToItems>
                   ) : (
                     <div style={{ height: 140 }} />
                   )}
