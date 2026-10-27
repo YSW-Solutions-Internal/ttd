@@ -177,6 +177,17 @@ th a.sort { color: inherit; }
 .stays input[type="date"] { padding: 7px 8px; border: 1px solid #cfc9c0; font: inherit; }
 .stays .stay-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .stays .stay-actions .msg { margin-top: 0; }
+/* Top-aligned, so the "Add … as a destination" line hangs below its box without shifting the other cells. */
+.stays td { vertical-align: top; }
+.destination-picker { min-width: 280px; }
+.destination-picker input[type="text"] { padding: 7px 8px; }
+/* The browser's suggestion arrow sits badly in these boxes; suggestions still show as you type. */
+.destination-picker input::-webkit-calendar-picker-indicator, .add-destination input::-webkit-calendar-picker-indicator { display: none !important; }
+.destination-picker button.link { display: block; margin-top: 4px; font-size: 12px; text-align: left; }
+.stays input[type="text"] { padding: 7px 8px; }
+.add-destination { display: flex; flex-direction: column; gap: 10px; width: min(420px, 80vw); }
+.add-destination label input { margin-top: 4px; font-weight: normal; }
+.add-destination-actions { display: flex; gap: 14px; align-items: center; }
 .confirm-airlines { margin-bottom: 18px; }
 .confirm-airlines .sub { margin: 4px 0 10px; }
 .confirm-airlines form { margin-bottom: 8px; }

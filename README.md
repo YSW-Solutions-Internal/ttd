@@ -118,3 +118,4 @@ supabase/migrations/      database schema, RLS, storage bucket
 9. Finalising a Quote: decide when a Version gets a total for the whole Trip (quotes show Item totals only until then)
 10. Archiving Items instead of deleting them, so a deleted Item can be restored
 11. A developer view of what the AI read from each image (raw `ai_calls` answers), now that consultants no longer see Extracted data on the Quote page
+12. A page for Administrators to correct or remove Destinations (any User can add one; fixing one is done in Supabase today)

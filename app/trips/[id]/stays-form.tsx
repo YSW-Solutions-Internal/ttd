@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { deleteStay, saveStay } from "../stay-actions";
+import { DestinationPicker } from "./destination-picker";
 
 export type StayValues = {
   id: string;
@@ -22,7 +23,17 @@ export function StayRow(props: Props) {
 }
 
 /** The inputs of one row; they join the row's form with form={formId}. */
-function Cells({ formId, stay, destinations }: { formId: string; stay?: StayValues; destinations: DestinationOption[] }) {
+function Cells({
+  formId,
+  stay,
+  destinations,
+  onPick,
+}: {
+  formId: string;
+  stay?: StayValues;
+  destinations: DestinationOption[];
+  onPick: (code: string) => void;
+}) {
   return (
     <>
       <td>
@@ -30,16 +41,7 @@ function Cells({ formId, stay, destinations }: { formId: string; stay?: StayValu
         <form id={formId} />
         {/* Enter in a text box submits with the first submit button; this one does nothing, so Enter never arms Delete. */}
         <button form={formId} type="submit" disabled hidden aria-hidden="true" />
-        <select form={formId} name="destination_code" aria-label="Destination" defaultValue={stay?.destination_code ?? ""} required>
-          <option value="" disabled>
-            Destination…
-          </option>
-          {destinations.map((d) => (
-            <option key={d.code} value={d.code}>
-              {d.label}
-            </option>
-          ))}
-        </select>
+        <DestinationPicker value={stay?.destination_code} destinations={destinations} onPick={onPick} />
       </td>
       <td>
         <input form={formId} type="date" name="starts_on" aria-label="Arrive" defaultValue={stay?.starts_on ?? ""} />
@@ -62,7 +64,7 @@ function ExistingStay({ tripId, stay, destinations }: Props & { stay: StayValues
 
   return (
     <tr ref={autosave.formRef}>
-      <Cells formId={formId} stay={stay} destinations={destinations} />
+      <Cells formId={formId} stay={stay} destinations={destinations} onPick={(code) => autosave.change("destination_code", code)} />
       <td className="stay-actions">
         <ConfirmButton form={formId} className="danger" formAction={deleteStay.bind(null, stay.id)} confirmLabel="Sure? Its hotels become unplaced">
           Delete
@@ -82,18 +84,18 @@ function NewStay({ tripId, destinations }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function add(e: React.ChangeEvent<HTMLTableRowElement>) {
-    if ((e.target as HTMLElement).getAttribute("name") !== "destination_code") return;
-    const form = document.getElementById(formId) as HTMLFormElement;
+  function add(code: string) {
+    const fd = new FormData(document.getElementById(formId) as HTMLFormElement);
+    fd.set("destination_code", code);
     startTransition(async () => {
-      const r = await saveStay(tripId, null, new FormData(form));
+      const r = await saveStay(tripId, null, fd);
       setError(r.error ?? null);
     });
   }
 
   return (
-    <tr onChange={add}>
-      <Cells formId={formId} destinations={destinations} />
+    <tr>
+      <Cells formId={formId} destinations={destinations} onPick={add} />
       <td className="stay-actions">
         {pending && <span className="msg">Adding…</span>}
         {error && <span className="msg error">{error}</span>}

@@ -58,6 +58,10 @@ _Avoid_: Bound, leg, group, segment
 A place the Client stays: hotel, lodge, guesthouse, B&B and so on. "Hotel" is accepted as an everyday synonym.
 _Avoid_: Lodging, stay
 
+**Destination**:
+A place a Stay can be at: a city or town, or an area with no airport such as a game reserve, always with its country. Destinations are one shared list; any User can add one, and only an Administrator can correct or remove one.
+_Avoid_: City (a Destination need not be one), stop
+
 **Stay**:
 One stop on the Trip's itinerary: one place, from an arrival date to a departure date, with an optional highlight. A Stay holds the Accommodation options offered for it. Options with no dates belong to no Stay until staff place them, and a Version cannot be generated while any are unplaced.
 _Avoid_: Trip stop, leg, segment
