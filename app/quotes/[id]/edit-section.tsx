@@ -10,7 +10,7 @@ type Row = Record<string, unknown>;
 type Image = { id: string; filename: string; url?: string };
 
 /** The tabs, in the order agents work through a Trip. */
-const TABS: [ItemTable, string, string][] = [
+export const TABS: [ItemTable, string, string][] = [
   ["flight_options", "flights", "Flights"],
   ["accommodation_options", "accommodation", "Accommodation"],
   ["excursions", "experiences", "Experiences"],
