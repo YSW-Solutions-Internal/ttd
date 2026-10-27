@@ -50,8 +50,8 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
 
   const form = ({ table, row }: { table: ItemTable; row: Row }) => (
     <ItemForm
-      // Re-mounts after a save, so values the server filled in (fees, region) show up.
-      key={`${row.id}-${row.updated_at}`}
+      // Never re-mounts after a save: autosave puts the values the server filled in into the card.
+      key={String(row.id)}
       quoteId={quoteId}
       table={table}
       row={row}

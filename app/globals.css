@@ -78,6 +78,8 @@ button.danger:hover { background: none; text-decoration: underline; }
 
 .msg { margin-top: 10px; padding: 8px 12px; border-left: 3px solid var(--teal-deep); background: var(--wash); font-size: 13px; }
 .msg.error { border-color: var(--danger); color: var(--danger); }
+[aria-invalid="true"] { border-color: var(--danger); outline: 1px solid var(--danger); }
+.autosave-status { display: inline-flex; gap: 8px; align-items: center; }
 
 .images { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
 .thumb { background: #fff; border: 1px solid var(--line); }

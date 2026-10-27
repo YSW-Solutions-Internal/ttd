@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { AutosaveStatus, FieldError, useAutosave, useSaves } from "@/app/autosave";
 import { FileDrop } from "@/app/file-drop";
-import { saveClient, uploadDocument, type ClientFormState } from "./actions";
+import { addClient, updateClient, uploadDocument, type ClientFormState } from "./actions";
 
 export type ClientValues = {
   id: string;
@@ -37,20 +38,117 @@ export function ClientForm({
   defaultConsultantId?: string;
   next?: string;
 }) {
-  const [state, action, pending] = useActionState<ClientFormState, FormData>(saveClient, {});
+  return client ? (
+    <EditClientForm client={client} consultants={consultants} />
+  ) : (
+    <NewClientForm consultants={consultants} defaultConsultantId={defaultConsultantId} next={next} />
+  );
+}
+
+/** Each field saves as you leave it. */
+function EditClientForm({ client, consultants }: { client: ClientValues; consultants?: ConsultantOption[] }) {
+  const autosave = useAutosave({ key: client.id, label: "Client details", save: (fd) => updateClient(client.id, fd) });
 
   return (
-    <form action={action} className="card">
-      {client && <input type="hidden" name="id" value={client.id} />}
-      {next && <input type="hidden" name="next" value={next} />}
+    <form ref={autosave.formRef} className="card">
+      {/* Enter in a text box would submit the form; a disabled first submit button makes it do nothing. */}
+      <button type="submit" disabled hidden aria-hidden="true" />
+      <ClientFields client={client} consultants={consultants} error={(name) => <FieldError autosave={autosave} name={name} />} />
+      <AutosaveStatus autosave={autosave} />
+    </form>
+  );
+}
 
+/**
+ * The Client is added once both names are filled in and the user clicks or tabs to
+ * something on the page outside this form: its code comes from the names and never
+ * changes, so it waits. Switching windows or following a link never adds it; leaving
+ * then warns instead.
+ */
+function NewClientForm({
+  consultants,
+  defaultConsultantId,
+  next,
+}: {
+  consultants?: ConsultantOption[];
+  defaultConsultantId?: string;
+  next?: string;
+}) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const added = useRef(false);
+  const { block } = useSaves();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    const named = () => ["first_name", "last_name"].every((k) => String(new FormData(form).get(k) ?? "").trim() !== "");
+    const update = () => block("new-client", named() && !added.current ? "New client (not yet added)" : null);
+    const leave = (e: Event) => {
+      const target = e.target as Element;
+      if (added.current || !named() || form.contains(target) || target.closest?.("a[href]")) return;
+      added.current = true;
+      block("new-client", null);
+      startTransition(async () => {
+        // On success addClient redirects, so only an error comes back.
+        const r = await addClient(new FormData(form));
+        if (r.error) {
+          added.current = false;
+          setError(r.error);
+          update();
+        }
+      });
+    };
+    form.addEventListener("input", update);
+    document.addEventListener("pointerdown", leave);
+    document.addEventListener("focusin", leave);
+    return () => {
+      form.removeEventListener("input", update);
+      document.removeEventListener("pointerdown", leave);
+      document.removeEventListener("focusin", leave);
+      block("new-client", null);
+    };
+  }, [block]);
+
+  return (
+    <form ref={formRef} className="card">
+      <button type="submit" disabled hidden aria-hidden="true" />
+      {next && <input type="hidden" name="next" value={next} />}
+      <ClientFields consultants={consultants} defaultConsultantId={defaultConsultantId} />
+      {pending ? (
+        <div className="msg">Adding…</div>
+      ) : error ? (
+        <div className="msg error">{error}</div>
+      ) : (
+        <div className="sub">The client is added when you move on from this form.</div>
+      )}
+    </form>
+  );
+}
+
+function ClientFields({
+  client,
+  consultants,
+  defaultConsultantId,
+  error = () => null,
+}: {
+  client?: ClientValues;
+  consultants?: ConsultantOption[];
+  defaultConsultantId?: string;
+  error?: (name: string) => ReactNode;
+}) {
+  return (
+    <>
       <div className="field">
         <label htmlFor="first_name">First name</label>
         <input id="first_name" name="first_name" type="text" required defaultValue={client?.first_name} />
+        {error("first_name")}
       </div>
       <div className="field">
         <label htmlFor="last_name">Last name</label>
         <input id="last_name" name="last_name" type="text" required defaultValue={client?.last_name} />
+        {error("last_name")}
       </div>
       <div className="field">
         <label htmlFor="email">Email</label>
@@ -90,11 +188,7 @@ export function ClientForm({
         </div>
       )}
 
-      <button type="submit" disabled={pending}>
-        {pending ? "Saving…" : client ? "Save" : "Add client"}
-      </button>
-      <Message state={state} />
-    </form>
+    </>
   );
 }
 

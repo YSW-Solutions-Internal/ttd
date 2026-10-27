@@ -89,7 +89,7 @@ export async function TripView({ id }: { id: string }) {
         </thead>
         <tbody>
           {(stays ?? []).map((s) => (
-            <StayRow key={`${s.id}-${s.destination_code}-${s.starts_on}-${s.ends_on}-${s.highlight}`} tripId={trip.id} stay={s} destinations={destinationOptions} />
+            <StayRow key={s.id} tripId={trip.id} stay={s} destinations={destinationOptions} />
           ))}
           <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />
         </tbody>

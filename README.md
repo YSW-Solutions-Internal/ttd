@@ -110,7 +110,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 1. ~~Airport table loader~~ Done: airport data is loaded (replaces the monday.com Airport Ref board)
 2. ~~Move extraction into a background job runner~~ Done: images are read in the background (ADR 0008)
 3. ~~Deterministic assembler~~ Done: `lib/pdf/assemble.ts`
-4. Edit screen: autosave (each Item has its own Save button today), and warning about unsaved changes on in-app links too
+4. ~~Edit screen: autosave, and warning about unsaved changes on in-app links too~~ Done: fields save as you leave them
 5. ~~Generate version button~~ Done
 6. Trips list: filter by Consultant, for admins
 7. Review the Trips list for pagination once there are a few hundred trips (it loads and sorts every matching trip today)

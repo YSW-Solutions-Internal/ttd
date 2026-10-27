@@ -8,15 +8,17 @@ import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { applyFees, autoRegion, FEE_FIELDS, FEE_REGIONS, VARIANTS } from "@/lib/fees";
 import { countriesOf, loadFeeContext, loadPlaces } from "@/lib/fee-context";
 import { fillFlightNames } from "@/lib/codes";
-import { FLIGHT_FIELDS, ITEM_FIELDS, PRICE_FIELDS, type Field } from "./item-fields";
+import { FieldParseError, parseChanged, type SaveResult } from "@/lib/form-values";
+import { FEE_LABELS, FLIGHT_FIELDS, ITEM_FIELDS, PRICE_FIELDS, type Field } from "./item-fields";
 
-export type ItemFormState = { error?: string; notice?: string };
+/** The four fees, read as Rand amounts. */
+const FEE_INPUTS: Field[] = FEE_LABELS.map(([name, label]) => ({ name, label, type: "money" }));
 
 function isTable(t: string): t is ItemTable {
   return Object.hasOwn(TABLE_KIND, t);
 }
 
-/** One submitted value, typed by its field. Throws a message for the Consultant on a bad number. */
+/** One flight value from the flights JSON, typed by its field. Throws a message for the Consultant on a bad number. */
 function parse(field: Field, raw: unknown): unknown {
   if (field.type === "checkbox") return raw === "on" || raw === true;
   const s = typeof raw === "string" ? raw.trim() : raw == null ? "" : String(raw);
@@ -43,13 +45,11 @@ function parseFlights(json: string): Record<string, unknown>[] {
   });
 }
 
-export async function saveItem(
-  quoteId: string,
-  table: string,
-  id: string,
-  _prev: ItemFormState,
-  formData: FormData,
-): Promise<ItemFormState> {
+/**
+ * Saves the fields of one Item that changed (autosave sends only those). Fee region and
+ * fees are worked out from the whole Item as stored plus the changes, and sent back.
+ */
+export async function saveItem(quoteId: string, table: string, id: string, formData: FormData): Promise<SaveResult> {
   if (!isTable(table)) return { error: "Unknown kind of Item." };
   const kind = TABLE_KIND[table];
   const supabase = await createClient();
@@ -57,45 +57,64 @@ export async function saveItem(
   const { data: prev } = await supabase.from(table).select("*").eq("id", id).maybeSingle();
   if (!prev) return { error: "This Item no longer exists, or you cannot edit it." };
 
-  let row: Record<string, unknown>;
-  let flights: Record<string, unknown>[] = [];
+  let changed: Record<string, unknown>;
+  let flights: Record<string, unknown>[] | null = null;
   try {
-    row = {};
-    for (const field of [...ITEM_FIELDS[table], ...PRICE_FIELDS]) row[field.name] = parse(field, formData.get(field.name));
-    for (const f of FEE_FIELDS) row[f] = parse({ name: f, label: "Each fee", type: "number" }, formData.get(f));
-    if (kind === "flight") flights = parseFlights(String(formData.get("flights") ?? "[]"));
+    changed = parseChanged([...ITEM_FIELDS[table], ...PRICE_FIELDS, ...FEE_INPUTS], formData);
+    if (kind === "flight" && formData.has("flights")) {
+      try {
+        flights = parseFlights(String(formData.get("flights")));
+      } catch (e) {
+        throw new FieldParseError(e instanceof Error ? e.message : "The flights could not be read.", "flights");
+      }
+    }
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not read the form." };
+    if (e instanceof FieldParseError) return { error: e.message, field: e.field };
+    return { error: "Could not read the form." };
   }
 
-  const region = String(formData.get("fee_region") ?? "");
-  const variant = String(formData.get("variant") ?? "");
-  row.fee_region = (FEE_REGIONS as readonly string[]).includes(region) ? region : null;
-  row.variant = kind === "flight" && (VARIANTS as readonly string[]).includes(variant) ? variant : "";
-  row.markup ??= 0;
+  if (formData.has("fee_region")) {
+    const region = String(formData.get("fee_region"));
+    changed.fee_region = (FEE_REGIONS as readonly string[]).includes(region) ? region : null;
+  }
+  if (formData.has("variant")) {
+    const variant = String(formData.get("variant"));
+    changed.variant = kind === "flight" && (VARIANTS as readonly string[]).includes(variant) ? variant : "";
+  }
+  if (formData.has("markup")) changed.markup ??= 0;
   if (table === "accommodation_options") {
-    row.rooms ??= 1;
-    row.stay_id = String(formData.get("stay_id") ?? "") || null;
+    if (formData.has("rooms")) changed.rooms ??= 1;
+    if (formData.has("stay_id")) changed.stay_id = String(formData.get("stay_id")) || null;
   }
-  if (table === "car_rentals") row.ten_percent_fee = formData.get("ten_percent_fee") === "on";
+  if (table === "car_rentals" && formData.has("ten_percent_fee")) changed.ten_percent_fee = formData.get("ten_percent_fee") === "on";
 
+  // The region is worked out from the flights, so unsent flights come from the database.
+  let routeFlights = flights ?? [];
+  if (kind === "flight" && !flights) {
+    const { data } = await supabase.from("flights").select("*").eq("flight_option_id", id);
+    routeFlights = data ?? [];
+  }
+
+  const merged: Record<string, unknown> = { ...prev, ...changed };
   const ctx = await loadFeeContext(supabase, quoteId);
-  const places = await loadPlaces(supabase, flights.flatMap((f) => [f.from_code, f.to_code]));
-  for (const f of flights) fillFlightNames(f, places);
-  applyFees(kind, row, prev, autoRegion(kind, row, flights, ctx.stays, countriesOf(places)), ctx.rates);
+  const places = await loadPlaces(supabase, routeFlights.flatMap((f) => [f.from_code, f.to_code]));
+  if (flights) for (const f of flights) fillFlightNames(f, places);
+  applyFees(kind, merged, prev, autoRegion(kind, merged, routeFlights, ctx.stays, countriesOf(places)), ctx.rates);
 
+  const computed = ["fee_region", "variant", ...FEE_FIELDS];
+  const row = Object.fromEntries([...Object.keys(changed), ...computed].map((k) => [k, merged[k]]));
   const { data, error } = await supabase.from(table).update(row).eq("id", id).select("id");
   if (error) return { error: `Could not save: ${error.message}` };
   // RLS filters rather than errors, so zero rows means the update was refused.
   if (!data || data.length === 0) return { error: "Could not save: only the client's consultant or an administrator can edit." };
 
-  if (kind === "flight") {
+  if (flights) {
     const { error: flErr } = await supabase.rpc("replace_flights", { p_option_id: id, p_flights: flights });
-    if (flErr) return { error: `Saved the option, but not its flights: ${flErr.message}` };
+    if (flErr) return { error: `Saved the option, but not its flights: ${flErr.message}`, field: "flights" };
   }
 
   revalidatePath(`/quotes/${quoteId}`);
-  return { notice: "Saved." };
+  return { values: Object.fromEntries(computed.map((k) => [k, merged[k] == null ? "" : String(merged[k])])) };
 }
 
 /** A hand-entered Item: a row with no image (ADR 0005). */
