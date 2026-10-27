@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { SaveResult } from "@/lib/form-values";
+import { countryIn } from "@/lib/fees";
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -70,4 +71,56 @@ export async function deleteStay(stayId: string): Promise<void> {
   const { error } = await supabase.from("trip_stops").delete().eq("id", stayId);
   if (error) throw new Error(`Could not delete the Stay: ${error.message}`);
   revalidatePath("/", "layout");
+}
+
+export type CityGuess = { country: string; code: string };
+
+/** A new Destination's country and code, from the airports table's city of that name. */
+export async function guessCity(name: string): Promise<CityGuess | null> {
+  const city = name.trim().replace(/[\\%_]/g, (c) => `\\${c}`); // literal match, not a pattern
+  if (!city) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("airports")
+    .select("iata, city_code, country")
+    .ilike("city", city)
+    .order("city_code", { nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? { country: data.country ?? "", code: data.city_code ?? data.iata } : null;
+}
+
+export type AddDestinationResult = { error?: string; code?: string; label?: string };
+
+/**
+ * Adds a Destination for everyone (any User may, migration 0020). The country is required,
+ * since the Fee region comes from it; a place with no airport gets a code made from its name.
+ */
+export async function addDestination(formData: FormData): Promise<AddDestinationResult> {
+  const name = text(formData, "name");
+  if (!name) return { error: "Give the destination a name." };
+  const countryCode = countryIn(text(formData, "country"));
+  if (!countryCode) return { error: "Choose a country from the list." };
+  const country = new Intl.DisplayNames(["en"], { type: "region" }).of(countryCode) ?? countryCode;
+
+  const supabase = await createClient();
+  const given = text(formData, "code").toUpperCase();
+  if (given && !/^[A-Z0-9]{2,12}$/.test(given)) return { error: "The code is letters and digits only, up to 12." };
+
+  // A made-up code steps past any already taken: SABISAND, SABISAND2 ...
+  const base = given || name.normalize("NFD").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) || "PLACE";
+  for (let n = 1; n < 100; n++) {
+    const code = n === 1 ? base : `${base}${n}`;
+    const { error } = await supabase.from("destinations").insert({ code, name, country, country_code: countryCode });
+    if (!error) {
+      revalidatePath("/", "layout");
+      return { code, label: `${name}, ${country}` };
+    }
+    if (error.code !== "23505") return { error: `Could not add the destination: ${error.message}` };
+    if (given) {
+      const { data: taken } = await supabase.from("destinations").select("name, country").eq("code", given).maybeSingle();
+      return { error: `${given} is already ${taken ? `${taken.name}, ${taken.country}` : "taken"}.` };
+    }
+  }
+  return { error: "Could not find a free code; enter one." };
 }
