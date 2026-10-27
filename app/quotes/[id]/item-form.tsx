@@ -34,7 +34,7 @@ function inputType(field: Field, v: string): string {
 function Input({ field, value, id }: { field: Field; value: unknown; id: string }) {
   const v = str(value);
   if (field.type === "checkbox") return <input id={id} type="checkbox" name={field.name} defaultChecked={value === true} />;
-  if (field.type === "textarea") return <textarea id={id} name={field.name} rows={2} defaultValue={v} />;
+  if (field.type === "textarea") return <textarea id={id} name={field.name} rows={4} defaultValue={v} />;
   if (field.type === "select") {
     return (
       <select id={id} name={field.name} defaultValue={v}>
@@ -199,7 +199,7 @@ export function ItemForm({
 
       <div className="item-grid">
         {ITEM_FIELDS[table].map((f) => (
-          <div className="field" key={f.name}>
+          <div className={f.type === "textarea" ? "field wide" : "field"} key={f.name}>
             <label htmlFor={`${formId}-${f.name}`}>{f.label}</label>
             <Input field={f} value={row[f.name]} id={`${formId}-${f.name}`} />
             <FieldError autosave={autosave} name={f.name} />
@@ -225,7 +225,7 @@ export function ItemForm({
 
       <div className="item-grid">
         {PRICE_FIELDS.map((f) => (
-          <div className="field" key={f.name}>
+          <div className={f.type === "textarea" ? "field wide" : "field"} key={f.name}>
             <label htmlFor={`${formId}-${f.name}`}>{f.label}</label>
             <Input field={f} value={row[f.name]} id={`${formId}-${f.name}`} />
             {f.name === "price" && row.price_note != null && <small className="warn">{str(row.price_note)}</small>}
@@ -276,14 +276,11 @@ export function ItemForm({
   );
 }
 
-export function AddItemForm({ quoteId }: { quoteId: string }) {
+export function AddItemForm({ quoteId, table }: { quoteId: string; table: ItemTable }) {
   return (
     <form action={addItem.bind(null, quoteId)} className="inline-form">
-      <label htmlFor="add-item-kind">Add by hand</label>
-      <select id="add-item-kind" name="table" defaultValue="flight_options">
-        {(Object.keys(ITEM_LABEL) as ItemTable[]).map((t) => <option key={t} value={t}>{ITEM_LABEL[t]}</option>)}
-      </select>
-      <button type="submit">Add</button>
+      <input type="hidden" name="table" value={table} />
+      <button type="submit">Add {ITEM_LABEL[table]} by hand</button>
     </form>
   );
 }

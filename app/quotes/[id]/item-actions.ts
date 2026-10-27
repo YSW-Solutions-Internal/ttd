@@ -76,10 +76,14 @@ export async function saveItem(quoteId: string, table: string, id: string, formD
   if (formData.has("fee_region")) {
     const region = String(formData.get("fee_region"));
     changed.fee_region = (FEE_REGIONS as readonly string[]).includes(region) ? region : null;
+    // A region the Consultant picks stays; "Work it out" hands it back to the code.
+    changed.fee_region_auto = !changed.fee_region;
   }
   if (formData.has("variant")) {
     const variant = String(formData.get("variant"));
     changed.variant = kind === "flight" && (VARIANTS as readonly string[]).includes(variant) ? variant : "";
+    // Working the region out again would also reset the fare type just picked.
+    changed.fee_region_auto = false;
   }
   if (formData.has("markup")) changed.markup ??= 0;
   if (table === "accommodation_options") {
@@ -101,7 +105,7 @@ export async function saveItem(quoteId: string, table: string, id: string, formD
   if (flights) for (const f of flights) fillFlightNames(f, places);
   applyFees(kind, merged, prev, autoRegion(kind, merged, routeFlights, ctx.stays, countriesOf(places)), ctx.rates);
 
-  const computed = ["fee_region", "variant", ...FEE_FIELDS];
+  const computed = ["fee_region", "variant", "fee_region_auto", ...FEE_FIELDS];
   const row = Object.fromEntries([...Object.keys(changed), ...computed].map((k) => [k, merged[k]]));
   const { data, error } = await supabase.from(table).update(row).eq("id", id).select("id");
   if (error) return { error: `Could not save: ${error.message}` };

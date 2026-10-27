@@ -118,6 +118,13 @@ th a.sort { color: inherit; }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 12px; }
 .item-grid small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
 .item-grid small.warn, small.warn { color: var(--danger); }
+/* Long text gets its own row, grows with its text, and resizes only downward so it never covers its neighbours. */
+.item-grid .field.wide { grid-column: 1 / -1; }
+.item-grid textarea { resize: vertical; field-sizing: content; min-height: 6.5em; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tab { background: transparent; color: inherit; font-weight: 600; padding: 8px 14px; border: 1px solid transparent; border-bottom: 0; margin-bottom: -1px; }
+.tab.active { background: #fff; border-color: var(--line); }
+.tab .warn { color: var(--danger); }
 .item-form input[type="number"], .item-form input[type="date"], .item-form input[type="time"] {
   width: 100%; padding: 8px 10px; border: 1px solid #cfc9c0; background: #fff; font: inherit;
 }
