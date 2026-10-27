@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useReducer, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { SaveResult } from "@/lib/form-values";
 import { SaveQueue, type SaveState } from "@/lib/save-queue";
@@ -68,20 +68,26 @@ export function AutosaveProvider({ children }: { children: ReactNode }) {
 
 export function useSaves() {
   const registry = useRegistry();
-  return {
-    /** Waits for every save on screen; returns the labels of records that could not be saved. */
-    waitForSaves: () => registry.waitForSaves(),
-    /** A reason to warn on leaving that no save holds (label), or none (null). */
-    block: (key: string, label: string | null) => {
-      if (label) registry.blocks.set(key, label);
-      else registry.blocks.delete(key);
-    },
-  };
+  return useMemo(
+    () => ({
+      /** Waits for every save on screen; returns the labels of records that could not be saved. */
+      waitForSaves: () => registry.waitForSaves(),
+      /** A reason to warn on leaving that no save holds (label), or none (null). */
+      block: (key: string, label: string | null) => {
+        if (label) registry.blocks.set(key, label);
+        else registry.blocks.delete(key);
+      },
+    }),
+    [registry],
+  );
 }
 
 type FormElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLOutputElement;
 
-/** One record's form: each field saves on its native `change` event (leaving a text box, or picking). */
+/**
+ * One record's form: each field saves on its native `change` event (leaving a text box, or picking).
+ * `formRef` goes on the element that contains the fields (a form, or a table row whose inputs join a form).
+ */
 export function useAutosave({
   key,
   label,
@@ -92,7 +98,10 @@ export function useAutosave({
   save: (fd: FormData) => Promise<SaveResult>;
 }) {
   const registry = useRegistry();
-  const formRef = useRef<HTMLFormElement | null>(null);
+  const formRef = useRef<HTMLElement | null>(null);
+  const setFormRef = useCallback((el: HTMLElement | null) => {
+    formRef.current = el;
+  }, []);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const saveRef = useRef(save);
   saveRef.current = save;
@@ -158,7 +167,7 @@ export function useAutosave({
   }, [queue, entry]);
 
   return {
-    formRef: formRef as RefObject<HTMLFormElement | null>,
+    formRef: setFormRef,
     state: queue.state as SaveState,
     error: queue.state === "failed" ? queue.result : null,
     saved: queue.state === "saved" && queue.result != null,
