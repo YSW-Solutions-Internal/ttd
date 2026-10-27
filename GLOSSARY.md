@@ -13,7 +13,7 @@ A traveller (or contact) the agency quotes for. Clients never have accounts.
 _Avoid_: Customer, contact
 
 **Consultant**:
-The User responsible for a Client, and the only non-admin User who may see or work on that Client, their documents, Trips and Quotes. Each Client has one Consultant; only an Administrator can hand a Client over to another Consultant. Not necessarily the User who first entered the Client.
+The User responsible for a Client, and the only non-admin User who may see or work on that Client, their documents, Trips and Quotes. Each Client has one Consultant; only an Administrator can hand a Client over to another Consultant. Not necessarily the User who first entered the Client. A Trip's or Quote's Consultant is always its Client's current Consultant, so a handover moves the Client's older Trips too.
 _Avoid_: Owner, assigned user, creator, agent (ambiguous with Claude)
 
 **Client code**:

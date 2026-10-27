@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getProfile } from "@/lib/auth";
 import { one } from "@/lib/relations";
 import { isTripStatus, tripStatusLabel } from "@/lib/trip-status";
 import { TripFilters } from "./trip-filters";
 
 export const dynamic = "force-dynamic";
 
-type Params = { status?: string; client?: string; sort?: string; dir?: string };
+type Params = { status?: string; client?: string; consultant?: string; sort?: string; dir?: string };
 
 const COLUMNS = [
   { key: "reference", label: "Reference" },
   { key: "title", label: "Trip" },
   { key: "client", label: "Client" },
+  { key: "consultant", label: "Consultant" },
   { key: "status", label: "Status" },
   { key: "starts_on", label: "Starts" },
   { key: "created_at", label: "Created" },
@@ -19,28 +21,49 @@ const COLUMNS = [
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
+  const admin = (await getProfile())?.role === "admin";
+  // Only admins see the Consultant filter and column; everyone else sees only their own clients anyway.
+  const columns = COLUMNS.filter((c) => admin || c.key !== "consultant");
   const status = params.status === "all" || isTripStatus(params.status) ? params.status : "in_progress";
-  const client = params.client ?? "";
-  const sort = COLUMNS.some((c) => c.key === params.sort && !("unsortable" in c)) ? params.sort! : "created_at";
+  const consultant = admin ? (params.consultant ?? "") : "";
+  const sort = columns.some((c) => c.key === params.sort && !("unsortable" in c)) ? params.sort! : "created_at";
   const dir = params.dir === "asc" || params.dir === "desc" ? params.dir : sort === "created_at" ? "desc" : "asc";
 
   const supabase = await createClient();
+  // Inactive clients included, so their older trips can still be found.
+  let clientQuery = supabase.from("clients").select("id, client_code, full_name").order("last_name").order("first_name");
+  if (consultant) clientQuery = clientQuery.eq("consultant_id", consultant);
+  const [{ data: clients }, { data: consultants }] = await Promise.all([
+    clientQuery,
+    admin ? supabase.from("profiles").select("id, full_name, email").order("full_name") : { data: null },
+  ]);
+  // A client that isn't the chosen Consultant's would only ever show an empty list, so drop it.
+  const client = (clients ?? []).some((c) => c.id === params.client) ? params.client! : "";
+
   // RLS (0007): trips of your own clients, or all of them for an admin.
+  // A Trip's Consultant is its Client's current Consultant (GLOSSARY), not trips.consultant_id.
   let query = supabase
     .from("trips")
-    .select("id, reference, title, status, starts_on, created_at, clients(client_code, full_name)");
+    .select(
+      "id, reference, title, status, starts_on, created_at, clients!inner(client_code, full_name, consultant_id, profiles!clients_consultant_id_fkey(full_name, email))",
+    );
   if (status !== "all") query = query.eq("status", status);
   if (client) query = query.eq("client_id", client);
+  if (consultant) query = query.eq("clients.consultant_id", consultant);
+  const { data: trips, error } = await query;
 
-  // Inactive clients included, so their older trips can still be found.
-  const [{ data: trips, error }, { data: clients }] = await Promise.all([
-    query,
-    supabase.from("clients").select("id, client_code, full_name").order("last_name").order("first_name"),
-  ]);
+  const consultantName = (t: NonNullable<typeof trips>[number]) => {
+    const p = one(one(t.clients)?.profiles);
+    return p ? (p.full_name ?? p.email) : "";
+  };
 
   // shortcut: sorts in memory because every matching trip is loaded; move into the query when pagination arrives.
   const value = (t: NonNullable<typeof trips>[number]): string =>
-    sort === "client" ? (one(t.clients)?.full_name ?? "") : ((t[sort as keyof typeof t] as string | null) ?? "");
+    sort === "client"
+      ? (one(t.clients)?.full_name ?? "")
+      : sort === "consultant"
+        ? consultantName(t)
+        : ((t[sort as keyof typeof t] as string | null) ?? "");
   const rows = (trips ?? []).sort((a, b) => {
     const [x, y] = [value(a), value(b)];
     if (!x !== !y) return x ? -1 : 1; // blanks last, whichever way
@@ -50,6 +73,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const href = (col: string) => {
     const q = new URLSearchParams({ status, sort: col, dir: sort === col && dir === "asc" ? "desc" : "asc" });
     if (client) q.set("client", client);
+    if (consultant) q.set("consultant", consultant);
     return `/?${q}`;
   };
 
@@ -60,7 +84,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <Link href="/trips/new">+ New trip</Link>
       </p>
 
-      <TripFilters clients={clients ?? []} status={status} client={client} sort={sort} dir={dir} />
+      <TripFilters
+        clients={clients ?? []}
+        consultants={consultants?.map((p) => ({ id: p.id, label: p.full_name ?? p.email }))}
+        status={status}
+        client={client}
+        consultant={consultant}
+        sort={sort}
+        dir={dir}
+      />
 
       {error && <div className="msg error">Could not load trips: {error.message}</div>}
       {trips && rows.length === 0 && <p className="empty">No trips match.</p>}
@@ -68,7 +100,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <table>
           <thead>
             <tr>
-              {COLUMNS.map((c) => (
+              {columns.map((c) => (
                 <th key={c.key} aria-sort={sort === c.key ? (dir === "asc" ? "ascending" : "descending") : undefined}>
                   {"unsortable" in c ? (
                     c.label
@@ -97,6 +129,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     {c?.full_name ?? "—"}
                     <div className="sub" style={{ margin: 0, fontSize: 12 }}>{c?.client_code}</div>
                   </td>
+                  {admin && <td>{consultantName(t) || "—"}</td>}
                   <td>{tripStatusLabel(t.status)}</td>
                   <td>{t.starts_on ? new Date(t.starts_on).toLocaleDateString("en-ZA") : "—"}</td>
                   <td>{new Date(t.created_at).toLocaleDateString("en-ZA")}</td>
