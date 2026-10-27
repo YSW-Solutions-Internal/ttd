@@ -119,7 +119,7 @@ The editable state of a Quote: its Items (read from its images or entered by han
 _Avoid_: Draft, current version
 
 **Generate version**:
-The act of freezing a Quote's Working content into its next Version and producing that Version's PDF. The freeze is kept even if the PDF fails; producing the PDF is then retried from the frozen copy, never from the Working content. A Version without its PDF cannot be sent. A Version cannot be generated while an Accommodation option is not placed in a Stay, or while an Item with a price has no Transaction fee.
+The act of freezing a Quote's Working content into its next Version and producing that Version's PDF. Any edit not yet saved is saved first; if one cannot be saved, nothing is generated. The freeze is kept even if the PDF fails; producing the PDF is then retried from the frozen copy, never from the Working content. A Version without its PDF cannot be sent. A Version cannot be generated while an Accommodation option is not placed in a Stay, or while an Item with a price has no Transaction fee.
 _Avoid_: Save, publish, issue, commit
 
 **Client document**:
