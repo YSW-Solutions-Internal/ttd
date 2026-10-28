@@ -6,7 +6,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test lib/extraction/parse.test.mjs lib/extraction/rows.test.mjs lib/fees.test.mjs lib/codes.test.mjs lib/pdf/money.test.ts lib/pdf/assemble.test.ts lib/form-values.test.ts lib/save-queue.test.ts"
+    "test": "node --test lib/extraction/parse.test.mjs lib/extraction/rows.test.mjs lib/fees.test.mjs lib/codes.test.mjs lib/pdf/money.test.ts lib/pdf/assemble.test.ts lib/form-values.test.ts lib/save-queue.test.ts lib/identity.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

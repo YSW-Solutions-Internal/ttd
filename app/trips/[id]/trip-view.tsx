@@ -9,6 +9,8 @@ import { TABS } from "@/app/quotes/[id]/edit-section";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { StayRow } from "./stays-form";
 import { TripForm } from "./trip-form";
+import { AddTravellerForm } from "@/app/clients/travellers";
+import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
 
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") : null);
 
@@ -21,14 +23,14 @@ export async function TripView({ id }: { id: string }) {
   const { data: trip } = await supabase
     .from("trips")
     .select(
-      "id, reference, title, status, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, custom_notes, clients(id, client_code, full_name)",
+      "id, reference, title, status, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, custom_notes, ta_number, cost_centre, authorising_person, clients(id, client_code, full_name, kind)",
     )
     .eq("id", id)
     .maybeSingle();
   if (!trip) notFound();
   const client = one(trip.clients);
 
-  const [{ data: quote }, { data: stays }, { data: destinations }] = await Promise.all([
+  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: flags }] = await Promise.all([
     supabase
       .from("quotes")
       .select("id, quote_versions(id, version_no, pdf_path, created_at)")
@@ -42,7 +44,15 @@ export async function TripView({ id }: { id: string }) {
       .order("starts_on", { nullsFirst: false })
       .order("position"),
     supabase.from("destinations").select("code, name, country").order("name"),
+    supabase.from("travellers").select("id, first_name, last_name, date_of_birth").eq("client_id", client?.id).order("last_name").order("first_name"),
+    supabase.from("trip_travellers").select("traveller_id").eq("trip_id", id).order("created_at"),
+    supabase.from("traveller_flags").select("traveller_id, identified").eq("client_id", client?.id),
   ]);
+  const going = new Set((onTrip ?? []).map((r) => r.traveller_id));
+  const unidentified = new Set((flags ?? []).filter((f) => !f.identified).map((f) => f.traveller_id));
+  const tripTravellers = (travellers ?? []).filter((t) => going.has(t.id));
+  const others = (travellers ?? []).filter((t) => !going.has(t.id));
+  const headCount = trip.adults + trip.children;
   const versions = quote?.quote_versions ?? [];
 
   // The Quote's Items, as Generate version sees them: quote_items leaves out removed images' Items.
@@ -99,7 +109,7 @@ export async function TripView({ id }: { id: string }) {
 
       {/* Accountants see the Trip but cannot change it (ADR 0010). */}
       <fieldset className="plain" disabled={!editable}>
-      <TripForm trip={trip} />
+      <TripForm trip={trip} company={client?.kind === "company"} />
 
       <h2>Stays</h2>
       <p className="sub">The Trip's itinerary. Accommodation options are placed in these.</p>
@@ -120,6 +130,53 @@ export async function TripView({ id }: { id: string }) {
           {editable && <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />}
         </tbody>
       </table>
+
+      <h2>Travellers</h2>
+      {tripTravellers.length !== headCount && (
+        <p className="msg">
+          ⚠ {tripTravellers.length} Traveller{tripTravellers.length === 1 ? "" : "s"} on this Trip, but {trip.adults} adult
+          {trip.adults === 1 ? "" : "s"} and {trip.children} child{trip.children === 1 ? "" : "ren"} above.
+        </p>
+      )}
+      {tripTravellers.length === 0 && <p className="empty">No Travellers on this Trip yet.</p>}
+      {tripTravellers.length > 0 && (
+        <table>
+          <tbody>
+            {tripTravellers.map((t) => (
+              <tr key={t.id}>
+                <td>
+                  {t.first_name} {t.last_name}
+                </td>
+                <td>{t.date_of_birth ? date(t.date_of_birth) : "—"}</td>
+                <td>{unidentified.has(t.id) && <span className="badge bad">No ID or Passport</span>}</td>
+                <td>
+                  <form action={removeFromTrip.bind(null, trip.id, t.id)}>
+                    <button type="submit" className="danger">
+                      Take off this Trip
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {editable && others.length > 0 && (
+        <form action={addToTrip.bind(null, trip.id)} className="inline-form">
+          <select name="traveller_id" aria-label="Traveller to add" required>
+            {others.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.first_name} {t.last_name}
+              </option>
+            ))}
+          </select>
+          <button type="submit">Add to this Trip</button>
+        </form>
+      )}
+      {editable && client && <AddTravellerForm clientId={client.id} tripId={trip.id} />}
+      <p className="sub">
+        IDs and Passports are kept on the <Link href={`/clients/${client?.id}`}>Client page</Link>.
+      </p>
       </fieldset>
 
       <h2>Quote</h2>

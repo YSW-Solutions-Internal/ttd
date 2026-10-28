@@ -13,8 +13,7 @@ export async function NewTripView({ clientId }: { clientId?: string }) {
     .from("clients")
     .select("id, client_code, full_name")
     .eq("active", true)
-    .order("last_name")
-    .order("first_name");
+    .order("sort_name");
 
   return (
     <>

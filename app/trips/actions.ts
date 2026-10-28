@@ -32,11 +32,11 @@ export async function createTrip(_prev: CreateTripState, formData: FormData): Pr
 }
 
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
-const TEXT_FIELDS = ["title", "visa_info", "health_info", "insurance_info", "custom_notes"];
+const TEXT_FIELDS = ["title", "visa_info", "health_info", "insurance_info", "custom_notes", "ta_number", "cost_centre", "authorising_person"];
 
 /**
  * Saves the Trip details that changed (autosave sends only those) and sends back Nights.
- * RLS limits it to the Trip's Consultant or an admin; any status may follow any other.
+ * RLS refuses Accountants; any status may follow any other.
  */
 export async function saveTrip(tripId: string, formData: FormData): Promise<SaveResult> {
   const text = (key: string) => String(formData.get(key) ?? "").trim();
@@ -72,7 +72,7 @@ export async function saveTrip(tripId: string, formData: FormData): Promise<Save
 
   const { data, error } = await supabase.from("trips").update(row).eq("id", tripId).select("id, nights");
   if (error) return { error: `Could not save: ${error.message}` };
-  if (!data || data.length === 0) return { error: "Could not save: only the trip's consultant or an administrator can edit." };
+  if (!data || data.length === 0) return { error: "Could not save: not permitted." };
   revalidatePath("/", "layout");
   return { values: { nights: data[0].nights == null ? "—" : String(data[0].nights) } };
 }

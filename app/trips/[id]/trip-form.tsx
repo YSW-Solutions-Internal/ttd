@@ -17,10 +17,13 @@ export type TripValues = {
   health_info: string | null;
   insurance_info: string | null;
   custom_notes: string | null;
+  ta_number: string | null;
+  cost_centre: string | null;
+  authorising_person: string | null;
 };
 
 /** The Trip's own details: everything on its Quote that no image supplies. Each field saves as you leave it. */
-export function TripForm({ trip }: { trip: TripValues }) {
+export function TripForm({ trip, company }: { trip: TripValues; company: boolean }) {
   const autosave = useAutosave({ key: trip.id, label: "Trip details", save: (fd) => saveTrip(trip.id, fd) });
 
   return (
@@ -69,6 +72,22 @@ export function TripForm({ trip }: { trip: TripValues }) {
           <FieldError autosave={autosave} name="children" />
         </div>
       </div>
+      {company && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="field">
+            <label htmlFor="ta_number">TA number</label>
+            <input id="ta_number" name="ta_number" type="text" defaultValue={trip.ta_number ?? ""} />
+          </div>
+          <div className="field">
+            <label htmlFor="cost_centre">Cost centre</label>
+            <input id="cost_centre" name="cost_centre" type="text" defaultValue={trip.cost_centre ?? ""} />
+          </div>
+          <div className="field">
+            <label htmlFor="authorising_person">Authorising person</label>
+            <input id="authorising_person" name="authorising_person" type="text" defaultValue={trip.authorising_person ?? ""} />
+          </div>
+        </div>
+      )}
       <div className="field">
         <label htmlFor="visa_info">Visa info</label>
         <textarea id="visa_info" name="visa_info" rows={2} defaultValue={trip.visa_info ?? ""} />

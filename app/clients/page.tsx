@@ -17,8 +17,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   let query = supabase
     .from("clients")
     .select("id, client_code, full_name, email, phone, active, profiles!clients_consultant_id_fkey(full_name, email)")
-    .order("last_name")
-    .order("first_name");
+    .order("sort_name");
   if (consultant) query = query.eq("consultant_id", consultant);
   const [{ data: clients, error }, { data: consultants }] = await Promise.all([
     query,

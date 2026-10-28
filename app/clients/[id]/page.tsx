@@ -4,15 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { canEdit, getProfile } from "@/lib/auth";
 import { History } from "@/app/history";
 import { one } from "@/lib/relations";
+import { tripStatusLabel } from "@/lib/trip-status";
 import { ClientForm, DocumentUploadForm, type ClientValues } from "../client-forms";
+import { AddTravellerForm, TravellerCard } from "../travellers";
+import type { IdentityValues } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
-
-const KIND_LABELS: Record<string, string> = {
-  id_copy: "ID copy",
-  passport_copy: "Passport copy",
-  other: "Other",
-};
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,17 +20,17 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const { data: client } = await supabase
     .from("clients")
     .select(
-      "id, client_code, first_name, last_name, full_name, email, phone, notes, active, consultant_id, profiles!clients_consultant_id_fkey(full_name, email)",
+      "id, kind, client_code, first_name, last_name, company_name, contact_name, full_name, email, phone, notes, active, consultant_id, profiles!clients_consultant_id_fkey(full_name, email)",
     )
     .eq("id", id)
     .maybeSingle();
   if (!client) notFound();
   const consultant = one(client.profiles);
 
-  const [{ data: documents }, { data: trips }, { data: profiles }] = await Promise.all([
+  const [{ data: documents }, { data: trips }, { data: profiles }, { data: travellers }, { data: flags }, { data: identities }] = await Promise.all([
     supabase
       .from("client_documents")
-      .select("id, kind, filename, created_at, profiles(full_name, email)")
+      .select("id, filename, created_at, profiles(full_name, email)")
       .eq("client_id", id)
       .order("created_at", { ascending: false }),
     supabase
@@ -44,9 +41,22 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     me.role === "admin"
       ? supabase.from("profiles").select("id, full_name, email").in("role", ["user", "admin"]).order("full_name")
       : Promise.resolve({ data: null }),
+    supabase
+      .from("travellers")
+      .select("id, title, first_name, last_name, date_of_birth, email, phone")
+      .eq("client_id", id)
+      .order("last_name")
+      .order("first_name"),
+    supabase.from("traveller_flags").select("traveller_id, identified").eq("client_id", id),
+    // RLS returns these only to the Consultant and admins.
+    supabase
+      .from("identity_documents")
+      .select("id, traveller_id, kind, number, nationality, issued_on, expires_on, name_as_printed, image_path, travellers!inner(client_id)")
+      .eq("travellers.client_id", id),
   ]);
   // RLS keeps documents to the Consultant and Administrators (ADR 0010); this only hides the empty section.
   const seesDocuments = me.role === "admin" || client.consultant_id === me.id;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }); // YYYY-MM-DD
   const consultants = profiles?.map((p) => ({ id: p.id, label: p.full_name ?? p.email }));
 
   return (
@@ -67,6 +77,22 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <ClientForm client={client as ClientValues} consultants={consultants} />
       </fieldset>
 
+      <h2>Travellers</h2>
+      {(!travellers || travellers.length === 0) && <p className="empty">No Travellers yet.</p>}
+      {(travellers ?? []).map((t) => (
+        <fieldset key={t.id} className="plain" disabled={!canEdit(me.role)}>
+          <TravellerCard
+            clientId={client.id}
+            traveller={t}
+            identified={flags?.find((f) => f.traveller_id === t.id)?.identified ?? false}
+            identities={seesDocuments ? (identities ?? []).filter((d) => d.traveller_id === t.id) as IdentityValues[] : null}
+            today={today}
+            admin={me.role === "admin"}
+          />
+        </fieldset>
+      ))}
+      {canEdit(me.role) && <AddTravellerForm clientId={client.id} />}
+
       <h2>Documents</h2>
       {!seesDocuments && <p className="empty">Only the Consultant and Administrators see this Client&apos;s documents.</p>}
       {seesDocuments && <DocumentUploadForm clientId={client.id} />}
@@ -75,7 +101,6 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <table style={{ marginTop: 14 }}>
           <thead>
             <tr>
-              <th>Kind</th>
               <th>File</th>
               <th>Uploaded by</th>
               <th>Uploaded</th>
@@ -87,7 +112,6 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               const by = one(d.profiles);
               return (
                 <tr key={d.id}>
-                  <td>{KIND_LABELS[d.kind] ?? d.kind}</td>
                   <td>{d.filename}</td>
                   <td>{by?.full_name ?? by?.email ?? "—"}</td>
                   <td>{new Date(d.created_at).toLocaleDateString("en-ZA")}</td>
@@ -129,7 +153,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   </Link>
                 </td>
                 <td>{t.title ?? "—"}</td>
-                <td>{t.status.replace("_", " ")}</td>
+                <td>{tripStatusLabel(t.status)}</td>
                 <td>{new Date(t.created_at).toLocaleDateString("en-ZA")}</td>
               </tr>
             ))}

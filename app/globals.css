@@ -195,3 +195,12 @@ th a.sort { color: inherit; }
 .confirm-airlines .sub { margin: 4px 0 10px; }
 .confirm-airlines form { margin-bottom: 8px; }
 .confirm-airlines input[type="text"] { max-width: 320px; }
+
+/* Travellers, their ID and Passports (GLOSSARY: Passport) */
+.traveller { margin-bottom: 14px; }
+.traveller-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.row-fields { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: flex-end; }
+.identity { margin-top: 10px; padding: 10px 12px; border-left: 4px solid var(--teal-deep); background: var(--wash); }
+.identity.expired { border-left-color: var(--line); opacity: 0.55; }
+.identity-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.add-identity { margin-top: 10px; }
