@@ -5,30 +5,38 @@ Staff-only tool for a travel agency: building quotes for clients' trips from sup
 ## People
 
 **User**:
-A staff member with an account (Administrator or Standard user). Accounts exist only by invitation.
+A staff member with an account (Administrator, Standard user or Accountant). Accounts exist only by invitation.
 _Avoid_: Staff account, login
 
+**Accountant**:
+A User who follows the money after a Trip is booked: supplier invoices, Client invoices and their statuses, linked to the Items they cover. May be an external bookkeeper.
+_Avoid_: Bookkeeper, accounts (as a person)
+
 **Client**:
-A traveller (or contact) the agency quotes for. Clients never have accounts.
+A person or a company the agency quotes for and invoices. Clients never have accounts.
 _Avoid_: Customer, contact
 
 **Consultant**:
-The User responsible for a Client, and the only non-admin User who may see or work on that Client, their documents, Trips and Quotes. Each Client has one Consultant; only an Administrator can hand a Client over to another Consultant. Not necessarily the User who first entered the Client. A Trip's or Quote's Consultant is always its Client's current Consultant, so a handover moves the Client's older Trips too.
+The User responsible for a Client. Every User can see and work on every Client, Trip and Quote; only the Consultant and Administrators can see the Client's documents. Each Client has one Consultant; only an Administrator can hand a Client over to another Consultant. Not necessarily the User who first entered the Client. A Trip's or Quote's Consultant is always its Client's current Consultant, so a handover moves the Client's older Trips too.
 _Avoid_: Owner, assigned user, creator, agent (ambiguous with Claude)
 
 **Client code**:
-A Client's short identifier: first letter of the first name, first three letters of the last name, and a two-digit number (e.g. RWOL01). Set when the Client is added and never changes afterwards. It appears inside every Trip and Quote reference for that Client.
+A Client's short identifier: first letter of the first name, first three letters of the last name, and a two-digit number (e.g. RWOL01); for a company, the first four letters of its name and a two-digit number (e.g. OREA01). Set when the Client is added and never changes afterwards. It appears inside every Trip and Quote reference for that Client.
 _Avoid_: Client number, client no, client ID
 
 ## Records
 
 **Trip**:
-One journey for one Client. Each Trip has exactly one Quote, which comes into being with the Trip; there is never a Quote without a Trip, nor a second Quote for the same Trip.
-_Avoid_: Booking, itinerary
+One journey for one Client, taken by one or more Travellers. Each Trip has exactly one Quote, which comes into being with the Trip; there is never a Quote without a Trip, nor a second Quote for the same Trip.
+_Avoid_: Booking (that is what happens to an Item), itinerary
 
 **Trip status**:
-Where a Trip stands: In progress, Completed or Cancelled. A new Trip is In progress. Its Consultant or an Administrator can change it in any direction, including reopening a Cancelled Trip.
-_Avoid_: State, stage, "current trip" (say In progress)
+Where a Trip stands: Enquiry, Quoted, Confirmed, Travelled or Cancelled. A new Trip is an Enquiry. Staff can change it in any direction, including reopening a Cancelled Trip. A Trip with an open Refund shows that alongside its status; it is never a status of its own.
+_Avoid_: State, stage, Booking status, "Refund in progress" (as a status)
+
+**Traveller**:
+A person who travels on a Trip. Reusable across Trips and may belong to a company Client. A Traveller is not a Client: they have no Client code or Consultant and are not invoiced. Their passport details are personal information under POPIA, kept as private as Client documents.
+_Avoid_: Passenger, pax, guest
 
 **Terms profile**:
 The standard set of terms and conditions printed on a Trip's Quote. Every Trip uses Standard (South Africa, international) unless changed. Staff can add their own lines to it as custom notes.
@@ -43,7 +51,7 @@ What Claude read off one image attached to a Quote: the Items it found, copied e
 _Avoid_: AI scan, parse
 
 **Item**:
-One bookable service found on an image or entered by hand, such as one flight option, one Accommodation option or one car rental.
+One bookable service found on an image or entered by hand, such as one flight option, one Accommodation option, one car rental, one Package, one Visa or one Insurance policy.
 _Avoid_: Line, entry
 
 **Flight option**:
@@ -66,12 +74,28 @@ _Avoid_: City (a Destination need not be one), stop
 One stop on the Trip's itinerary: one place, from an arrival date to a departure date, with an optional highlight. A Stay holds the Accommodation options offered for it. Options with no dates belong to no Stay until staff place them, and a Version cannot be generated while any are unplaced.
 _Avoid_: Trip stop, leg, segment
 
+**Package**:
+A tour operator's bundled trip, booked as one Item, usually paid as a deposit and then a final balance due some weeks before departure.
+_Avoid_: Tour, holiday
+
+**Visa**:
+An entry permit the agency applies for or pays for on a Traveller's behalf, booked as an Item. Advice about visas without a purchase belongs on the Trip checklist.
+_Avoid_: Visa info
+
+**Insurance**:
+A travel insurance policy issued through the agency (TIC, Hollard, Chubb or another insurer), booked as an Item. A Client declining or using their own cover is recorded on the Trip checklist, not as an Item.
+_Avoid_: Cover, policy (alone)
+
+**Trip checklist**:
+The checks and advice a Consultant records for a Trip, each with who ticked it and when: visa and entry requirements, health advice, insurance decision, Traveller details checked with the supplier, seats and meals requested, documents sent.
+_Avoid_: Visa info, health info, notes
+
 **Experience**:
 A tour, activity or outing the Client can book. "Excursion" is accepted as an everyday synonym.
 _Avoid_: Activity, tour
 
 **Fee schedule**:
-The agency's fees for each kind of Item, Fee region and (for flights) cabin: a Transaction fee, Change fee, Refund fee and Pre-payment fee, all including VAT. A Client may have their own; otherwise the standard one applies. Claude never sets or reads fees.
+The agency's fees for each kind of Item, Fee region and (for flights) cabin: a Transaction fee, Change fee, Refund fee and Pre-payment fee, all including VAT, plus the Card surcharge rate. A Client may have their own; otherwise the standard one applies. Claude never sets or reads fees.
 _Avoid_: Tariff, price list
 
 **Transaction fee**:
@@ -87,12 +111,28 @@ Which Fee schedule line applies to an Item: Domestic (South Africa), Neighbourin
 _Avoid_: Zone, area, local
 
 **Item total**:
-What the Client pays for one Item, for everyone on the Trip: the supplier's price as shown (taxes included) plus the Transaction fee, the Markup and, if the Item is prepaid, the Pre-payment fee. It is always in Rand, and it is the only price the Quote shows for an Item.
+What the Client pays for one Item, for everyone on the Trip: the supplier's price as shown (taxes included) plus the Transaction fee, the Markup and, if the Item is prepaid, the Pre-payment fee and, if paid with an international card, the Card surcharge. It is always in Rand, and it is the only price the Quote shows for an Item.
 _Avoid_: Rate, price
 
 **Issued**:
 An Item is issued once the supplier has confirmed and ticketed it. Only Items are issued; Versions are generated.
 _Avoid_: Confirmed, ticketed (for the state), issued (for a Version)
+
+**Booked**:
+An Item is booked once the Consultant has reserved it with the supplier, whether or not it went on a Version. From then on its prices are fixed, it carries the supplier's actual currency, amount and rate, and anything that alters it is a Change.
+_Avoid_: Confirmed, reserved
+
+**Change**:
+A dated event against a booked Item, such as a flight reissue, with its own charges: extra fare, extra taxes, supplier penalty, Change fee and Markup. A Change never overwrites the Item or an earlier Change.
+_Avoid_: Amendment, reissue (as a record), edit
+
+**Supplier invoice**:
+An invoice or credit note from a supplier (often XL Ticketing), kept here as a PDF with its number, date, amount and currency, and linked to the Items and Changes it charges for. An Accountant checks it: Received, then Verified, or Query.
+_Avoid_: Supplier document, XL invoice (XL is one supplier)
+
+**Invoicing stage**:
+How far an Item or Change has got from supplier to Client: Awaiting supplier invoice, Received, Verified, Invoiced, or No supplier invoice expected. Worked out from its Supplier invoices, its Client invoices and whether an Accountant has marked that no supplier invoice is expected; never set by hand, together with the Rand amount still to invoice.
+_Avoid_: Client invoicing status, invoice status
 
 **Refund fee**:
 What the agency charges if the Client cancels an Item after it has been issued. Taken from the Fee schedule; the Consultant can change it. Shown on the Quote as the cancellation / refund fee, never added to the Item total.
@@ -129,3 +169,35 @@ _Avoid_: Save, publish, issue, commit
 **Client document**:
 A file kept against a Client, such as an ID copy or passport copy. It is personal information under POPIA.
 _Avoid_: Attachment, upload
+
+**Client invoice**:
+An invoice or credit note issued to a Client in Quicktrav, never created here. Its PDF is kept here, with its Quicktrav number and date, and linked to the Items it covers; one Client invoice can cover several Items or part of one.
+_Avoid_: Quicktrav invoice, sales invoice
+
+**Card surcharge**:
+A percentage (2.75% today) added to an Item paid with an international credit card, set in the Fee schedule and shown as its own line, never folded into the supplier's price.
+_Avoid_: Card fee, credit card levy
+
+**Online saving**:
+How much less the Client pays than a comparable fare found online, worked out from an optional comparable price on a Flight option. Flagged when above a threshold Administrators set.
+_Avoid_: Savings, discount
+
+**Cancellation**:
+A Change that cancels a booked Item, carrying the charges for it: the Transaction fee if before issue, the Refund fee after. It opens a Refund when money is due back. Not the same as unbooking, which undoes an Item marked booked by mistake and is only possible while it has no Changes or invoices.
+_Avoid_: Cancel (as a status), unbook (for a real cancellation)
+
+**Refund**:
+Money due back from a supplier after a Cancellation: its expected amount, fees, the supplier's progress, what was received and what went back to the Client, possibly in several stages. The Client's credit note is a Client invoice.
+_Avoid_: Refund in progress (as a Trip status), credit
+
+**Commission**:
+What a supplier owes the agency for an Item (tour operators, Bedsonline, Viator): the amount expected and how it is settled, deducted when the agency pays the supplier or claimed and paid later. What is still owed is worked out from Payments received against it.
+_Avoid_: Markup, kickback, margin
+
+**Payment**:
+One actual movement of money: paid to a supplier, received from a Client, refund in, refund out, or commission in. It has a date, amount, currency, rate and Rand amount, a Payment account and a reconciliation status, and is linked to the Items and Changes it is for. Several Payments, including partial ones and reversals, can cover one Item.
+_Avoid_: Transaction, charge
+
+**Payment account**:
+A card or account money moves through, named by a nickname such as "Ore and Metal Services card", "TTD card", "Client's own card", EFT or Cash. Never holds card numbers. Administrators keep the list.
+_Avoid_: Payment method, card (alone)

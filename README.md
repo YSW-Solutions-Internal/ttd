@@ -107,15 +107,29 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Next milestones
 
-1. ~~Airport table loader~~ Done: airport data is loaded (replaces the monday.com Airport Ref board)
-2. ~~Move extraction into a background job runner~~ Done: images are read in the background (ADR 0008)
-3. ~~Deterministic assembler~~ Done: `lib/pdf/assemble.ts`
-4. ~~Edit screen: autosave, and warning about unsaved changes on in-app links too~~ Done: fields save as you leave them
-5. ~~Generate version button~~ Done
-6. ~~Trips list: filter by Consultant, for admins~~ Done
-7. Review the Trips list for pagination once there are a few hundred trips (it loads and sorts every matching trip today)
-8. Booking status per Item (booked, issued, cancelled), charging the Transaction fee when the Client cancels before issue
-9. Finalising a Quote: decide when a Version gets a total for the whole Trip (quotes show Item totals only until then)
-10. Archiving Items instead of deleting them, so a deleted Item can be restored
-11. A developer view of what the AI read from each image (raw `ai_calls` answers), now that consultants no longer see Extracted data on the Quote page
-12. A page for Administrators to correct or remove Destinations (any User can add one; fixing one is done in Supabase today)
+Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter.
+
+### Bookings and accounts (Lisa's brief, phase 1)
+
+The app takes over what Lisa's SharePoint pilot and developer brief describe: from booking an Item to its supplier and Client invoices, payments, refunds and commissions (ADR 0009). Terms are in `GLOSSARY.md`; open business questions for Lisa are in `docs/questions.md`. One `feat/` branch per step, each usable on its own.
+
+7. **Access and Accountant**: every User sees every Client and Trip, Client documents stay with the Consultant and Administrators (ADR 0010); the Accountant role; an audit trail of every change (who, when, before and after)
+8. **Clients and Travellers**: company Clients (`OREA01`), reusable Travellers on a Trip, Trip status Enquiry / Quoted / Confirmed / Travelled / Cancelled, TA number, cost centre and authorising person on corporate Trips
+9. **Booking**: book and unbook Items, the supplier's actual currency, amount and rate, the expected supplier-invoice date, Changes and Cancellations; booked Items are locked (ADR 0011). Charges the Transaction fee when the Client cancels before issue
+10. **Invoices**: Supplier invoices and Client invoices (Quicktrav PDFs) linked to Items and Changes with an amount each, the calculated invoicing stage (ADR 0012), and `/accounts` with its queues: awaiting (overdue first), to verify, to invoice, queries, unlinked documents
+11. **Payments**: Payment accounts kept by Administrators (nicknames only), the Payment ledger with partial payments and reversals, reconciliation status, month-end CSV per Payment account
+12. **Refunds and Commissions**
+13. **New kinds and pricing**: Package, Visa and Insurance Items, the Trip checklist (replaces visa/health/insurance info), the Card surcharge, Online saving on Flight options
+14. **Search and departures**: one search box over references, Clients, Travellers, PNRs, ticket and invoice numbers; departing and returning this week on the home page; Trips list hides Travelled and Cancelled Trips older than 90 days unless asked; nothing with money on it can be deleted
+
+### Afterwards
+
+15. Review the Trips list for pagination once there are a few hundred trips
+16. Finalising a Quote: decide when a Version gets a total for the whole Trip
+17. Archiving Items instead of deleting them, so a deleted Item can be restored
+18. A developer view of what the AI read from each image (raw `ai_calls` answers)
+19. A page for Administrators to correct or remove Destinations
+
+### Phase 2
+
+Reminders (package balances, visa deadlines, overdue supplier invoices; anything to Clients reviewed before sending), card and bank statement import and matching, corporate spend reports, signing in with a Microsoft account.
