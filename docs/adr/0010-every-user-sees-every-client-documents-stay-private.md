@@ -1,6 +1,6 @@
 # Every User sees every Client and Trip; only Client documents stay private
 
-Supersedes ADR 0001. Every User can see and work on every Client, Trip, Quote and their financial records, because the booking and accounts brief needs any Consultant to help on a Trip and an Accountant to follow every Trip's invoices. Client documents (ID and passport copies, personal information under POPIA) stay visible only to the Client's Consultant and Administrators, enforced by storage and row-level security as before. Every change is recorded with who made it and when, so shared access stays accountable.
+Supersedes ADR 0001. Every User can see every Client, Trip, Quote and their financial records, and Standard users and Administrators can work on them, because the booking and accounts brief needs any Consultant to help on a Trip and an Accountant to follow every Trip's invoices. Client documents (ID and passport copies, personal information under POPIA) stay visible only to the Client's Consultant and Administrators, enforced by storage and row-level security as before. Every edit is kept in History with who made it and when, so shared access stays accountable. Accountants cannot edit Clients, Trips, Quotes or Items; they work only on the accounts records, and are never a Client's Consultant. Administrators can also do all of an Accountant's work.
 
 ## Considered Options
 

@@ -5,7 +5,7 @@ import type { Profile } from "@/lib/roles";
 // Client Components must import these from @/lib/roles instead: this module
 // pulls in next/headers and cannot be bundled for the browser.
 export type { Profile, Role } from "@/lib/roles";
-export { ROLES, ROLE_LABELS, isRole } from "@/lib/roles";
+export { ROLES, ROLE_LABELS, isRole, canEdit } from "@/lib/roles";
 
 /** The signed-in user's profile, or null if nobody is signed in. */
 export async function getProfile(): Promise<Profile | null> {

@@ -100,20 +100,21 @@ supabase/migrations/      database schema, RLS, storage bucket
 - **Items** are rows in one table per kind (`flight_options` with child `flights`, `accommodation_options`, `car_rentals`, `transfers`, `rail_journeys`, `excursions`). Consultants correct them in place. A hand-entered Item is a row with no `image_id`. `quote_items` lists a Quote's Items, leaving out those whose image was removed (ADR 0005).
 - **Extractions** hold one row per image: whether it has been read. An image is read once, ever, so a revision only sends new images to the AI.
 - **`ai_calls`** logs every call to Claude with its raw answer, tokens and errors, for debugging. Nothing reads it to build a Quote.
-- RLS: a standard user sees only clients they are the Consultant for, and everything under them. `trips.consultant_id` and `quotes.owner_id` are labels and grant no access.
+- RLS (ADR 0010, migration 0021): every signed-in User reads every Client, Trip, Quote and Item; `can_edit()` lets Standard users and Administrators write, never Accountants. Client documents and their files stay with the Client's Consultant and Administrators (`can_access_client`). Only an Administrator hands a Client over (`guard_consultant` trigger). `trips.consultant_id` and `quotes.owner_id` are labels and grant no access.
+- **History** is written by the `record_history` trigger on every business table, so no server action can skip it. Entries cannot be changed or removed through the API; an empty `user_id` means the background extraction or cron.
 - **Invitation-only** is enforced by `handle_new_user`: every new auth user must match an open row in `invitations`, which only admins can write, and the role comes from that row. Anything else that tries to create an account (public sign-up, magic link, OAuth, the dashboard's own Add/Invite user) fails.
 - **Roles** are enforced in the app and again in the database. Every user-management server action calls `requireAdminAction()` first, because a server action can be posted to directly, not just from our own UI; hiding the nav link is cosmetic. Underneath, the `guard_role_change` trigger refuses any role change not made by an admin, and refuses to demote the last admin. Role changes run with the admin's own session, not the service key, so the trigger always sees who is asking.
 - Role is read from the database on every request, so promoting or demoting someone takes effect immediately rather than when their session expires.
 
 ## Next milestones
 
-Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter.
+Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021).
 
 ### Bookings and accounts (Lisa's brief, phase 1)
 
 The app takes over what Lisa's SharePoint pilot and developer brief describe: from booking an Item to its supplier and Client invoices, payments, refunds and commissions (ADR 0009). Terms are in `GLOSSARY.md`; open business questions for Lisa are in `docs/questions.md`. One `feat/` branch per step, each usable on its own.
 
-7. **Access and Accountant**: every User sees every Client and Trip, Client documents stay with the Consultant and Administrators (ADR 0010); the Accountant role; an audit trail of every change (who, when, before and after)
+7. **Access and Accountant**: every User sees every Client and Trip, Client documents stay with the Consultant and Administrators (ADR 0010); the Accountant role; History of every edit from the moment a record is entered (who, when, before and after)
 8. **Clients and Travellers**: company Clients (`OREA01`), reusable Travellers on a Trip, Trip status Enquiry / Quoted / Confirmed / Travelled / Cancelled, TA number, cost centre and authorising person on corporate Trips
 9. **Booking**: book and unbook Items, the supplier's actual currency, amount and rate, the expected supplier-invoice date, Changes and Cancellations; booked Items are locked (ADR 0011). Charges the Transaction fee when the Client cancels before issue
 10. **Invoices**: Supplier invoices and Client invoices (Quicktrav PDFs) linked to Items and Changes with an amount each, the calculated invoicing stage (ADR 0012), and `/accounts` with its queues: awaiting (overdue first), to verify, to invoice, queries, unlinked documents

@@ -9,7 +9,7 @@ import type { SaveResult } from "@/lib/form-values";
 export type CreateTripState = { error?: string };
 
 // References and the trip's consultant (the client's Consultant) are set by the
-// database (migration 0007); RLS refuses clients you are not the Consultant for.
+// database (migration 0007); RLS refuses Accountants (0021).
 export async function createTrip(_prev: CreateTripState, formData: FormData): Promise<CreateTripState> {
   const clientId = String(formData.get("client_id") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim() || null;

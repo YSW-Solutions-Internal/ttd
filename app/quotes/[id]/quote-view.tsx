@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canEdit, getProfile } from "@/lib/auth";
 import { one } from "@/lib/relations";
 import { removeImage } from "./actions";
 import { TABLE_KIND } from "@/lib/extraction/tables";
@@ -31,6 +32,8 @@ function summarise(counts: Map<string, number> | undefined): string {
 
 export async function QuoteView({ id }: { id: string }) {
   const supabase = await createClient();
+  const me = await getProfile();
+  const editable = !!me && canEdit(me.role);
 
   const { data: quote } = await supabase
     .from("quotes")
@@ -123,7 +126,7 @@ export async function QuoteView({ id }: { id: string }) {
       </p>
 
       <h2>Source images</h2>
-      <UploadForm quoteId={quote.id} />
+      {editable && <UploadForm quoteId={quote.id} />}
 
       <div style={{ marginTop: 14 }}>
         {(!images || images.length === 0) && <p className="empty">No images yet.</p>}
@@ -145,11 +148,13 @@ export async function QuoteView({ id }: { id: string }) {
                     <span className="name" title={img.filename}>
                       {img.filename}
                     </span>
-                    <form action={removeImage.bind(null, quote.id, img.id)}>
-                      <button type="submit" className="danger">
-                        Remove
-                      </button>
-                    </form>
+                    {editable && (
+                      <form action={removeImage.bind(null, quote.id, img.id)}>
+                        <button type="submit" className="danger">
+                          Remove
+                        </button>
+                      </form>
+                    )}
                   </div>
                   <div className="status">
                     {!ex && <span className="badge">Not extracted</span>}
@@ -173,19 +178,20 @@ export async function QuoteView({ id }: { id: string }) {
         )}
       </div>
 
-      {images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} reading={reading} />}
+      {editable && images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} reading={reading} />}
 
-      <h2>Edit</h2>
+      <h2>{editable ? "Edit" : "Items"}</h2>
       {trip && (
         <EditSection
           quoteId={quote.id}
           tripId={trip.id}
           images={(images ?? []).map((i) => ({ id: i.id, filename: i.filename, url: urls.get(i.storage_path) }))}
+          readOnly={!editable}
         />
       )}
 
       <h2>Versions</h2>
-      <GenerateVersionButton quoteId={quote.id} />
+      {editable && <GenerateVersionButton quoteId={quote.id} />}
       {(!versions || versions.length === 0) && <p className="empty">No versions yet.</p>}
       {versions && versions.length > 0 && (
         <table>
@@ -204,7 +210,7 @@ export async function QuoteView({ id }: { id: string }) {
                 </td>
                 <td>
                   {!v.pdf_path ? (
-                    <RetryPdfButton quoteId={quote.id} versionId={v.id} />
+                    editable ? <RetryPdfButton quoteId={quote.id} versionId={v.id} /> : "No PDF yet"
                   ) : pdfUrls.get(v.pdf_path) ? (
                     <a href={pdfUrls.get(v.pdf_path)} target="_blank" rel="noreferrer">
                       Open PDF

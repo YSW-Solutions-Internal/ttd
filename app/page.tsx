@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getProfile } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { canEdit, getProfile } from "@/lib/auth";
 import { one } from "@/lib/relations";
 import { isTripStatus, tripStatusLabel } from "@/lib/trip-status";
 import { TripFilters } from "./trip-filters";
@@ -21,12 +22,12 @@ const COLUMNS = [
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
-  const admin = (await getProfile())?.role === "admin";
-  // Only admins see the Consultant filter and column; everyone else sees only their own clients anyway.
-  const columns = COLUMNS.filter((c) => admin || c.key !== "consultant");
+  const me = await getProfile();
+  if (!me) redirect("/login");
   const status = params.status === "all" || isTripStatus(params.status) ? params.status : "in_progress";
-  const consultant = admin ? (params.consultant ?? "") : "";
-  const sort = columns.some((c) => c.key === params.sort && !("unsortable" in c)) ? params.sort! : "created_at";
+  // Standard users start on their own Clients' Trips; "all" is everyone's.
+  const consultant = (params.consultant ?? (me.role === "user" ? me.id : "all")).replace(/^all$/, "");
+  const sort = COLUMNS.some((c) => c.key === params.sort && !("unsortable" in c)) ? params.sort! : "created_at";
   const dir = params.dir === "asc" || params.dir === "desc" ? params.dir : sort === "created_at" ? "desc" : "asc";
 
   const supabase = await createClient();
@@ -35,12 +36,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   if (consultant) clientQuery = clientQuery.eq("consultant_id", consultant);
   const [{ data: clients }, { data: consultants }] = await Promise.all([
     clientQuery,
-    admin ? supabase.from("profiles").select("id, full_name, email").order("full_name") : { data: null },
+    supabase.from("profiles").select("id, full_name, email").in("role", ["user", "admin"]).order("full_name"),
   ]);
   // A client that isn't the chosen Consultant's would only ever show an empty list, so drop it.
   const client = (clients ?? []).some((c) => c.id === params.client) ? params.client! : "";
 
-  // RLS (0007): trips of your own clients, or all of them for an admin.
   // A Trip's Consultant is its Client's current Consultant (GLOSSARY), not trips.consultant_id.
   let query = supabase
     .from("trips")
@@ -73,20 +73,22 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const href = (col: string) => {
     const q = new URLSearchParams({ status, sort: col, dir: sort === col && dir === "asc" ? "desc" : "asc" });
     if (client) q.set("client", client);
-    if (consultant) q.set("consultant", consultant);
+    q.set("consultant", consultant || "all");
     return `/?${q}`;
   };
 
   return (
     <main className="container">
       <h1>Trips</h1>
-      <p className="sub">
-        <Link href="/trips/new">+ New trip</Link>
-      </p>
+      {canEdit(me.role) && (
+        <p className="sub">
+          <Link href="/trips/new">+ New trip</Link>
+        </p>
+      )}
 
       <TripFilters
         clients={clients ?? []}
-        consultants={consultants?.map((p) => ({ id: p.id, label: p.full_name ?? p.email }))}
+        consultants={(consultants ?? []).map((p) => ({ id: p.id, label: p.full_name ?? p.email }))}
         status={status}
         client={client}
         consultant={consultant}
@@ -100,7 +102,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <table>
           <thead>
             <tr>
-              {columns.map((c) => (
+              {COLUMNS.map((c) => (
                 <th key={c.key} aria-sort={sort === c.key ? (dir === "asc" ? "ascending" : "descending") : undefined}>
                   {"unsortable" in c ? (
                     c.label
@@ -129,7 +131,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                     {c?.full_name ?? "—"}
                     <div className="sub" style={{ margin: 0, fontSize: 12 }}>{c?.client_code}</div>
                   </td>
-                  {admin && <td>{consultantName(t) || "—"}</td>}
+                  <td>{consultantName(t) || "—"}</td>
                   <td>{tripStatusLabel(t.status)}</td>
                   <td>{t.starts_on ? new Date(t.starts_on).toLocaleDateString("en-ZA") : "—"}</td>
                   <td>{new Date(t.created_at).toLocaleDateString("en-ZA")}</td>

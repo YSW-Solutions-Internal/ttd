@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canEdit, getProfile } from "@/lib/auth";
+import { History } from "@/app/history";
 import { one } from "@/lib/relations";
 import { problems } from "@/lib/pdf/assemble";
 import { TABS } from "@/app/quotes/[id]/edit-section";
@@ -13,6 +15,8 @@ const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") 
 // Shared by the full Trip page and the Trip modal.
 export async function TripView({ id }: { id: string }) {
   const supabase = await createClient();
+  const me = await getProfile();
+  const editable = !!me && canEdit(me.role);
 
   const { data: trip } = await supabase
     .from("trips")
@@ -93,6 +97,8 @@ export async function TripView({ id }: { id: string }) {
         {trip.starts_on ? `${date(trip.starts_on)} – ${date(trip.ends_on) ?? "?"}` : "No dates yet"}
       </p>
 
+      {/* Accountants see the Trip but cannot change it (ADR 0010). */}
+      <fieldset className="plain" disabled={!editable}>
       <TripForm trip={trip} />
 
       <h2>Stays</h2>
@@ -111,9 +117,10 @@ export async function TripView({ id }: { id: string }) {
           {(stays ?? []).map((s) => (
             <StayRow key={s.id} tripId={trip.id} stay={s} destinations={destinationOptions} />
           ))}
-          <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />
+          {editable && <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />}
         </tbody>
       </table>
+      </fieldset>
 
       <h2>Quote</h2>
       <div className="quote-summary">
@@ -129,7 +136,7 @@ export async function TripView({ id }: { id: string }) {
             )}
             <p>
               <Link href={`/quotes/${quote.id}`} className="btn">
-                Edit quote
+                {editable ? "Edit quote" : "Open quote"}
               </Link>
             </p>
           </>
@@ -147,6 +154,8 @@ export async function TripView({ id }: { id: string }) {
           </details>
         )}
       </div>
+
+      <History tripId={trip.id} />
     </>
   );
 }
