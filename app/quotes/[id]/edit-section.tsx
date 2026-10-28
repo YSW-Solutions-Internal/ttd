@@ -25,7 +25,17 @@ export const TABS: [ItemTable, string, string][] = [
  * block per image (the image beside its Items of that kind) and one block for Items
  * of that kind entered by hand (ADR 0005).
  */
-export async function EditSection({ quoteId, tripId, images }: { quoteId: string; tripId: string; images: Image[] }) {
+export async function EditSection({
+  quoteId,
+  tripId,
+  images,
+  readOnly,
+}: {
+  quoteId: string;
+  tripId: string;
+  images: Image[];
+  readOnly: boolean; // Accountants (ADR 0010)
+}) {
   const supabase = await createClient();
   const tables = Object.keys(TABLE_KIND) as ItemTable[];
 
@@ -117,7 +127,7 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
       warn: problems({ ...(onlyThis as Record<ItemTable, Row[]>), flights: [] }).length > 0,
       content: (
         <>
-          {table === "flight_options" && airlines}
+          {table === "flight_options" && !readOnly && airlines}
           {images.map((img) => {
             const items = ofKind.filter((r) => r.row.image_id === img.id);
             if (items.length === 0) return null;
@@ -127,7 +137,9 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
                   {img.url && <ImageViewer src={img.url} alt={img.filename} />}
                   <small>{img.filename}</small>
                 </div>
-                <div className="edit-items">{items.map(form)}</div>
+                <fieldset className="edit-items plain" disabled={readOnly}>
+                  {items.map(form)}
+                </fieldset>
               </section>
             );
           })}
@@ -135,10 +147,10 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
             <div className="edit-image">
               <b>Entered by hand</b>
             </div>
-            <div className="edit-items">
+            <fieldset className="edit-items plain" disabled={readOnly}>
               {byHand.map(form)}
-              <AddItemForm quoteId={quoteId} table={table} />
-            </div>
+              {!readOnly && <AddItemForm quoteId={quoteId} table={table} />}
+            </fieldset>
           </section>
         </>
       ),

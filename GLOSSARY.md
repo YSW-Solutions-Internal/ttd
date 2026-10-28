@@ -9,7 +9,7 @@ A staff member with an account (Administrator, Standard user or Accountant). Acc
 _Avoid_: Staff account, login
 
 **Accountant**:
-A User who follows the money after a Trip is booked: supplier invoices, Client invoices and their statuses, linked to the Items they cover. May be an external bookkeeper.
+A User who follows the money after a Trip is booked: supplier invoices, Client invoices and their statuses, linked to the Items they cover. May be an external bookkeeper. Sees every Client, Trip and Quote but never edits them, and is never a Client's Consultant. Administrators can also do everything an Accountant does.
 _Avoid_: Bookkeeper, accounts (as a person)
 
 **Client**:
@@ -17,7 +17,7 @@ A person or a company the agency quotes for and invoices. Clients never have acc
 _Avoid_: Customer, contact
 
 **Consultant**:
-The User responsible for a Client. Every User can see and work on every Client, Trip and Quote; only the Consultant and Administrators can see the Client's documents. Each Client has one Consultant; only an Administrator can hand a Client over to another Consultant. Not necessarily the User who first entered the Client. A Trip's or Quote's Consultant is always its Client's current Consultant, so a handover moves the Client's older Trips too.
+The Standard user or Administrator responsible for a Client. Every User can see every Client, Trip and Quote, and every User but an Accountant can work on them; only the Consultant and Administrators can see the Client's documents. Each Client has one Consultant; only an Administrator can hand a Client over to another Consultant. Not necessarily the User who first entered the Client. A Trip's or Quote's Consultant is always its Client's current Consultant, so a handover moves the Client's older Trips too.
 _Avoid_: Owner, assigned user, creator, agent (ambiguous with Claude)
 
 **Client code**:
@@ -125,6 +125,10 @@ _Avoid_: Confirmed, reserved
 **Change**:
 A dated event against a booked Item, such as a flight reissue, with its own charges: extra fare, extra taxes, supplier penalty, Change fee and Markup. A Change never overwrites the Item or an earlier Change.
 _Avoid_: Amendment, reissue (as a record), edit
+
+**History**:
+The record of every edit to a Client, Trip, Quote, Item or anything else staff keep here, from the moment it is entered, before booking as much as after: who did it, when, and what it was before and after. Each edit is one History entry. History is never edited or removed.
+_Avoid_: Audit log, audit trail, activity, Change (that is an event against a booked Item)
 
 **Supplier invoice**:
 An invoice or credit note from a supplier (often XL Ticketing), kept here as a PDF with its number, date, amount and currency, and linked to the Items and Changes it charges for. An Accountant checks it: Received, then Verified, or Query.

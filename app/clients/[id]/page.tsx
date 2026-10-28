@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getProfile } from "@/lib/auth";
+import { canEdit, getProfile } from "@/lib/auth";
+import { History } from "@/app/history";
 import { one } from "@/lib/relations";
 import { ClientForm, DocumentUploadForm, type ClientValues } from "../client-forms";
 
@@ -19,7 +20,6 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   if (!me) redirect("/login");
   const supabase = await createClient();
 
-  // RLS (0007) returns nothing unless you are the Consultant or an admin.
   const { data: client } = await supabase
     .from("clients")
     .select(
@@ -42,9 +42,11 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       .eq("client_id", id)
       .order("created_at", { ascending: false }),
     me.role === "admin"
-      ? supabase.from("profiles").select("id, full_name, email").order("full_name")
+      ? supabase.from("profiles").select("id, full_name, email").in("role", ["user", "admin"]).order("full_name")
       : Promise.resolve({ data: null }),
   ]);
+  // RLS keeps documents to the Consultant and Administrators (ADR 0010); this only hides the empty section.
+  const seesDocuments = me.role === "admin" || client.consultant_id === me.id;
   const consultants = profiles?.map((p) => ({ id: p.id, label: p.full_name ?? p.email }));
 
   return (
@@ -61,11 +63,14 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       </p>
 
       <h2>Details</h2>
-      <ClientForm client={client as ClientValues} consultants={consultants} />
+      <fieldset className="plain" disabled={!canEdit(me.role)}>
+        <ClientForm client={client as ClientValues} consultants={consultants} />
+      </fieldset>
 
       <h2>Documents</h2>
-      <DocumentUploadForm clientId={client.id} />
-      {(!documents || documents.length === 0) && <p className="empty">No documents yet.</p>}
+      {!seesDocuments && <p className="empty">Only the Consultant and Administrators see this Client&apos;s documents.</p>}
+      {seesDocuments && <DocumentUploadForm clientId={client.id} />}
+      {seesDocuments && (!documents || documents.length === 0) && <p className="empty">No documents yet.</p>}
       {documents && documents.length > 0 && (
         <table style={{ marginTop: 14 }}>
           <thead>
@@ -99,9 +104,11 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       )}
 
       <h2>Trips</h2>
-      <p className="sub">
-        <Link href={`/trips/new?client=${client.id}`}>+ New trip for this client</Link>
-      </p>
+      {canEdit(me.role) && (
+        <p className="sub">
+          <Link href={`/trips/new?client=${client.id}`}>+ New trip for this client</Link>
+        </p>
+      )}
       {(!trips || trips.length === 0) && <p className="empty">No trips yet.</p>}
       {trips && trips.length > 0 && (
         <table>
@@ -129,6 +136,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           </tbody>
         </table>
       )}
+
+      <History clientId={client.id} />
     </main>
   );
 }

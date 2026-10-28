@@ -11,9 +11,9 @@ export type ClientFormState = { error?: string; notice?: string };
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 
 /*
- * The database decides who may do what (migration 0007): only the client's
- * Consultant or an admin can save, only an admin can set the Consultant to
- * someone else, and the client code is generated there and never changes.
+ * The database decides who may do what (migrations 0007, 0021): every User but
+ * an Accountant can save, only an admin can set the Consultant to someone else,
+ * and the client code is generated there and never changes.
  */
 
 /** Saves the fields of an existing client that changed (autosave sends only those). */

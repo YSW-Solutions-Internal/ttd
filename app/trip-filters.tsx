@@ -16,7 +16,7 @@ export function TripFilters({
   dir,
 }: {
   clients: ClientOption[];
-  consultants?: { id: string; label: string }[]; // admins only
+  consultants: { id: string; label: string }[];
   status: string;
   client: string;
   consultant: string;
@@ -36,19 +36,17 @@ export function TripFilters({
           ))}
         </select>
       </div>
-      {consultants && (
-        <div>
-          <label htmlFor="f-consultant">Consultant</label>
-          <select id="f-consultant" name="consultant" defaultValue={consultant}>
-            <option value="">All consultants</option>
-            {consultants.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div>
+        <label htmlFor="f-consultant">Consultant</label>
+        <select id="f-consultant" name="consultant" defaultValue={consultant || "all"}>
+          <option value="all">All consultants</option>
+          {consultants.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
       <div>
         <label htmlFor="f-client">Client</label>
         <select id="f-client" name="client" defaultValue={client}>

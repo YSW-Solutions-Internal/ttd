@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getProfile } from "@/lib/auth";
+import { canEdit, getProfile } from "@/lib/auth";
 import { ClientForm } from "../client-forms";
 
 export const dynamic = "force-dynamic";
@@ -10,12 +10,13 @@ export default async function NewClientPage({ searchParams }: { searchParams: Pr
   const { next } = await searchParams;
   const me = await getProfile();
   if (!me) redirect("/login");
+  if (!canEdit(me.role)) redirect("/clients");
 
   // Admins choose the Consultant; everyone else becomes it.
   let consultants: { id: string; label: string }[] | undefined;
   if (me.role === "admin") {
     const supabase = await createClient();
-    const { data } = await supabase.from("profiles").select("id, full_name, email").order("full_name");
+    const { data } = await supabase.from("profiles").select("id, full_name, email").in("role", ["user", "admin"]).order("full_name");
     consultants = (data ?? []).map((p) => ({ id: p.id, label: p.full_name ?? p.email }));
   }
 
