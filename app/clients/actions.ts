@@ -22,12 +22,12 @@ export async function updateClient(id: string, formData: FormData): Promise<Save
   if (!profile) redirect("/login");
 
   const fields: Record<string, unknown> = {};
-  for (const key of ["first_name", "last_name"]) {
+  for (const key of ["first_name", "last_name", "company_name"]) {
     if (!formData.has(key)) continue;
-    if (!text(formData, key)) return { error: "Enter a first and last name.", field: key };
+    if (!text(formData, key)) return { error: "Enter the name.", field: key };
     fields[key] = text(formData, key);
   }
-  for (const key of ["email", "phone", "notes"]) if (formData.has(key)) fields[key] = text(formData, key) || null;
+  for (const key of ["email", "phone", "notes", "contact_name"]) if (formData.has(key)) fields[key] = text(formData, key) || null;
   if (formData.has("active")) fields.active = formData.get("active") === "on";
   if (profile.role === "admin" && text(formData, "consultant_id")) fields.consultant_id = text(formData, "consultant_id");
 
@@ -35,7 +35,7 @@ export async function updateClient(id: string, formData: FormData): Promise<Save
   const { data, error } = await supabase.from("clients").update(fields).eq("id", id).select("id");
   if (error) return { error: `Could not save: ${error.message}` };
   // RLS filters rather than errors, so zero rows means the update was refused.
-  if (!data || data.length === 0) return { error: "Could not save: only the client's consultant or an administrator can edit." };
+  if (!data || data.length === 0) return { error: "Could not save: not permitted." };
   revalidatePath(`/clients/${id}`);
   return {};
 }
@@ -45,9 +45,13 @@ export async function addClient(formData: FormData): Promise<SaveResult> {
   const profile = await getProfile();
   if (!profile) redirect("/login");
 
+  const company = text(formData, "kind") === "company";
   const fields = {
-    first_name: text(formData, "first_name"),
-    last_name: text(formData, "last_name"),
+    kind: company ? "company" : "person",
+    first_name: company ? null : text(formData, "first_name"),
+    last_name: company ? null : text(formData, "last_name"),
+    company_name: company ? text(formData, "company_name") : null,
+    contact_name: company ? text(formData, "contact_name") || null : null,
     email: text(formData, "email") || null,
     phone: text(formData, "phone") || null,
     notes: text(formData, "notes") || null,
@@ -56,7 +60,9 @@ export async function addClient(formData: FormData): Promise<SaveResult> {
       ? { consultant_id: text(formData, "consultant_id") }
       : {}),
   };
-  if (!fields.first_name || !fields.last_name) return { error: "Enter a first and last name." };
+  if (company ? !fields.company_name : !fields.first_name || !fields.last_name) {
+    return { error: company ? "Enter the company name." : "Enter a first and last name." };
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase.from("clients").insert({ ...fields, created_by: profile.id }).select("id").single();
@@ -68,7 +74,6 @@ export async function addClient(formData: FormData): Promise<SaveResult> {
   redirect(`/clients/${data.id}`);
 }
 
-const DOC_KINDS = new Set(["id_copy", "passport_copy", "other"]);
 const DOC_EXT: Record<string, string> = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png" };
 const MAX_DOC_BYTES = 10 * 1024 * 1024;
 
@@ -80,9 +85,7 @@ export async function uploadDocument(
   const profile = await getProfile();
   if (!profile) redirect("/login");
 
-  const kind = text(formData, "kind");
   const file = formData.get("file");
-  if (!DOC_KINDS.has(kind)) return { error: "Choose what kind of document this is." };
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a file." };
   if (!DOC_EXT[file.type]) return { error: "Only PDF, JPG or PNG files." };
   if (file.size > MAX_DOC_BYTES) return { error: "The file is over 10 MB." };
@@ -97,7 +100,6 @@ export async function uploadDocument(
 
   const { error } = await supabase.from("client_documents").insert({
     client_id: clientId,
-    kind,
     storage_path: path,
     filename: file.name,
     uploaded_by: profile.id,

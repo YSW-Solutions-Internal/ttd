@@ -13,7 +13,7 @@ A User who follows the money after a Trip is booked: supplier invoices, Client i
 _Avoid_: Bookkeeper, accounts (as a person)
 
 **Client**:
-A person or a company the agency quotes for and invoices. Clients never have accounts.
+A person or a company the agency quotes for and invoices; which of the two is decided when the Client is added and never changes. A company Client may name a contact person. Clients never have accounts.
 _Avoid_: Customer, contact
 
 **Consultant**:
@@ -31,12 +31,16 @@ One journey for one Client, taken by one or more Travellers. Each Trip has exact
 _Avoid_: Booking (that is what happens to an Item), itinerary
 
 **Trip status**:
-Where a Trip stands: Enquiry, Quoted, Confirmed, Travelled or Cancelled. A new Trip is an Enquiry. Staff can change it in any direction, including reopening a Cancelled Trip. A Trip with an open Refund shows that alongside its status; it is never a status of its own.
-_Avoid_: State, stage, Booking status, "Refund in progress" (as a status)
+Where a Trip stands: Enquiry, Quoted, Booked, Travelled or Cancelled. A new Trip is an Enquiry; it is Booked once the Client has accepted and its Items are being booked with suppliers. Staff can change it in any direction, including reopening a Cancelled Trip. A Trip with an open Refund shows that alongside its status; it is never a status of its own.
+_Avoid_: State, stage, Booking status, Confirmed, "Refund in progress" (as a status)
 
 **Traveller**:
-A person who travels on a Trip. Reusable across Trips and may belong to a company Client. A Traveller is not a Client: they have no Client code or Consultant and are not invoiced. Their passport details are personal information under POPIA, kept as private as Client documents.
+A person who travels on a Trip. Each Traveller belongs to one Client (the company they travel for, or the person Client and their family) and can go on any of that Client's Trips. A person Client who travels is also one of their own Travellers. A Traveller is not a Client: they have no Client code or Consultant and are not invoiced. A Traveller has an ID (number and image), one or more Passports, or both; one without either is flagged until one is added. Their ID and Passports are personal information under POPIA, seen only by the Client's Consultant and Administrators, like Client documents. A Trip's adult and child counts are kept as typed; its Travellers may be added later and need not match them.
 _Avoid_: Passenger, pax, guest
+
+**Passport**:
+One passport a Traveller holds or has held: number, nationality, issue and expiry dates, the name exactly as printed when it differs from the Traveller's, and an image of it. A Traveller keeps every Passport ever entered; none is overwritten when a new one is issued, and the most recent one stands out. Personal information under POPIA, seen only by the Client's Consultant and Administrators.
+_Avoid_: Passport details (as a record), travel document
 
 **Terms profile**:
 The standard set of terms and conditions printed on a Trip's Quote. Every Trip uses Standard (South Africa, international) unless changed. Staff can add their own lines to it as custom notes.
@@ -171,7 +175,7 @@ The act of freezing a Quote's Working content into its next Version and producin
 _Avoid_: Save, publish, issue, commit
 
 **Client document**:
-A file kept against a Client, such as an ID copy or passport copy. It is personal information under POPIA.
+A file kept against a Client that belongs to no one Traveller, such as a company's letter of authority. It is personal information under POPIA. ID and passport images are not Client documents: they go with their Traveller.
 _Avoid_: Attachment, upload
 
 **Client invoice**:

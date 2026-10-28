@@ -28,6 +28,7 @@ export function TripFilters({
       <div>
         <label htmlFor="f-status">Status</label>
         <select id="f-status" name="status" defaultValue={status}>
+          <option value="open">Open (Enquiry, Quoted, Booked)</option>
           <option value="all">All</option>
           {TRIP_STATUSES.map((s) => (
             <option key={s} value={s}>

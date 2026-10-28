@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { canEdit, getProfile } from "@/lib/auth";
 import { one } from "@/lib/relations";
-import { isTripStatus, tripStatusLabel } from "@/lib/trip-status";
+import { isTripStatus, OPEN_STATUSES, tripStatusLabel } from "@/lib/trip-status";
 import { TripFilters } from "./trip-filters";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const me = await getProfile();
   if (!me) redirect("/login");
-  const status = params.status === "all" || isTripStatus(params.status) ? params.status : "in_progress";
+  const status = params.status === "all" || isTripStatus(params.status) ? params.status : "open";
   // Standard users start on their own Clients' Trips; "all" is everyone's.
   const consultant = (params.consultant ?? (me.role === "user" ? me.id : "all")).replace(/^all$/, "");
   const sort = COLUMNS.some((c) => c.key === params.sort && !("unsortable" in c)) ? params.sort! : "created_at";
@@ -32,7 +32,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const supabase = await createClient();
   // Inactive clients included, so their older trips can still be found.
-  let clientQuery = supabase.from("clients").select("id, client_code, full_name").order("last_name").order("first_name");
+  let clientQuery = supabase.from("clients").select("id, client_code, full_name").order("sort_name");
   if (consultant) clientQuery = clientQuery.eq("consultant_id", consultant);
   const [{ data: clients }, { data: consultants }] = await Promise.all([
     clientQuery,
@@ -47,7 +47,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     .select(
       "id, reference, title, status, starts_on, created_at, clients!inner(client_code, full_name, consultant_id, profiles!clients_consultant_id_fkey(full_name, email))",
     );
-  if (status !== "all") query = query.eq("status", status);
+  if (status === "open") query = query.in("status", OPEN_STATUSES);
+  else if (status !== "all") query = query.eq("status", status);
   if (client) query = query.eq("client_id", client);
   if (consultant) query = query.eq("clients.consultant_id", consultant);
   const { data: trips, error } = await query;

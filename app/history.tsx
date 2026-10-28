@@ -12,24 +12,27 @@ const LABEL: Record<string, string> = {
   images: "Image",
   item_bookings: "Booking",
   flights: "Flight",
+  travellers: "Traveller",
+  trip_travellers: "Traveller on this Trip",
+  identity_documents: "ID or Passport",
 };
 
 // Links between records, not something staff edit.
-const HIDDEN = new Set(["id", "created_at", "updated_at", "entity_id", "quote_id", "trip_id", "client_id", "flight_option_id"]);
+const HIDDEN = new Set(["id", "created_at", "updated_at", "entity_id", "quote_id", "trip_id", "client_id", "flight_option_id", "traveller_id", "image_path"]);
 
 const show = (v: unknown) => {
   const s = v === null || v === undefined || v === "" ? "—" : typeof v === "string" ? v : JSON.stringify(v);
   return s.length > 80 ? `${s.slice(0, 79)}…` : s;
 };
 
-/** History (GLOSSARY) of one Trip and everything under it, or of one Client's own record and documents. */
+/** History (GLOSSARY) of one Trip and everything under it, or of one Client's own record, documents and Travellers. */
 export async function History(filter: { tripId: string } | { clientId: string }) {
   const supabase = await createClient();
   let query = supabase.from("history").select("id, at, user_id, table_name, action, before, after");
   query =
     "tripId" in filter
       ? query.eq("trip_id", filter.tripId)
-      : query.eq("client_id", filter.clientId).in("table_name", ["clients", "client_documents"]);
+      : query.eq("client_id", filter.clientId).in("table_name", ["clients", "client_documents", "travellers", "identity_documents"]);
   // shortcut: newest 200 only; page through older entries if a Trip ever has more.
   const { data: entries, error } = await query.order("at", { ascending: false }).limit(200);
 
