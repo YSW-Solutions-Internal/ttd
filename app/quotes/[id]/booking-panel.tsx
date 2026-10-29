@@ -3,6 +3,8 @@
 import { useActionState, useId, useState } from "react";
 import { ConfirmButton } from "@/app/confirm-button";
 import { cancellationFee, changeTotal } from "@/lib/booking";
+import { STAGE_LABEL, STATUS_LABEL } from "@/lib/invoicing";
+import type { Billable } from "@/app/trips/[id]/invoicing-data";
 import { addChange, bookItem, correctBooking, markIssued, unbookItem, type BookingFormState } from "./booking-actions";
 
 type Row = Record<string, unknown>;
@@ -95,6 +97,32 @@ function ChangeForm({ quoteId, entityId, kind, item, issued }: { quoteId: string
   );
 }
 
+/** An Item's or Change's Invoicing stage, what is still to invoice, and its linked invoices (display only). */
+function Invoicing({ b }: { b?: Billable }) {
+  if (!b) return null;
+  return (
+    <div className="invoicing">
+      <span className={`badge ${b.stage === "invoiced" || b.stage === "none_expected" ? "ok" : ""}`}>{STAGE_LABEL[b.stage]}</span>
+      {b.toInvoice !== 0 && <small> {rand(b.toInvoice)} still to invoice</small>}
+      {b.links.map((l) => (
+        <small key={l.linkId}>
+          {" · "}
+          {l.side === "supplier" ? "Supplier" : "Client"} {l.amount < 0 ? "credit note" : "invoice"} {l.number}: {l.currency} {l.amount.toFixed(2)}
+          {l.status && ` (${STATUS_LABEL[l.status]})`}
+          {l.url && (
+            <>
+              {" "}
+              <a href={l.url} target="_blank" rel="noreferrer">
+                PDF
+              </a>
+            </>
+          )}
+        </small>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Booking an Item and what happens to it afterwards: Corrections, issuing, Changes and the
  * Cancellation (GLOSSARY, ADR 0011). Shown under the Item's card.
@@ -107,6 +135,7 @@ export function BookingPanel({
   booking,
   changes,
   suppliers,
+  billing,
   readOnly,
 }: {
   quoteId: string;
@@ -116,6 +145,7 @@ export function BookingPanel({
   booking: Booking | null;
   changes: Row[];
   suppliers: string[];
+  billing: Billable[];
   readOnly: boolean;
 }) {
   const flight = kind === "flight";
@@ -157,6 +187,7 @@ export function BookingPanel({
       {flight && Array.isArray(booking.ticket_numbers) && booking.ticket_numbers.length > 0 && (
         <small>Tickets: {(booking.ticket_numbers as string[]).join(", ")}</small>
       )}
+      <Invoicing b={billing.find((b) => b.changeId === null)} />
 
       {changes.length > 0 && (
         <table>
@@ -168,6 +199,7 @@ export function BookingPanel({
               <th>Agency fee</th>
               <th>Markup</th>
               <th>Client pays</th>
+              <th>Invoicing</th>
             </tr>
           </thead>
           <tbody>
@@ -187,6 +219,9 @@ export function BookingPanel({
                   <td>{rand(Number(c.agency_fee))}</td>
                   <td>{rand(Number(c.markup))}</td>
                   <td>{rand(changeTotal(c as Parameters<typeof changeTotal>[0]))}</td>
+                  <td>
+                    <Invoicing b={billing.find((b) => b.changeId === c.id)} />
+                  </td>
                 </tr>
               );
             })}

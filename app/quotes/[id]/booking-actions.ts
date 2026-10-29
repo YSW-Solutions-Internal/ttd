@@ -104,12 +104,12 @@ export async function markIssued(
   return { notice: "Issued." };
 }
 
-/** Undoes a booking made by mistake; refused once it has Changes (and later, invoices). */
+/** Undoes a booking made by mistake; refused once it has Changes or invoices. */
 export async function unbookItem(quoteId: string, entityId: string, _prev: BookingFormState): Promise<BookingFormState> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("item_bookings").delete().eq("quote_id", quoteId).eq("entity_id", entityId).select("entity_id");
-  // 23503: a Change still points at the booking.
-  if (error) return { error: error.code === "23503" ? "This Item has Changes, so it cannot be unbooked. Record a Cancellation instead." : `Could not unbook: ${error.message}` };
+  // 23503: a Change or an invoice still points at the booking.
+  if (error) return { error: error.code === "23503" ? "This Item has Changes or invoices, so it cannot be unbooked. Record a Cancellation instead." : `Could not unbook: ${error.message}` };
   if (!data?.length) return { error: "Could not unbook: you cannot change this booking." };
   revalidatePath(`/quotes/${quoteId}`);
   return {};
