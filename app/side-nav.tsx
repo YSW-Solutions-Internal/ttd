@@ -55,7 +55,12 @@ export function NavShell({
   const items = [
     { href: "/", label: "Trips", active: path === "/" || path.startsWith("/trips") || path.startsWith("/quotes") },
     { href: "/clients", label: "Clients", active: path.startsWith("/clients") },
-    ...(isAdmin ? [{ href: "/admin/users", label: "Users", active: path.startsWith("/admin") }] : []),
+    ...(isAdmin
+      ? [
+          { href: "/admin/users", label: "Users", active: path.startsWith("/admin/users") },
+          { href: "/admin/suppliers", label: "Suppliers", active: path.startsWith("/admin/suppliers") },
+        ]
+      : []),
   ];
 
   return (
