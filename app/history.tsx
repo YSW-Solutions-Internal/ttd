@@ -11,6 +11,8 @@ const LABEL: Record<string, string> = {
   quote_versions: "Version",
   images: "Image",
   item_bookings: "Booking",
+  item_changes: "Change",
+  suppliers: "Supplier",
   flights: "Flight",
   travellers: "Traveller",
   trip_travellers: "Traveller on this Trip",

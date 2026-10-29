@@ -187,6 +187,7 @@ export async function QuoteView({ id }: { id: string }) {
           tripId={trip.id}
           images={(images ?? []).map((i) => ({ id: i.id, filename: i.filename, url: urls.get(i.storage_path) }))}
           readOnly={!editable}
+          admin={me?.role === "admin"}
         />
       )}
 
