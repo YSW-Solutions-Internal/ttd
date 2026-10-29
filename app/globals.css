@@ -127,6 +127,8 @@ th a.sort { color: inherit; }
 .edit-image { position: sticky; top: 12px; }
 .edit-image img { display: block; width: 100%; border: 1px solid var(--line); background: #fff; }
 .edit-items { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.booking { margin-top: 6px; }
+.booking details, .booking table, .booking .inline-form { margin-top: 8px; }
 .item-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 12px; }
 .item-grid small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }

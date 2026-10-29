@@ -170,6 +170,8 @@ export function ItemForm({
   stays,
   rates,
   lastOfImage = false,
+  booked = false,
+  locked = false,
 }: {
   quoteId: string;
   table: ItemTable;
@@ -179,6 +181,10 @@ export function ItemForm({
   rates: FeeRate[];
   /** The only Item left from its image, so deleting it removes the image too. */
   lastOfImage?: boolean;
+  /** Booked Items are never deleted; unbook first. */
+  booked?: boolean;
+  /** Booked, and the User is not an Administrator: only Corrections in the booking panel (ADR 0011). */
+  locked?: boolean;
 }) {
   const id = String(row.id);
   const formId = `item-${id}`;
@@ -194,6 +200,7 @@ export function ItemForm({
 
   return (
     <form id={formId} ref={autosave.formRef} className="card item-form">
+      <fieldset className="plain" disabled={locked}>
       {/* Enter in a text box submits with the first submit button; this one does nothing, so Enter never arms Delete. */}
       <button type="submit" disabled hidden aria-hidden="true" />
       <div className="item-head">
@@ -269,10 +276,12 @@ export function ItemForm({
         )}
       </div>
 
+      </fieldset>
       <div className="item-actions">
-        <ConfirmButton className="danger" formAction={deleteItem.bind(null, quoteId, table, id)} confirmLabel={lastOfImage ? "Sure? This also removes the image" : "Sure? This cannot be undone"}>
+        {booked && <small>{locked ? "Booked: only an administrator can edit it." : "Booked: edits are Corrections."}</small>}
+        {!booked && <ConfirmButton className="danger" formAction={deleteItem.bind(null, quoteId, table, id)} confirmLabel={lastOfImage ? "Sure? This also removes the image" : "Sure? This cannot be undone"}>
           Delete
-        </ConfirmButton>
+        </ConfirmButton>}
         <AutosaveStatus autosave={autosave} />
       </div>
     </form>

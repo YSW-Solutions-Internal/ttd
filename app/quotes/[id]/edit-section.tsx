@@ -6,6 +6,8 @@ import { AddItemForm, ItemForm, type StayOption } from "./item-form";
 import { confirmAirline } from "./item-actions";
 import { EditTabs, type EditTab } from "./edit-tabs";
 import { ImageViewer } from "./image-links";
+import { BookingPanel, type Booking } from "./booking-panel";
+import { one } from "@/lib/relations";
 
 type Row = Record<string, unknown>;
 type Image = { id: string; filename: string; url?: string };
@@ -30,18 +32,23 @@ export async function EditSection({
   tripId,
   images,
   readOnly,
+  admin,
 }: {
   quoteId: string;
   tripId: string;
   images: Image[];
   readOnly: boolean; // Accountants (ADR 0010)
+  admin: boolean; // corrects booked Items (ADR 0011)
 }) {
   const supabase = await createClient();
   const tables = Object.keys(TABLE_KIND) as ItemTable[];
 
-  const [ctx, { data: stops }, ...results] = await Promise.all([
+  const [ctx, { data: stops }, { data: bookingRows }, { data: changeRows }, { data: supplierRows }, ...results] = await Promise.all([
     loadFeeContext(supabase, quoteId),
     supabase.from("trip_stops").select("id, position, destination, starts_on, ends_on").eq("trip_id", tripId).order("position"),
+    supabase.from("item_bookings").select("*, suppliers(name)").eq("quote_id", quoteId),
+    supabase.from("item_changes").select("*").eq("quote_id", quoteId).order("happened_on").order("created_at"),
+    supabase.from("suppliers").select("name").order("name"),
     ...tables.map((t) => supabase.from(t).select("*").eq("quote_id", quoteId).order("created_at")),
   ]);
   const rows = tables.flatMap((table, i) => ((results[i].data ?? []) as Row[]).map((row) => ({ table, row })));
@@ -72,19 +79,41 @@ export async function EditSection({
     label: [s.destination, s.starts_on && s.ends_on ? `${s.starts_on} to ${s.ends_on}` : null].filter(Boolean).join(", "),
   }));
 
-  const form = ({ table, row }: { table: ItemTable; row: Row }) => (
-    <ItemForm
-      // Never re-mounts after a save: autosave puts the values the server filled in into the card.
-      key={String(row.id)}
-      quoteId={quoteId}
-      table={table}
-      row={row}
-      flights={table === "flight_options" ? ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id) : undefined}
-      stays={stays}
-      rates={ctx.rates}
-      lastOfImage={row.image_id != null && rows.filter((r) => r.row.image_id === row.image_id).length === 1}
-    />
+  const bookings = new Map(
+    (bookingRows ?? []).map((b) => [b.entity_id as string, { ...b, supplier: one(b.suppliers)?.name ?? "" } as Booking]),
   );
+  const suppliers = (supplierRows ?? []).map((s) => s.name as string);
+
+  const form = ({ table, row }: { table: ItemTable; row: Row }) => {
+    const entityId = String(row.entity_id);
+    const booking = bookings.get(entityId) ?? null;
+    return (
+      // Never re-mounts after a save: autosave puts the values the server filled in into the card.
+      <div key={String(row.id)}>
+        <ItemForm
+          quoteId={quoteId}
+          table={table}
+          row={row}
+          flights={table === "flight_options" ? ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id) : undefined}
+          stays={stays}
+          rates={ctx.rates}
+          lastOfImage={row.image_id != null && rows.filter((r) => r.row.image_id === row.image_id).length === 1}
+          booked={!!booking}
+          locked={!!booking && !admin}
+        />
+        <BookingPanel
+          quoteId={quoteId}
+          entityId={entityId}
+          kind={TABLE_KIND[table]}
+          item={row}
+          booking={booking}
+          changes={(changeRows ?? []).filter((c) => c.entity_id === entityId)}
+          suppliers={suppliers}
+          readOnly={readOnly}
+        />
+      </div>
+    );
+  };
 
   const shown = new Set(images.map((i) => i.id));
   // Items from removed images are left out here, as Generate version leaves them out.

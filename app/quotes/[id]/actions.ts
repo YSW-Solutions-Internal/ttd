@@ -108,11 +108,12 @@ export async function removeImage(quoteId: string, imageId: string) {
   if (!user) redirect("/login");
 
   // Soft remove: the extraction and any corrections stay in the database.
-  await supabase
+  const { error } = await supabase
     .from("images")
     .update({ removed_at: new Date().toISOString() })
     .eq("id", imageId)
     .eq("quote_id", quoteId);
+  if (error) throw new Error(`Could not remove the image: ${error.message}`);
 
   revalidatePath(`/quotes/${quoteId}`);
 }
