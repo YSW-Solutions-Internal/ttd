@@ -21,7 +21,11 @@ export default function SetPasswordPage({
       </p>
       <form action={action} className="card">
         <div className="field">
-          <label htmlFor="password">New password</label>
+          <label htmlFor="password">
+          {isReset
+            ? "New Password"
+            : "Set Password"}
+          </label>
           <input
             id="password"
             name="password"
