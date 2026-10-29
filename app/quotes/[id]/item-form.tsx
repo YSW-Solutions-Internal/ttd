@@ -283,7 +283,7 @@ export function AddItemForm({ quoteId, table }: { quoteId: string; table: ItemTa
   return (
     <form action={addItem.bind(null, quoteId)} className="inline-form">
       <input type="hidden" name="table" value={table} />
-      <button type="submit">Add {ITEM_LABEL[table]} by hand</button>
+      <button type="submit">Manual Capture</button>
     </form>
   );
 }

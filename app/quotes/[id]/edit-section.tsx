@@ -145,7 +145,7 @@ export async function EditSection({
           })}
           <section className="edit-block">
             <div className="edit-image">
-              <b>Entered by hand</b>
+              <b>Manual Capture</b>
             </div>
             <fieldset className="edit-items plain" disabled={readOnly}>
               {byHand.map(form)}
