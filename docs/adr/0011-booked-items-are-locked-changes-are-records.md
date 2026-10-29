@@ -10,3 +10,4 @@ Extends ADR 0005. Before an Item is booked it is edited in place, as now. Once b
 ## Consequences
 
 - The quoted Rand total and the actual Rand amount can differ, which is how a Blacklane charge on the day shows its difference.
+- Fixing booking details typed wrong is a Correction, an edit kept in History, not a Change: staff may correct until a linked Supplier invoice is Verified, Administrators after that (decided 2026-10-29).
