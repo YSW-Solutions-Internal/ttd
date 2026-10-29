@@ -57,6 +57,10 @@ function EditClientForm({ client, consultants }: { client: ClientValues; consult
       {/* Enter in a text box would submit the form; a disabled first submit button makes it do nothing. */}
       <button type="submit" disabled hidden aria-hidden="true" />
       <ClientFields client={client} consultants={consultants} error={(name) => <FieldError autosave={autosave} name={name} />} />
+      {/* Pressing it blurs the field being typed in, which saves it; the click sends anything still unsaved. */}
+      <button type="button" onClick={autosave.retry} disabled={autosave.state === "saving"}>
+        Save
+      </button>{" "}
       <AutosaveStatus autosave={autosave} />
     </form>
   );
@@ -79,6 +83,7 @@ function NewClientForm({
 }) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const added = useRef(false);
+  const addNow = useRef<() => void>(() => {});
   const { block } = useSaves();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -92,10 +97,11 @@ function NewClientForm({
       return keys.every((k) => String(fd.get(k) ?? "").trim() !== "");
     };
     const update = () => block("new-client", named() && !added.current ? "New client (not yet added)" : null);
-    const leave = (e: Event) => {
-      const target = e.target as Element;
-      if (added.current || !named() || form.contains(target) || target.closest?.("a[href]")) return;
+    const add = () => {
+      if (added.current) return;
+      if (!named()) return setError(form.elements.namedItem("company_name") ? "Fill in the company name first." : "Fill in both names first.");
       added.current = true;
+      setError(null);
       block("new-client", null);
       startTransition(async () => {
         // On success addClient redirects, so only an error comes back.
@@ -106,6 +112,12 @@ function NewClientForm({
           update();
         }
       });
+    };
+    addNow.current = add;
+    const leave = (e: Event) => {
+      const target = e.target as Element;
+      if (!named() || form.contains(target) || target.closest?.("a[href]")) return;
+      add();
     };
     form.addEventListener("input", update);
     document.addEventListener("pointerdown", leave);
@@ -123,12 +135,15 @@ function NewClientForm({
       <button type="submit" disabled hidden aria-hidden="true" />
       {next && <input type="hidden" name="next" value={next} />}
       <ClientFields consultants={consultants} defaultConsultantId={defaultConsultantId} />
+      <button type="button" onClick={() => addNow.current()} disabled={pending}>
+        Save
+      </button>
       {pending ? (
         <div className="msg">Adding…</div>
       ) : error ? (
         <div className="msg error">{error}</div>
       ) : (
-        <div className="sub">The client is added when you move on from this form.</div>
+        <div className="sub">Save, or move on from this form, to add the client.</div>
       )}
     </form>
   );
