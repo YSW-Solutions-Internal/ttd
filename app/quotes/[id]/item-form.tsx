@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useRef, useState } from "react";
+import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { rateFor, tenPercent, type FeeRate } from "@/lib/fees";
-import { addItem, deleteItem, saveItem, type ItemFormState } from "./item-actions";
+import { addItem, deleteItem, saveItem } from "./item-actions";
 import {
   FEE_LABELS,
   FLIGHT_FIELDS,
@@ -24,7 +25,7 @@ const money = (v: unknown) => (typeof v === "number" ? `R${v.toFixed(2)}` : "non
 
 /** A date or time not in the picker's format stays a text box, so saving never loses it. */
 function inputType(field: Field, v: string): string {
-  if (field.type === "number") return "number";
+  if (field.type === "number" || field.type === "money") return "number";
   if (field.type === "date") return v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v) ? "date" : "text";
   if (field.type === "time") return v === "" || /^\d{2}:\d{2}$/.test(v) ? "time" : "text";
   return "text";
@@ -33,7 +34,7 @@ function inputType(field: Field, v: string): string {
 function Input({ field, value, id }: { field: Field; value: unknown; id: string }) {
   const v = str(value);
   if (field.type === "checkbox") return <input id={id} type="checkbox" name={field.name} defaultChecked={value === true} />;
-  if (field.type === "textarea") return <textarea id={id} name={field.name} rows={2} defaultValue={v} />;
+  if (field.type === "textarea") return <textarea id={id} name={field.name} rows={4} defaultValue={v} />;
   if (field.type === "select") {
     return (
       <select id={id} name={field.name} defaultValue={v}>
@@ -41,13 +42,29 @@ function Input({ field, value, id }: { field: Field; value: unknown; id: string 
       </select>
     );
   }
-  return <input id={id} type={inputType(field, v)} name={field.name} defaultValue={v} step={field.type === "number" ? "any" : undefined} />;
+  return <input id={id} type={inputType(field, v)} name={field.name} defaultValue={v} step={field.type === "money" ? "0.01" : field.type === "number" ? "any" : undefined} />;
 }
 
-/** Flights inside a Flight option: drag a row to move it, or edit its direction and position numbers. */
-function FlightsTable({ initial, formId }: { initial: Row[]; formId: string }) {
+/**
+ * Flights inside a Flight option: drag a row to move it, or edit its direction and position numbers.
+ * The whole list saves as one field: on drag, remove or add, and when a changed cell is left.
+ */
+function FlightsTable({ initial, onChange }: { initial: Row[]; onChange: (json: string) => void }) {
   const [list, setList] = useState<Row[]>(initial);
   const [dragged, setDragged] = useState<number | null>(null);
+  const lastSent = useRef(JSON.stringify(sorted(initial)));
+
+  function commit(next: Row[]) {
+    const json = JSON.stringify(sorted(next));
+    if (json === lastSent.current) return;
+    lastSent.current = json;
+    onChange(json);
+  }
+
+  function replace(next: Row[]) {
+    setList(next);
+    commit(next);
+  }
 
   const update = (i: number, name: string, value: unknown) =>
     setList((l) => l.map((f, j) => (j === i ? { ...f, [name]: value } : f)));
@@ -55,18 +72,15 @@ function FlightsTable({ initial, formId }: { initial: Row[]; formId: string }) {
   // Dropping takes the target's direction, then positions follow the order on screen.
   function drop(target: number) {
     if (dragged === null || dragged === target) return;
-    setList((l) => {
-      const next = [...l];
-      const [moved] = next.splice(dragged, 1);
-      next.splice(target, 0, { ...moved, direction_no: l[target].direction_no, direction_label: l[target].direction_label });
-      return renumber(next);
-    });
+    const next = [...list];
+    const [moved] = next.splice(dragged, 1);
+    next.splice(target, 0, { ...moved, direction_no: list[target].direction_no, direction_label: list[target].direction_label });
+    replace(renumber(next));
     setDragged(null);
   }
 
   return (
-    <div className="flights">
-      <input type="hidden" name="flights" value={JSON.stringify(sorted(list))} form={formId} />
+    <div className="flights" onBlur={() => commit(list)}>
       <table>
         <thead>
           <tr>
@@ -106,7 +120,7 @@ function FlightsTable({ initial, formId }: { initial: Row[]; formId: string }) {
                 </td>
               ))}
               <td>
-                <button type="button" className="danger" onClick={() => setList((l) => renumber(l.filter((_, j) => j !== i)))}>
+                <button type="button" className="danger" onClick={() => replace(renumber(list.filter((_, j) => j !== i)))}>
                   Remove
                 </button>
               </td>
@@ -117,12 +131,10 @@ function FlightsTable({ initial, formId }: { initial: Row[]; formId: string }) {
       <button
         type="button"
         className="link"
-        onClick={() =>
-          setList((l) => {
-            const last = l[l.length - 1];
-            return [...l, { direction_no: last?.direction_no ?? 1, direction_label: last?.direction_label ?? "", seq: l.length + 1, next_day: false }];
-          })
-        }
+        onClick={() => {
+          const last = list[list.length - 1];
+          replace([...list, { direction_no: last?.direction_no ?? 1, direction_label: last?.direction_label ?? "", seq: list.length + 1, next_day: false }]);
+        }}
       >
         + Add flight
       </button>
@@ -157,6 +169,7 @@ export function ItemForm({
   flights,
   stays,
   rates,
+  lastOfImage = false,
 }: {
   quoteId: string;
   table: ItemTable;
@@ -164,42 +177,35 @@ export function ItemForm({
   flights?: Row[];
   stays: StayOption[];
   rates: FeeRate[];
+  /** The only Item left from its image, so deleting it removes the image too. */
+  lastOfImage?: boolean;
 }) {
   const id = String(row.id);
   const formId = `item-${id}`;
   const kind = TABLE_KIND[table];
-  const [state, action, pending] = useActionState<ItemFormState, FormData>(
-    saveItem.bind(null, quoteId, table, id),
-    {},
-  );
-  const [dirty, setDirty] = useState(false);
-
-  useEffect(() => {
-    if (state.notice) setDirty(false);
-  }, [state]);
-  // shortcut: warns on reload or closing the tab only, not on in-app links; add a router guard if edits get lost that way.
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  const autosave = useAutosave({
+    key: id,
+    label: `${ITEM_LABEL[table]}: ${str(row[ITEM_FIELDS[table][0].name]) || "untitled"}`,
+    save: (fd) => saveItem(quoteId, table, id, fd),
+  });
 
   const rate = rateFor(rates, kind, row.fee_region, row.variant);
   const suggestion = kind === "car_rental" && row.prepaid ? tenPercent(row.price, rate?.prepayment_fee) : null;
 
   return (
-    <form id={formId} action={action} className="card item-form" onChange={() => setDirty(true)}>
+    <form id={formId} ref={autosave.formRef} className="card item-form">
+      {/* Enter in a text box submits with the first submit button; this one does nothing, so Enter never arms Delete. */}
+      <button type="submit" disabled hidden aria-hidden="true" />
       <div className="item-head">
         <b>{ITEM_LABEL[table]}</b>
-        {dirty && <span className="badge">Not saved</span>}
       </div>
 
       <div className="item-grid">
         {ITEM_FIELDS[table].map((f) => (
-          <div className="field" key={f.name}>
+          <div className={f.type === "textarea" ? "field wide" : "field"} key={f.name}>
             <label htmlFor={`${formId}-${f.name}`}>{f.label}</label>
             <Input field={f} value={row[f.name]} id={`${formId}-${f.name}`} />
+            <FieldError autosave={autosave} name={f.name} />
           </div>
         ))}
         {table === "accommodation_options" && (
@@ -213,14 +219,20 @@ export function ItemForm({
         )}
       </div>
 
-      {flights && <FlightsTable initial={flights} formId={formId} />}
+      {flights && (
+        <>
+          <FlightsTable initial={flights} onChange={(json) => autosave.change("flights", json)} />
+          <FieldError autosave={autosave} name="flights" />
+        </>
+      )}
 
       <div className="item-grid">
         {PRICE_FIELDS.map((f) => (
-          <div className="field" key={f.name}>
+          <div className={f.type === "textarea" ? "field wide" : "field"} key={f.name}>
             <label htmlFor={`${formId}-${f.name}`}>{f.label}</label>
             <Input field={f} value={row[f.name]} id={`${formId}-${f.name}`} />
             {f.name === "price" && row.price_note != null && <small className="warn">{str(row.price_note)}</small>}
+            <FieldError autosave={autosave} name={f.name} />
           </div>
         ))}
         <div className="field">
@@ -242,8 +254,9 @@ export function ItemForm({
         {FEE_LABELS.map(([name, label]) => (
           <div className="field" key={name}>
             <label htmlFor={`${formId}-${name}`}>{label} (R)</label>
-            <input id={`${formId}-${name}`} type="number" step="any" name={name} defaultValue={str(row[name])} />
+            <input id={`${formId}-${name}`} type="number" step="0.01" name={name} defaultValue={str(row[name])} />
             <small>Schedule: {money(rate?.[name as keyof FeeRate])}</small>
+            <FieldError autosave={autosave} name={name} />
           </div>
         ))}
         {kind === "car_rental" && (
@@ -257,25 +270,20 @@ export function ItemForm({
       </div>
 
       <div className="item-actions">
-        <button type="submit" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
-        <ConfirmButton className="danger" formAction={deleteItem.bind(null, quoteId, table, id)} confirmLabel="Sure? This cannot be undone">
+        <ConfirmButton className="danger" formAction={deleteItem.bind(null, quoteId, table, id)} confirmLabel={lastOfImage ? "Sure? This also removes the image" : "Sure? This cannot be undone"}>
           Delete
         </ConfirmButton>
-        {state.error && <span className="msg error">{state.error}</span>}
-        {state.notice && !dirty && <span className="msg">{state.notice}</span>}
+        <AutosaveStatus autosave={autosave} />
       </div>
     </form>
   );
 }
 
-export function AddItemForm({ quoteId }: { quoteId: string }) {
+export function AddItemForm({ quoteId, table }: { quoteId: string; table: ItemTable }) {
   return (
     <form action={addItem.bind(null, quoteId)} className="inline-form">
-      <label htmlFor="add-item-kind">Add by hand</label>
-      <select id="add-item-kind" name="table" defaultValue="flight_options">
-        {(Object.keys(ITEM_LABEL) as ItemTable[]).map((t) => <option key={t} value={t}>{ITEM_LABEL[t]}</option>)}
-      </select>
-      <button type="submit">Add</button>
+      <input type="hidden" name="table" value={table} />
+      <button type="submit">Add {ITEM_LABEL[table]} by hand</button>
     </form>
   );
 }

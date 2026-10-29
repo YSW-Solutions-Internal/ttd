@@ -1,27 +1,45 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { canEdit, getProfile } from "@/lib/auth";
 import { one } from "@/lib/relations";
+import { ClientFilters } from "./client-filters";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientsPage() {
+export default async function ClientsPage({ searchParams }: { searchParams: Promise<{ consultant?: string }> }) {
+  const me = await getProfile();
+  if (!me) redirect("/login");
+  // Standard users start on their own Clients; "all" is everyone's.
+  const consultant = ((await searchParams).consultant ?? (me.role === "user" ? me.id : "all")).replace(/^all$/, "");
+
   const supabase = await createClient();
-  // RLS (0007): standard users get only their own clients, admins get all.
-  const { data: clients, error } = await supabase
+  let query = supabase
     .from("clients")
     .select("id, client_code, full_name, email, phone, active, profiles!clients_consultant_id_fkey(full_name, email)")
-    .order("last_name")
-    .order("first_name");
+    .order("sort_name");
+  if (consultant) query = query.eq("consultant_id", consultant);
+  const [{ data: clients, error }, { data: consultants }] = await Promise.all([
+    query,
+    supabase.from("profiles").select("id, full_name, email").in("role", ["user", "admin"]).order("full_name"),
+  ]);
 
   return (
     <main className="container">
       <h1>Clients</h1>
-      <p className="sub">
-        <Link href="/clients/new">+ Add client</Link>
-      </p>
+      {canEdit(me.role) && (
+        <p className="sub">
+          <Link href="/clients/new">+ Add client</Link>
+        </p>
+      )}
+
+      <ClientFilters
+        consultants={(consultants ?? []).map((p) => ({ id: p.id, label: p.full_name ?? p.email }))}
+        consultant={consultant}
+      />
 
       {error && <div className="msg error">Could not load clients: {error.message}</div>}
-      {clients && clients.length === 0 && <p className="empty">No clients yet.</p>}
+      {clients && clients.length === 0 && <p className="empty">No clients match.</p>}
       {clients && clients.length > 0 && (
         <table>
           <thead>

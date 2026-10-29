@@ -1,17 +1,41 @@
 import { createClient } from "@/lib/supabase/server";
 import { loadFeeContext } from "@/lib/fee-context";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
+import { problems } from "@/lib/pdf/assemble";
 import { AddItemForm, ItemForm, type StayOption } from "./item-form";
 import { confirmAirline } from "./item-actions";
+import { EditTabs, type EditTab } from "./edit-tabs";
+import { ImageViewer } from "./image-links";
 
 type Row = Record<string, unknown>;
 type Image = { id: string; filename: string; url?: string };
 
+/** The tabs, in the order agents work through a Trip. */
+export const TABS: [ItemTable, string, string][] = [
+  ["flight_options", "flights", "Flights"],
+  ["accommodation_options", "accommodation", "Accommodation"],
+  ["excursions", "experiences", "Experiences"],
+  ["transfers", "transfers", "Transfers"],
+  ["rail_journeys", "rail-journeys", "Rail journeys"],
+  ["car_rentals", "car-rentals", "Car rentals"],
+];
+
 /**
- * The Working content of a Quote, editable: one block per image (the image beside
- * the Items read from it) and one block for Items entered by hand (ADR 0005).
+ * The Working content of a Quote, editable: one tab per kind of Item, each with one
+ * block per image (the image beside its Items of that kind) and one block for Items
+ * of that kind entered by hand (ADR 0005).
  */
-export async function EditSection({ quoteId, tripId, images }: { quoteId: string; tripId: string; images: Image[] }) {
+export async function EditSection({
+  quoteId,
+  tripId,
+  images,
+  readOnly,
+}: {
+  quoteId: string;
+  tripId: string;
+  images: Image[];
+  readOnly: boolean; // Accountants (ADR 0010)
+}) {
   const supabase = await createClient();
   const tables = Object.keys(TABLE_KIND) as ItemTable[];
 
@@ -50,78 +74,94 @@ export async function EditSection({ quoteId, tripId, images }: { quoteId: string
 
   const form = ({ table, row }: { table: ItemTable; row: Row }) => (
     <ItemForm
-      // Re-mounts after a save, so values the server filled in (fees, region) show up.
-      key={`${row.id}-${row.updated_at}`}
+      // Never re-mounts after a save: autosave puts the values the server filled in into the card.
+      key={String(row.id)}
       quoteId={quoteId}
       table={table}
       row={row}
       flights={table === "flight_options" ? ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id) : undefined}
       stays={stays}
       rates={ctx.rates}
+      lastOfImage={row.image_id != null && rows.filter((r) => r.row.image_id === row.image_id).length === 1}
     />
   );
 
   const shown = new Set(images.map((i) => i.id));
-  const byHand = rows.filter((r) => r.row.image_id == null);
+  // Items from removed images are left out here, as Generate version leaves them out.
+  const visible = rows.filter((r) => r.row.image_id == null || shown.has(String(r.row.image_id)));
+
+  const airlines = toConfirm.length > 0 && (
+    <section className="card confirm-airlines">
+      <b>Airline names to confirm</b>
+      <p className="sub">
+        Confirm or correct each name once; it is then used on every Quote. Until then the PDF shows only the code.
+      </p>
+      {toConfirm.map(({ code, suggestion }) => (
+        <form key={code} action={confirmAirline.bind(null, quoteId)} className="inline-form">
+          <input type="hidden" name="iata" value={code} />
+          <label htmlFor={`airline-${code}`}>{code}</label>
+          <input
+            id={`airline-${code}`}
+            type="text"
+            name="name"
+            required
+            defaultValue={suggestion?.name ?? ""}
+            placeholder="Airline name"
+          />
+          <button type="submit">Confirm</button>
+          {!suggestion && <small>Not in the list</small>}
+        </form>
+      ))}
+    </section>
+  );
+
+  const tabs: EditTab[] = TABS.map(([table, id, label]) => {
+    const ofKind = visible.filter((r) => r.table === table);
+    const byHand = ofKind.filter((r) => r.row.image_id == null);
+    const onlyThis = Object.fromEntries(tables.map((t) => [t, t === table ? ofKind.map((r) => r.row) : []]));
+    return {
+      id,
+      label,
+      count: ofKind.length,
+      // The same check Generate version makes, for this kind only.
+      warn: problems({ ...(onlyThis as Record<ItemTable, Row[]>), flights: [] }).length > 0,
+      content: (
+        <>
+          {table === "flight_options" && !readOnly && airlines}
+          {images.map((img) => {
+            const items = ofKind.filter((r) => r.row.image_id === img.id);
+            if (items.length === 0) return null;
+            return (
+              <section className="edit-block" key={img.id} id={`block-${id}-${img.id}`}>
+                <div className="edit-image">
+                  {img.url && <ImageViewer src={img.url} alt={img.filename} />}
+                  <small>{img.filename}</small>
+                </div>
+                <fieldset className="edit-items plain" disabled={readOnly}>
+                  {items.map(form)}
+                </fieldset>
+              </section>
+            );
+          })}
+          <section className="edit-block">
+            <div className="edit-image">
+              <b>Entered by hand</b>
+            </div>
+            <fieldset className="edit-items plain" disabled={readOnly}>
+              {byHand.map(form)}
+              {!readOnly && <AddItemForm quoteId={quoteId} table={table} />}
+            </fieldset>
+          </section>
+        </>
+      ),
+    };
+  });
 
   return (
     <>
-      {toConfirm.length > 0 && (
-        <section className="card confirm-airlines">
-          <b>Airline names to confirm</b>
-          <p className="sub">
-            Confirm or correct each name once; it is then used on every Quote. Until then the PDF shows only the code.
-          </p>
-          {toConfirm.map(({ code, suggestion }) => (
-            <form key={code} action={confirmAirline.bind(null, quoteId)} className="inline-form">
-              <input type="hidden" name="iata" value={code} />
-              <label htmlFor={`airline-${code}`}>{code}</label>
-              <input
-                id={`airline-${code}`}
-                type="text"
-                name="name"
-                required
-                defaultValue={suggestion?.name ?? ""}
-                placeholder="Airline name"
-              />
-              <button type="submit">Confirm</button>
-              {!suggestion && <small>Not in the list</small>}
-            </form>
-          ))}
-        </section>
-      )}
-
-      {images.map((img) => {
-        const items = rows.filter((r) => r.row.image_id === img.id);
-        if (items.length === 0) return null;
-        return (
-          <section className="edit-block" key={img.id}>
-            <div className="edit-image">
-              {img.url && (
-                <a href={img.url} target="_blank" rel="noreferrer" title="Open full size">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={img.url} alt={img.filename} />
-                </a>
-              )}
-              <small>{img.filename}</small>
-            </div>
-            <div className="edit-items">{items.map(form)}</div>
-          </section>
-        );
-      })}
-
-      <section className="edit-block">
-        <div className="edit-image">
-          <b>Entered by hand</b>
-        </div>
-        <div className="edit-items">
-          {byHand.map(form)}
-          <AddItemForm quoteId={quoteId} />
-        </div>
-      </section>
-
-      {rows.some((r) => r.row.image_id != null && !shown.has(String(r.row.image_id))) && (
-        <p className="empty">Items from removed images are kept but left out. Re-add the image to bring them back.</p>
+      <EditTabs tabs={tabs} />
+      {rows.length > visible.length && (
+        <p className="empty">Items from removed images are left out. Uploading the same image again within 90 days brings them back.</p>
       )}
     </>
   );

@@ -60,8 +60,14 @@ input[type="text"], input[type="email"], input[type="password"], textarea {
 select { width: 100%; padding: 8px 10px; border: 1px solid #cfc9c0; background: #fff; font: inherit; }
 input[type="file"] { font: inherit; }
 .file-drop { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 10px; border: 1px dashed #cfc9c0; }
-.file-drop.over { border-color: #333; background: #f5f2ed; }
+.file-drop.over, .file-drop:hover { border-color: #333; background: #f5f2ed; }
+label.file-drop { font-size: inherit; font-weight: normal; margin: 0; cursor: pointer; position: relative; }
+/* Hidden but still focusable and still validated; the box shows the focus instead. */
+.file-drop input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
+.file-drop:focus-within { outline: 2px solid var(--teal); outline-offset: 2px; }
 .file-drop-hint { color: #777; font-size: 0.9em; }
+/* Fills the row beside its Upload button, so the whole bar is the target. */
+.file-drop-wrap { flex: 1 1 280px; }
 .row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
 .field { margin-bottom: 12px; }
 
@@ -78,6 +84,8 @@ button.danger:hover { background: none; text-decoration: underline; }
 
 .msg { margin-top: 10px; padding: 8px 12px; border-left: 3px solid var(--teal-deep); background: var(--wash); font-size: 13px; }
 .msg.error { border-color: var(--danger); color: var(--danger); }
+[aria-invalid="true"] { border-color: var(--danger); outline: 1px solid var(--danger); }
+.autosave-status { display: inline-flex; gap: 8px; align-items: center; }
 
 .images { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
 .thumb { background: #fff; border: 1px solid var(--line); }
@@ -91,7 +99,14 @@ button.danger:hover { background: none; text-decoration: underline; }
 .badge { display: inline-block; font-size: 11px; padding: 2px 8px; background: #eee; color: var(--muted); border-radius: 2px; }
 .badge.ok { background: #dff3ef; color: var(--teal-deep); }
 .badge.bad { background: #f6e3e3; color: var(--danger); }
+.problems { list-style: none; color: var(--danger); }
+.quote-summary { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.quote-summary .empty { padding: 0; }
+.btn { display: inline-block; text-decoration: none; }
 details summary { cursor: pointer; }
+fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
+.history { margin-top: 28px; }
+.history ul { margin: 4px 0 0; padding-left: 18px; }
 details pre { margin-top: 10px; padding: 10px; background: var(--wash); border: 1px solid var(--line); overflow: auto; max-height: 420px; font-size: 12px; }
 
 .filters { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -116,6 +131,36 @@ th a.sort { color: inherit; }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0 12px; }
 .item-grid small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
 .item-grid small.warn, small.warn { color: var(--danger); }
+/* Long text gets its own row, grows with its text, and resizes only downward so it never covers its neighbours. */
+.item-grid .field.wide { grid-column: 1 / -1; }
+.item-grid textarea { resize: vertical; field-sizing: content; min-height: 6.5em; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.tab { background: transparent; color: inherit; font-weight: 600; padding: 8px 14px; border: 1px solid transparent; border-bottom: 0; margin-bottom: -1px; }
+.tab.active { background: #fff; border-color: var(--line); }
+.tab .warn { color: var(--danger); }
+.image-open { display: block; width: 100%; padding: 0; background: none; cursor: zoom-in; }
+.image-open:hover { background: none; }
+.images .image-open { cursor: pointer; }
+.image-dialog { margin: auto; max-width: 92vw; max-height: 92vh; padding: 16px; border: 1px solid var(--line); }
+.image-dialog::backdrop { background: rgb(0 0 0 / 0.6); }
+.image-dialog img { display: block; width: auto; max-width: calc(92vw - 32px); max-height: calc(92vh - 80px); margin-bottom: 8px; }
+.image-dialog .close { float: right; font-size: 18px; margin: -6px -4px 4px 8px; }
+.image-dialog.viewer { width: 96vw; height: 96vh; max-width: none; max-height: none; display: none; flex-direction: column; gap: 8px; }
+.image-dialog.viewer[open] { display: flex; }
+.viewer .close { position: absolute; top: 10px; right: 14px; margin: 0; }
+.zoom-bar { display: flex; gap: 8px; align-items: center; padding-right: 36px; }
+.zoom-bar button { padding: 4px 12px; }
+.zoom-bar span { min-width: 48px; text-align: center; font-size: 13px; }
+.zoom-bar a { margin-left: auto; }
+/* margin: auto centres an image smaller than the stage and still lets a bigger one scroll from its top-left. */
+.zoom-stage { flex: 1; min-height: 0; overflow: auto; display: flex; background: var(--wash); }
+.viewer .zoom-stage img { margin: auto; max-width: none; max-height: none; width: auto; cursor: zoom-in; }
+.viewer .zoom-stage img.zoomed-max { cursor: zoom-out; }
+.image-dialog .choices { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.edit-block.flash { outline: 3px solid var(--teal); outline-offset: 4px; transition: outline-color 0.3s; }
+/* Names in one column, their ✕ lined up in the next. */
+.file-list { list-style: none; margin-top: 6px; font-size: 13px; display: grid; grid-template-columns: max-content max-content; gap: 2px 14px; }
+.file-list li { display: contents; }
 .item-form input[type="number"], .item-form input[type="date"], .item-form input[type="time"] {
   width: 100%; padding: 8px 10px; border: 1px solid #cfc9c0; background: #fff; font: inherit;
 }
@@ -135,7 +180,27 @@ th a.sort { color: inherit; }
 .stays input[type="date"] { padding: 7px 8px; border: 1px solid #cfc9c0; font: inherit; }
 .stays .stay-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .stays .stay-actions .msg { margin-top: 0; }
+/* Top-aligned, so the "Add … as a destination" line hangs below its box without shifting the other cells. */
+.stays td { vertical-align: top; }
+.destination-picker { min-width: 280px; }
+.destination-picker input[type="text"] { padding: 7px 8px; }
+/* The browser's suggestion arrow sits badly in these boxes; suggestions still show as you type. */
+.destination-picker input::-webkit-calendar-picker-indicator, .add-destination input::-webkit-calendar-picker-indicator { display: none !important; }
+.destination-picker button.link { display: block; margin-top: 4px; font-size: 12px; text-align: left; }
+.stays input[type="text"] { padding: 7px 8px; }
+.add-destination { display: flex; flex-direction: column; gap: 10px; width: min(420px, 80vw); }
+.add-destination label input { margin-top: 4px; font-weight: normal; }
+.add-destination-actions { display: flex; gap: 14px; align-items: center; }
 .confirm-airlines { margin-bottom: 18px; }
 .confirm-airlines .sub { margin: 4px 0 10px; }
 .confirm-airlines form { margin-bottom: 8px; }
 .confirm-airlines input[type="text"] { max-width: 320px; }
+
+/* Travellers, their ID and Passports (GLOSSARY: Passport) */
+.traveller { margin-bottom: 14px; }
+.traveller-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.row-fields { display: flex; flex-wrap: wrap; gap: 0 12px; align-items: flex-end; }
+.identity { margin-top: 10px; padding: 10px 12px; border-left: 4px solid var(--teal-deep); background: var(--wash); }
+.identity.expired { border-left-color: var(--line); opacity: 0.55; }
+.identity-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.add-identity { margin-top: 10px; }

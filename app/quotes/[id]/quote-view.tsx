@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canEdit, getProfile } from "@/lib/auth";
 import { one } from "@/lib/relations";
 import { removeImage } from "./actions";
-import { EditSection } from "./edit-section";
+import { TABLE_KIND } from "@/lib/extraction/tables";
+import { EditSection, TABS } from "./edit-section";
+import { JumpToItems } from "./image-links";
 import { ExtractButton } from "./extract-button";
+import { GenerateVersionButton } from "./generate-version-button";
 import { RetryPdfButton } from "./retry-pdf-button";
 import { UploadForm } from "./upload-form";
 
@@ -15,25 +19,21 @@ type ExtractionRow = {
   error: string | null;
 };
 
+/** The tabs (id, label) holding Items from one image, in tab order. */
+function tabsOf(counts: Map<string, number> | undefined): [string, string][] {
+  return TABS.filter(([table]) => counts?.has(TABLE_KIND[table])).map(([, id, label]) => [id, label]);
+}
+
 /** Item counts per kind for one image, e.g. "2 hotel, 1 transfer". */
 function summarise(counts: Map<string, number> | undefined): string {
   if (!counts || counts.size === 0) return "No services found";
   return [...counts].map(([k, n]) => `${n} ${k.replace("_", " ")}`).join(", ");
 }
 
-/** The AI's raw answer, indented for reading. */
-function pretty(raw: string | undefined): string {
-  if (!raw) return "No AI answer logged for this image.";
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
-}
-
-// Shared by the full Quote page and the Quote modal. Only the full page edits (the modal is too small).
-export async function QuoteView({ id, editable = false }: { id: string; editable?: boolean }) {
+export async function QuoteView({ id }: { id: string }) {
   const supabase = await createClient();
+  const me = await getProfile();
+  const editable = !!me && canEdit(me.role);
 
   const { data: quote } = await supabase
     .from("quotes")
@@ -77,30 +77,15 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
   const waiting = (images ?? []).filter((i) => extractions.get(i.id)?.status !== "done").length;
   const reading = (images ?? []).filter((i) => ["pending", "running"].includes(extractions.get(i.id)?.status ?? "")).length;
 
-  // The Quote's Items per image, and what the AI last answered for each image (ai_calls, ADR 0005).
+  // The Quote's Items per image. The AI's raw answers stay in ai_calls (ADR 0005), for developers only.
   const counts = new Map<string, Map<string, number>>();
-  const answers = new Map<string, string>();
   if (images && images.length > 0) {
-    const [{ data: items }, { data: calls }] = await Promise.all([
-      supabase.from("quote_items").select("image_id, kind").eq("quote_id", id),
-      supabase
-        .from("ai_calls")
-        .select("image_id, raw_output")
-        .in(
-          "image_id",
-          images.map((i) => i.id),
-        )
-        .is("error", null)
-        .order("finished_at", { ascending: false }),
-    ]);
+    const { data: items } = await supabase.from("quote_items").select("image_id, kind").eq("quote_id", id);
     items?.forEach((i) => {
       if (!i.image_id) return;
       const c = counts.get(i.image_id) ?? new Map<string, number>();
       c.set(i.kind, (c.get(i.kind) ?? 0) + 1);
       counts.set(i.image_id, c);
-    });
-    calls?.forEach((c) => {
-      if (!answers.has(c.image_id) && c.raw_output) answers.set(c.image_id, c.raw_output);
     });
   }
 
@@ -141,7 +126,7 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
       </p>
 
       <h2>Source images</h2>
-      <UploadForm quoteId={quote.id} />
+      {editable && <UploadForm quoteId={quote.id} />}
 
       <div style={{ marginTop: 14 }}>
         {(!images || images.length === 0) && <p className="empty">No images yet.</p>}
@@ -152,8 +137,10 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
               return (
                 <div className="thumb" key={img.id}>
                   {urls.get(img.storage_path) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={urls.get(img.storage_path)} alt={img.filename} />
+                    <JumpToItems imageId={img.id} tabs={tabsOf(counts.get(img.id))}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={urls.get(img.storage_path)} alt={img.filename} />
+                    </JumpToItems>
                   ) : (
                     <div style={{ height: 140 }} />
                   )}
@@ -161,11 +148,13 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
                     <span className="name" title={img.filename}>
                       {img.filename}
                     </span>
-                    <form action={removeImage.bind(null, quote.id, img.id)}>
-                      <button type="submit" className="danger">
-                        Remove
-                      </button>
-                    </form>
+                    {editable && (
+                      <form action={removeImage.bind(null, quote.id, img.id)}>
+                        <button type="submit" className="danger">
+                          Remove
+                        </button>
+                      </form>
+                    )}
                   </div>
                   <div className="status">
                     {!ex && <span className="badge">Not extracted</span>}
@@ -189,44 +178,21 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
         )}
       </div>
 
-      {images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} reading={reading} />}
+      {editable && images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} reading={reading} />}
 
-      {images && images.some((i) => extractions.get(i.id)?.status === "done") && (
-        <>
-          <h2>Extracted data</h2>
-          {images.map((img) => {
-            const ex = extractions.get(img.id);
-            if (ex?.status !== "done") return null;
-            return (
-              <details className="card" key={img.id} style={{ marginBottom: 10 }}>
-                <summary>
-                  <b>{img.filename}</b> · {summarise(counts.get(img.id))}
-                </summary>
-                <pre>{pretty(answers.get(img.id))}</pre>
-              </details>
-            );
-          })}
-        </>
-      )}
-
-      <h2>Edit</h2>
-      {editable && trip ? (
+      <h2>{editable ? "Edit" : "Items"}</h2>
+      {trip && (
         <EditSection
           quoteId={quote.id}
           tripId={trip.id}
           images={(images ?? []).map((i) => ({ id: i.id, filename: i.filename, url: urls.get(i.storage_path) }))}
+          readOnly={!editable}
         />
-      ) : (
-        <p className="empty">
-          {/* A plain link, so it opens the full page instead of this modal again. */}
-          <a href={`/quotes/${quote.id}`}>Open the full Quote page to edit its Items.</a>
-        </p>
       )}
 
       <h2>Versions</h2>
-      {(!versions || versions.length === 0) && (
-        <p className="empty">No versions yet. Quote assembly and PDF generation come in a later milestone.</p>
-      )}
+      {editable && <GenerateVersionButton quoteId={quote.id} />}
+      {(!versions || versions.length === 0) && <p className="empty">No versions yet.</p>}
       {versions && versions.length > 0 && (
         <table>
           <thead>
@@ -244,7 +210,7 @@ export async function QuoteView({ id, editable = false }: { id: string; editable
                 </td>
                 <td>
                   {!v.pdf_path ? (
-                    <RetryPdfButton quoteId={quote.id} versionId={v.id} />
+                    editable ? <RetryPdfButton quoteId={quote.id} versionId={v.id} /> : "No PDF yet"
                   ) : pdfUrls.get(v.pdf_path) ? (
                     <a href={pdfUrls.get(v.pdf_path)} target="_blank" rel="noreferrer">
                       Open PDF

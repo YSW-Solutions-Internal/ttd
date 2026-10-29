@@ -8,7 +8,7 @@ export default async function QuotePage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   return (
     <main className="container">
-      <QuoteView id={id} editable />
+      <QuoteView id={id} />
     </main>
   );
 }

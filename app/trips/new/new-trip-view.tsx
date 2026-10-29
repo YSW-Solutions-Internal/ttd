@@ -1,16 +1,19 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { canEdit, getProfile } from "@/lib/auth";
 import { NewTripForm } from "./new-trip-form";
 
 // Shared by the full New trip page and the New trip modal.
 export async function NewTripView({ clientId }: { clientId?: string }) {
+  const me = await getProfile();
+  if (!me || !canEdit(me.role)) redirect("/");
   const supabase = await createClient();
-  // RLS (0007): your own clients, or all of them for an admin.
+  // Every User can start a Trip for any Client (ADR 0010).
   const { data: clients } = await supabase
     .from("clients")
     .select("id, client_code, full_name")
     .eq("active", true)
-    .order("last_name")
-    .order("first_name");
+    .order("sort_name");
 
   return (
     <>

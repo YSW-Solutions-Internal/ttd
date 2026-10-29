@@ -1,3 +1,7 @@
+---
+status: superseded by 0010
+---
+
 # Access follows the Client's Consultant, enforced in the database
 
 A non-admin User can see and work on a Client only if they are that Client's Consultant. The same applies to everything under the Client: their documents, Trips, Quotes and all data and files below a Quote, plus fee schedules tied to the Client. Administrators see everything and are the only ones who hand a Client to another Consultant; on handover, everything moves with the Client at once. This is enforced by Postgres row-level security and storage policies, not only in the app, because the Supabase key in the browser lets any signed-in User query the database directly. Client documents are personal information under POPIA, which is the main reason for the rule.

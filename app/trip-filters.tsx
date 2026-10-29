@@ -8,14 +8,18 @@ type ClientOption = { id: string; client_code: string; full_name: string };
 // GET form: the filters live in the URL, so a filtered list survives refresh and modals.
 export function TripFilters({
   clients,
+  consultants,
   status,
   client,
+  consultant,
   sort,
   dir,
 }: {
   clients: ClientOption[];
+  consultants: { id: string; label: string }[];
   status: string;
   client: string;
+  consultant: string;
   sort: string;
   dir: string;
 }) {
@@ -24,10 +28,22 @@ export function TripFilters({
       <div>
         <label htmlFor="f-status">Status</label>
         <select id="f-status" name="status" defaultValue={status}>
+          <option value="open">Open (Enquiry, Quoted, Booked)</option>
           <option value="all">All</option>
           {TRIP_STATUSES.map((s) => (
             <option key={s} value={s}>
               {tripStatusLabel(s)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label htmlFor="f-consultant">Consultant</label>
+        <select id="f-consultant" name="consultant" defaultValue={consultant || "all"}>
+          <option value="all">All consultants</option>
+          {consultants.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
             </option>
           ))}
         </select>

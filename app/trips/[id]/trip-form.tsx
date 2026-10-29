@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { TRIP_STATUSES, tripStatusLabel } from "@/lib/trip-status";
-import { saveTrip, type TripFormState } from "../actions";
+import { saveTrip } from "../actions";
 
 export type TripValues = {
   id: string;
@@ -17,14 +17,19 @@ export type TripValues = {
   health_info: string | null;
   insurance_info: string | null;
   custom_notes: string | null;
+  ta_number: string | null;
+  cost_centre: string | null;
+  authorising_person: string | null;
 };
 
-/** The Trip's own details: everything on its Quote that no image supplies. */
-export function TripForm({ trip }: { trip: TripValues }) {
-  const [state, action, pending] = useActionState<TripFormState, FormData>(saveTrip.bind(null, trip.id), {});
+/** The Trip's own details: everything on its Quote that no image supplies. Each field saves as you leave it. */
+export function TripForm({ trip, company }: { trip: TripValues; company: boolean }) {
+  const autosave = useAutosave({ key: trip.id, label: "Trip details", save: (fd) => saveTrip(trip.id, fd) });
 
   return (
-    <form action={action} className="card">
+    <form ref={autosave.formRef} className="card">
+      {/* Enter in a text box would submit the form; a disabled first submit button makes it do nothing. */}
+      <button type="submit" disabled hidden aria-hidden="true" />
       <div className="field">
         <label htmlFor="status">Status</label>
         <select id="status" name="status" defaultValue={trip.status}>
@@ -34,6 +39,7 @@ export function TripForm({ trip }: { trip: TripValues }) {
             </option>
           ))}
         </select>
+        <FieldError autosave={autosave} name="status" />
       </div>
       <div className="field">
         <label htmlFor="title">Title</label>
@@ -43,25 +49,45 @@ export function TripForm({ trip }: { trip: TripValues }) {
         <div className="field">
           <label htmlFor="starts_on">Travel from</label>
           <input id="starts_on" name="starts_on" type="date" defaultValue={trip.starts_on ?? ""} />
+          <FieldError autosave={autosave} name="starts_on" />
         </div>
         <div className="field">
           <label htmlFor="ends_on">Travel to</label>
           <input id="ends_on" name="ends_on" type="date" defaultValue={trip.ends_on ?? ""} />
+          <FieldError autosave={autosave} name="ends_on" />
         </div>
         <div className="field">
-          <label>Nights</label>
-          {/* Calculated by the database from the two dates. */}
-          <div>{trip.nights ?? "—"}</div>
+          <label htmlFor="nights">Nights</label>
+          {/* Calculated by the database from the two dates; each save sends it back. */}
+          <output id="nights" name="nights">{trip.nights ?? "—"}</output>
         </div>
         <div className="field">
           <label htmlFor="adults">Adults</label>
           <input id="adults" name="adults" type="number" min={0} step={1} required defaultValue={trip.adults} />
+          <FieldError autosave={autosave} name="adults" />
         </div>
         <div className="field">
           <label htmlFor="children">Children (0–17)</label>
           <input id="children" name="children" type="number" min={0} step={1} required defaultValue={trip.children} />
+          <FieldError autosave={autosave} name="children" />
         </div>
       </div>
+      {company && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="field">
+            <label htmlFor="ta_number">TA number</label>
+            <input id="ta_number" name="ta_number" type="text" defaultValue={trip.ta_number ?? ""} />
+          </div>
+          <div className="field">
+            <label htmlFor="cost_centre">Cost centre</label>
+            <input id="cost_centre" name="cost_centre" type="text" defaultValue={trip.cost_centre ?? ""} />
+          </div>
+          <div className="field">
+            <label htmlFor="authorising_person">Authorising person</label>
+            <input id="authorising_person" name="authorising_person" type="text" defaultValue={trip.authorising_person ?? ""} />
+          </div>
+        </div>
+      )}
       <div className="field">
         <label htmlFor="visa_info">Visa info</label>
         <textarea id="visa_info" name="visa_info" rows={2} defaultValue={trip.visa_info ?? ""} />
@@ -84,11 +110,7 @@ export function TripForm({ trip }: { trip: TripValues }) {
         <textarea id="custom_notes" name="custom_notes" rows={3} defaultValue={trip.custom_notes ?? ""} />
       </div>
 
-      <button type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save"}
-      </button>
-      {state.error && <div className="msg error">{state.error}</div>}
-      {state.notice && <div className="msg">{state.notice}</div>}
+      <AutosaveStatus autosave={autosave} />
     </form>
   );
 }
