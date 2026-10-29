@@ -9,7 +9,7 @@ A staff member with an account (Administrator, Standard user or Accountant). Acc
 _Avoid_: Staff account, login
 
 **Accountant**:
-A User who follows the money after a Trip is booked: supplier invoices, Client invoices and their statuses, linked to the Items they cover. May be an external bookkeeper. Sees every Client, Trip and Quote but never edits them, and is never a Client's Consultant. Administrators can also do everything an Accountant does.
+A User who follows the money after a Trip is booked: supplier invoices, Client invoices and their statuses, linked to the Items they cover. May be an external bookkeeper. Sees every Client, Trip and Quote but never edits them, and is never a Client's Consultant. Administrators can also do everything an Accountant does. Only Accountants and Administrators see the accounts queues; other Users see each Item's Invoicing stage on its Trip.
 _Avoid_: Bookkeeper, accounts (as a person)
 
 **Client**:
@@ -119,23 +119,31 @@ What the Client pays for one Item, for everyone on the Trip: the supplier's pric
 _Avoid_: Rate, price
 
 **Issued**:
-An Item is issued once the supplier has confirmed and ticketed it. Only Items are issued; Versions are generated.
+An Item is issued once the supplier has confirmed and ticketed it, a step after Booked (or together with it). A flight is issued with its ticket numbers. Only Items are issued; Versions are generated.
 _Avoid_: Confirmed, ticketed (for the state), issued (for a Version)
 
 **Booked**:
-An Item is booked once the Consultant has reserved it with the supplier, whether or not it went on a Version. From then on its prices are fixed, it carries the supplier's actual currency, amount and rate, and anything that alters it is a Change.
+An Item is booked once a User other than an Accountant has reserved it with the supplier, at any time and whether or not it went on a Version or the Quote is finished. It is booked with the supplier's booking reference, the supplier's actual currency and amount, the rate to Rand (1 for Rand) and the date its Supplier invoice is expected. From then on its prices are fixed, later Versions show it at its Item total, it cannot be deleted, and anything that alters it is a Change. Booking an Item never changes the Trip status, and the other options offered beside it stay as they are.
 _Avoid_: Confirmed, reserved
 
 **Change**:
-A dated event against a booked Item, such as a flight reissue, with its own charges: extra fare, extra taxes, supplier penalty, Change fee and Markup. A Change never overwrites the Item or an earlier Change.
+A dated event against a booked Item, such as a flight reissue, with its own charges: extra fare, extra taxes and supplier penalty in the supplier's currency at that day's rate, plus the Change fee and Markup in Rand. A Change never overwrites the Item or an earlier Change. A Cancellation is one kind of Change.
 _Avoid_: Amendment, reissue (as a record), edit
 
 **History**:
 The record of every edit to a Client, Trip, Quote, Item or anything else staff keep here, from the moment it is entered, before booking as much as after: who did it, when, and what it was before and after. Each edit is one History entry. History is never edited or removed.
 _Avoid_: Audit log, audit trail, activity, Change (that is an event against a booked Item)
 
+**Supplier**:
+Who the agency books an Item with and pays, and who invoices for it: XL Ticketing, Bedsonline, a lodge directly. Not the airline or hotel the Client uses. Named when the Item is booked, from one shared list that any User can add to and only an Administrator can correct.
+_Avoid_: Vendor, provider, operator (for the one who invoices)
+
+**Correction**:
+An edit that fixes booking details typed wrong on a booked Item (reference, Supplier, currency, amount, rate, dates, ticket numbers). Nothing happened with the Supplier, so it is not a Change; History keeps what it was. Any User but an Accountant may make one until a Supplier invoice for the Item is Verified, only an Administrator after that, and only an Administrator corrects an Item total once booked.
+_Avoid_: Change (that is a real event), amendment
+
 **Supplier invoice**:
-An invoice or credit note from a supplier (often XL Ticketing), kept here as a PDF with its number, date, amount and currency, and linked to the Items and Changes it charges for. An Accountant checks it: Received, then Verified, or Query.
+An invoice or credit note from a Supplier (often XL Ticketing), kept here as a PDF with its number, date, amount and currency, and linked to that Supplier's Items and Changes it charges for, all on one Trip, with the part of its amount that belongs to each. An Accountant checks it: Received, then Verified, or Query. Verifying compares each linked amount with what was booked; a difference, or part of the amount linked to nothing, needs a note. A credit note is the same record with negative amounts. While the Trip is an Enquiry or Quoted, only the Client's Consultant and Administrators add them; once it is Booked, Travelled or Cancelled, any User can.
 _Avoid_: Supplier document, XL invoice (XL is one supplier)
 
 **Invoicing stage**:
@@ -179,7 +187,7 @@ A file kept against a Client that belongs to no one Traveller, such as a company
 _Avoid_: Attachment, upload
 
 **Client invoice**:
-An invoice or credit note issued to a Client in Quicktrav, never created here. Its PDF is kept here, with its Quicktrav number and date, and linked to the Items it covers; one Client invoice can cover several Items or part of one.
+An invoice or credit note issued to a Client in Quicktrav, never created here. Its PDF is kept here, with its Quicktrav number and date, and linked to the Items and Changes it covers, all on one Trip, with the part of its amount that belongs to each; one Client invoice can cover several Items or part of one. A credit note is the same record with negative amounts. Who may add one follows the same rule as a Supplier invoice.
 _Avoid_: Quicktrav invoice, sales invoice
 
 **Card surcharge**:
@@ -191,11 +199,11 @@ How much less the Client pays than a comparable fare found online, worked out fr
 _Avoid_: Savings, discount
 
 **Cancellation**:
-A Change that cancels a booked Item, carrying the charges for it: the Transaction fee if before issue, the Refund fee after. It opens a Refund when money is due back. Not the same as unbooking, which undoes an Item marked booked by mistake and is only possible while it has no Changes or invoices.
+A Change that cancels a booked Item, carrying the charges for it: the supplier penalty and the agency's fee (the Transaction fee if before issue, the Refund fee after), and the refund amount expected from the supplier. It opens a Refund when that amount is above zero, and the agency's fee then comes off what the Client gets back rather than being invoiced; with nothing to refund, the fee is invoiced like any Change. It is the Item's last Change; from then on the Item shows as Cancelled, which is never set by hand. Not the same as unbooking, which undoes an Item marked booked by mistake and is only possible while it has no Changes or invoices.
 _Avoid_: Cancel (as a status), unbook (for a real cancellation)
 
 **Refund**:
-Money due back from a supplier after a Cancellation: its expected amount, fees, the supplier's progress, what was received and what went back to the Client, possibly in several stages. The Client's credit note is a Client invoice.
+Money due back from a Supplier after a Cancellation: the amount expected, the Supplier's progress (Requested, then Approved or Declined, set by staff), what was received and what went back to the Client, possibly in several stages. What goes back to the Client is what the Supplier refunds less the agency's fee on the Cancellation. Received and paid back are worked out from Payments; a Refund closes by itself once both are complete, or once Declined. Paying the Client back before the Supplier refunds is allowed and flagged as out of pocket. The Client's credit note is a Client invoice.
 _Avoid_: Refund in progress (as a Trip status), credit
 
 **Commission**:
@@ -203,9 +211,9 @@ What a supplier owes the agency for an Item (tour operators, Bedsonline, Viator)
 _Avoid_: Markup, kickback, margin
 
 **Payment**:
-One actual movement of money: paid to a supplier, received from a Client, refund in, refund out, or commission in. It has a date, amount, currency, rate and Rand amount, a Payment account and a reconciliation status, and is linked to the Items and Changes it is for. Several Payments, including partial ones and reversals, can cover one Item.
+One actual movement of money: paid to a supplier, received from a Client, refund in, refund out, or commission in. It belongs to one Trip and moves money to or from one party. It has a date, amount, currency, rate and Rand amount, a Payment account and a reconciliation status (Unreconciled, Reconciled or Query, set by an Accountant). A Payment to or from a Supplier is linked to that Supplier's booked Items and Changes on the Trip; a Payment from or to the Client is linked to the Client invoices it settles, or to none yet while it is a deposit. Several Payments, including partial ones and reversals, can cover one Item or Client invoice.
 _Avoid_: Transaction, charge
 
 **Payment account**:
-A card or account money moves through, named by a nickname such as "Ore and Metal Services card", "TTD card", "Client's own card", EFT or Cash. Never holds card numbers. Administrators keep the list.
-_Avoid_: Payment method, card (alone)
+A card or account money moves through, named by a nickname and never holding card numbers. Either a Client's (every Client has EFT from the start; Administrators add its cards, such as "Ore and Metal Services card", and Cash where used) or the agency's own (such as "TTD card"), which Administrators keep. A Payment from or to a Client uses one of that Client's Payment accounts; a Payment to a Supplier uses an agency account or one of the Trip's Client's.
+_Avoid_: Payment method, card (alone), Client's own card
