@@ -4,12 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { canEdit, getProfile } from "@/lib/auth";
 import { History } from "@/app/history";
 import { one } from "@/lib/relations";
-import { tripStatusLabel } from "@/lib/trip-status";
 import { ClientForm, DocumentUploadForm, type ClientValues } from "../client-forms";
 import { AddTravellerForm, TravellerCard } from "../travellers";
 import type { IdentityValues } from "@/lib/identity";
 import { FileLink } from "@/app/file-viewer";
 import { isImage } from "@/lib/files";
+import { BUTTON, TripStatusBadge } from "@/app/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -62,27 +62,26 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const consultants = profiles?.map((p) => ({ id: p.id, label: p.full_name ?? p.email }));
 
   return (
-    <main className="container">
-      <p className="sub">
-        <Link href="/clients">← All clients</Link>
+    <main className="mx-auto my-8 max-w-[1200px] px-5">
+      <p className="mb-3">
+        <Link href="/clients">All clients</Link>
       </p>
-      <h1>
-        {client.client_code} · {client.full_name}
-      </h1>
-      <p className="sub">
+      <span className="font-semibold text-muted tabular-nums">{client.client_code}</span>
+      <h1 className="mt-1">{client.full_name}</h1>
+      <p className="mb-4 text-muted">
         Consultant: {consultant?.full_name ?? consultant?.email ?? "—"}
         {me.role !== "admin" && " (an administrator can hand this client over)"}
       </p>
 
       <h2>Details</h2>
-      <fieldset className="plain" disabled={!canEdit(me.role)}>
+      <fieldset className="min-w-0" disabled={!canEdit(me.role)}>
         <ClientForm client={client as ClientValues} consultants={consultants} />
       </fieldset>
 
       <h2>Travellers</h2>
-      {(!travellers || travellers.length === 0) && <p className="empty">No Travellers yet.</p>}
+      {(!travellers || travellers.length === 0) && <p className="py-3 text-muted">No Travellers yet.</p>}
       {(travellers ?? []).map((t) => (
-        <fieldset key={t.id} className="plain" disabled={!canEdit(me.role)}>
+        <fieldset key={t.id} className="min-w-0" disabled={!canEdit(me.role)}>
           <TravellerCard
             clientId={client.id}
             traveller={t}
@@ -96,11 +95,11 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       {canEdit(me.role) && <AddTravellerForm clientId={client.id} />}
 
       <h2>Documents</h2>
-      {!seesDocuments && <p className="empty">Only the Consultant and Administrators see this Client&apos;s documents.</p>}
+      {!seesDocuments && <p className="py-3 text-muted">Only the Consultant and Administrators see this Client&apos;s documents.</p>}
       {seesDocuments && <DocumentUploadForm clientId={client.id} />}
-      {seesDocuments && (!documents || documents.length === 0) && <p className="empty">No documents yet.</p>}
+      {seesDocuments && (!documents || documents.length === 0) && <p className="py-3 text-muted">No documents yet.</p>}
       {documents && documents.length > 0 && (
-        <table style={{ marginTop: 14 }}>
+        <table className="mt-3.5">
           <thead>
             <tr>
               <th>File</th>
@@ -129,13 +128,15 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </table>
       )}
 
-      <h2>Trips</h2>
-      {canEdit(me.role) && (
-        <p className="sub">
-          <Link href={`/trips/new?client=${client.id}`}>+ New trip for this client</Link>
-        </p>
-      )}
-      {(!trips || trips.length === 0) && <p className="empty">No trips yet.</p>}
+      <div className="mt-8 mb-2.5 flex flex-wrap items-end justify-between gap-3">
+        <h2 className="m-0">Trips</h2>
+        {canEdit(me.role) && (
+          <Link href={`/trips/new?client=${client.id}`} className={BUTTON.primary}>
+            New trip for this client
+          </Link>
+        )}
+      </div>
+      {(!trips || trips.length === 0) && <p className="py-3 text-muted">No trips yet.</p>}
       {trips && trips.length > 0 && (
         <table>
           <thead>
@@ -155,7 +156,9 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   </Link>
                 </td>
                 <td>{t.title ?? "—"}</td>
-                <td>{tripStatusLabel(t.status)}</td>
+                <td>
+                  <TripStatusBadge status={t.status} />
+                </td>
                 <td>{new Date(t.created_at).toLocaleDateString("en-ZA")}</td>
               </tr>
             ))}
