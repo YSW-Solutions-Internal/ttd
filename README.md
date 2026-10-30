@@ -2,25 +2,25 @@
 
 Staff-only web app for building travel quotes: upload supplier screenshots, extract data with AI, correct it, and produce one PDF per quote version.
 
-**Stack:** Next.js 16 (TypeScript, App Router) · Supabase (Auth, Postgres, private Storage) · Claude API (image extraction) · Puppeteer with `@sparticuz/chromium` for PDFs
+**Stack:** Next.js 16 (TypeScript, App Router) · Tailwind CSS v4 (Marcellus and Public Sans via `next/font`) · Supabase (Auth, Postgres, private Storage) · Claude API (image extraction) · Puppeteer with `@sparticuz/chromium` for PDFs
 
 ## What works now
 
 - Email and password sign-in; every page except `/login` requires it
 - Invitation-only accounts with two roles, **Administrator** and **Standard user**. Administrators invite staff by email from the Users page (`/admin/users`) and change roles, including promoting someone to administrator. Invited users follow the email link and choose their password. Anyone can request a password reset from Sign in; the same Set password screen finishes it. Standard users never see the page and are redirected away from it
-- Clients (`/clients`): add and edit clients (first and last name, email, phone, notes, active), upload their ID and passport copies and open them in a new tab. The client code (`RWOL01`: first initial, three letters of the surname, two digits) is made by the database and never changes
+- Clients (`/clients`): add and edit clients (first and last name, email, phone, notes, active), upload their ID and passport copies and open them in a viewer over the page (images with zoom). The client code (`RWOL01`: first initial, three letters of the surname, two digits) is made by the database and never changes
 - Every client has one Consultant. Standard users see and work on only their own clients and everything under them (documents, trips, quotes, files); administrators see everything and hand clients over. Enforced in the database (see `docs/adr/0001-access-follows-client-consultant.md`)
 - Trips (`/`, `/trips/new`): create a trip for a client (`TRIP-RWOL01-001`), then add quotes to it (`QU-RWOL01-001`)
 - Upload screenshots to a private bucket
 - Duplicate images within a quote are detected by SHA-256 and skipped
 - Removing an image is a soft remove; re-uploading the same file restores it
-- **Extract data** button: sends each image that has no finished extraction to Claude (one call per image, answer forced into a JSON schema), stores the JSON in `extractions`, and shows it read-only on the quote page
+- **Extract data** button: sends each image that has no finished extraction to Claude (one call per image, answer forced into a JSON schema), stores the JSON in `extractions`, and shows it read-only in the Quote section of the Trip page
 - Images already extracted with the current prompts are never sent again (revisions only process new images)
 - Database schema ready for Items (one table per kind, read from images or entered by hand), the AI call log, versions, booking tracking, fee schedules and destinations
 
 - PDF renderer (`lib/pdf/`): quote JSON in the shape of `lib/pdf/sample-quote.json` -> the quotation template -> an A4 PDF. A Version whose PDF failed shows **PDF failed** and **Retry** in the Versions table; the retry renders the Version's frozen JSON, and a Version that has its PDF is never rendered again (see `docs/adr/0006-pdf-rendered-by-chromium-from-frozen-version.md`)
 
-- **Generate version** on the Quote page: checks the Quote (every Accommodation option placed in a Stay, every priced Item has its Transaction fee), assembles the Trip, Stays and Items into quote JSON in code (`lib/pdf/assemble.ts`), saves it with its Items as the next Version, then renders its PDF. Only confirmed airline names are printed; otherwise the code is shown
+- **Generate version** in the Quote section of the Trip page: checks the Quote (every Accommodation option placed in a Stay, every priced Item has its Transaction fee), assembles the Trip, Stays and Items into quote JSON in code (`lib/pdf/assemble.ts`), saves it with its Items as the next Version, then renders its PDF. Only confirmed airline names are printed; otherwise the code is shown
 
 ## Setup
 
@@ -79,11 +79,14 @@ app/                      pages and server actions
   login/                  sign-in
   admin/users/            admin-only: invite users, change roles
   clients/                client list, add/edit, documents (View opens a one-minute signed link)
-  trips/                  new trip, trip page with its quotes
+  trips/                  new trip; the Trip page, which holds its Quote (summary at the top, editor below)
   login/forgot/           request a password reset email
   auth/confirm/           invite and reset link landing: token -> session
   account/set-password/   invited or resetting user chooses a password
-  quotes/[id]/            quote page: image upload, image list, versions
+  quotes/[id]/            the Quote editor the Trip page embeds (images, Items, Versions); the URL redirects to the Trip
+  ui.tsx                  Msg, Badge, Trip status badge and Button: the repeated pieces of UI
+  file-viewer.tsx         FileLink: PDFs and images open in a dialog over the page, images with zoom
+  globals.css             Tailwind theme (logo teal and black, fonts) and base element styles
 proxy.ts                  session refresh + redirect to /login (Next 16 name for middleware)
 lib/auth.ts               getProfile, requireAdminPage, requireAdminAction
 lib/roles.ts              role names and labels (safe to import in Client Components)
@@ -97,6 +100,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Design notes
 
+- **Look and styling**: Tailwind utilities in the markup, with the colours (TTD teal and black from the logo) and fonts (Marcellus for titles, Public Sans for everything else) set once in `app/globals.css`. Bare inputs, tables and buttons get their look from its base layer; `app/ui.tsx` holds the few repeated pieces. Documents and images always open in a dialog over the page (`app/file-viewer.tsx`), never as the main action in a new tab. The client-facing quote PDF has its own template and fonts in `lib/pdf/` and is not styled by Tailwind.
 - **Items** are rows in one table per kind (`flight_options` with child `flights`, `accommodation_options`, `car_rentals`, `transfers`, `rail_journeys`, `excursions`). Consultants correct them in place. A hand-entered Item is a row with no `image_id`. `quote_items` lists a Quote's Items, leaving out those whose image was removed (ADR 0005).
 - **Extractions** hold one row per image: whether it has been read. An image is read once, ever, so a revision only sends new images to the AI.
 - **`ai_calls`** logs every call to Claude with its raw answer, tokens and errors, for debugging. Nothing reads it to build a Quote.
