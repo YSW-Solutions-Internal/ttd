@@ -120,7 +120,7 @@ export const FLIGHT_FIELDS: Field[] = [
   t("date", "Date", "date"),
   t("departs", "Departs", "time"),
   t("arrives", "Arrives", "time"),
-  t("next_day", "+1", "checkbox"),
+  t("next_day", "Arrives next day", "checkbox"),
   t("booking_class", "Class"),
   t("cabin", "Cabin"),
   t("fare_basis", "Fare basis"),

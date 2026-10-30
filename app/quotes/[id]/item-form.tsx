@@ -53,14 +53,14 @@ function Input({ field, value, id }: { field: Field; value: unknown; id: string 
   return <input id={id} type={inputType(field, v)} name={field.name} defaultValue={v} step={field.type === "money" ? "0.01" : field.type === "number" ? "any" : undefined} />;
 }
 
-/** One line per flight, e.g. "SA 343  JNB → CPT  2026-03-12, 08:00–10:05 +1". */
+/** One line per flight, e.g. "SA 343  JNB → CPT  2026-03-12, 22:15–06:40, arrives next day". */
 function flightLine(f: Row) {
   const route = [str(f.from_code) || str(f.from_city), str(f.to_code) || str(f.to_city)].filter(Boolean).join(" → ");
   const times = [str(f.departs), str(f.arrives)].filter(Boolean).join("–");
   return {
     flight: [str(f.airline), str(f.flight_no)].filter(Boolean).join(" ") || "New flight",
     route: route || "Route to fill in",
-    when: [str(f.date), times].filter(Boolean).join(", ") + (f.next_day ? " +1" : ""),
+    when: [str(f.date), times].filter(Boolean).join(", ") + (f.next_day ? ", arrives next day" : ""),
   };
 }
 
