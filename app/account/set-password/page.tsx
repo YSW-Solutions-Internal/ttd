@@ -2,6 +2,7 @@
 
 import { use, useActionState } from "react";
 import { setPassword, type SetPasswordState } from "./actions";
+import { Msg } from "@/app/ui";
 
 export default function SetPasswordPage({
   searchParams,
@@ -12,19 +13,17 @@ export default function SetPasswordPage({
   const isReset = use(searchParams).reset === "1";
 
   return (
-    <main className="login">
+    <main className="mx-auto max-w-[380px] my-12">
       <h1>{isReset ? "Choose a new password" : "Choose a password"}</h1>
-      <p className="sub">
+      <p className="mb-4 text-muted">
         {isReset
           ? "Set a new password for TTD Quotes."
           : "You were invited to TTD Quotes. Set a password to finish."}
       </p>
-      <form action={action} className="card">
-        <div className="field">
+      <form action={action} className="rounded-md border border-line bg-white p-5">
+        <div className="mb-3">
           <label htmlFor="password">
-          {isReset
-            ? "New Password"
-            : "Set Password"}
+          {isReset ? "New password" : "Password"}
           </label>
           <input
             id="password"
@@ -35,7 +34,7 @@ export default function SetPasswordPage({
             required
           />
         </div>
-        <div className="field">
+        <div className="mb-3">
           <label htmlFor="confirm">Repeat it</label>
           <input
             id="confirm"
@@ -46,10 +45,10 @@ export default function SetPasswordPage({
             required
           />
         </div>
-        <button type="submit" disabled={pending}>
+        <button type="submit" disabled={pending} className="mt-1 w-full">
           {pending ? "Saving…" : "Save and continue"}
         </button>
-        {state.error && <div className="msg error">{state.error}</div>}
+        {state.error && <Msg tone="error" className="mt-2.5">{state.error}</Msg>}
       </form>
     </main>
   );
