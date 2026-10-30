@@ -8,6 +8,7 @@ import { tripStatusLabel } from "@/lib/trip-status";
 import { ClientForm, DocumentUploadForm, type ClientValues } from "../client-forms";
 import { AddTravellerForm, TravellerCard } from "../travellers";
 import type { IdentityValues } from "@/lib/identity";
+import { FileLink } from "@/app/file-viewer";
 
 export const dynamic = "force-dynamic";
 
@@ -116,9 +117,9 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   <td>{by?.full_name ?? by?.email ?? "—"}</td>
                   <td>{new Date(d.created_at).toLocaleDateString("en-ZA")}</td>
                   <td>
-                    <a href={`/clients/${client.id}/documents/${d.id}`} target="_blank" rel="noopener">
+                    <FileLink href={`/clients/${client.id}/documents/${d.id}`} title={d.filename}>
                       View
-                    </a>
+                    </FileLink>
                   </td>
                 </tr>
               );

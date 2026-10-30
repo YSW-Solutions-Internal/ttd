@@ -13,6 +13,7 @@ import { AddTravellerForm } from "@/app/clients/travellers";
 import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
 import { Invoices } from "./invoices";
 import { loadBillables } from "./invoicing-data";
+import { FileLink } from "@/app/file-viewer";
 
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") : null);
 
@@ -94,9 +95,9 @@ export async function TripView({ id }: { id: string }) {
     <>
       {trip.reference} V{v.version_no} · {new Date(v.created_at).toLocaleDateString("en-ZA")} ·{" "}
       {v.pdf_path && pdfUrls.get(v.pdf_path) ? (
-        <a href={pdfUrls.get(v.pdf_path)} target="_blank" rel="noreferrer">
+        <FileLink href={pdfUrls.get(v.pdf_path)!} title={`${trip.reference} V${v.version_no}`}>
           Open PDF
-        </a>
+        </FileLink>
       ) : (
         "No PDF yet"
       )}

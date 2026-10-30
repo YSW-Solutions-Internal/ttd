@@ -4,6 +4,7 @@ import { useActionState, useId } from "react";
 import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { isExpired, orderIdentities, type IdentityValues } from "@/lib/identity";
+import { FileLink } from "@/app/file-viewer";
 import {
   addIdentity,
   addTraveller,
@@ -148,9 +149,9 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
       </form>
       <div className="identity-actions">
         {doc.image_path ? (
-          <a href={`/clients/${clientId}/identity/${doc.id}`} target="_blank" rel="noopener">
+          <FileLink href={`/clients/${clientId}/identity/${doc.id}`} title={label}>
             View image
-          </a>
+          </FileLink>
         ) : (
           <form action={upload}>
             <span className="sub">No image yet</span>{" "}

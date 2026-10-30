@@ -6,6 +6,7 @@ import { cancellationFee, changeTotal } from "@/lib/booking";
 import { STAGE_LABEL, STATUS_LABEL } from "@/lib/invoicing";
 import type { Billable } from "@/app/trips/[id]/invoicing-data";
 import { addChange, bookItem, correctBooking, markIssued, unbookItem, type BookingFormState } from "./booking-actions";
+import { FileLink } from "@/app/file-viewer";
 
 type Row = Record<string, unknown>;
 export type Booking = Row & { supplier: string };
@@ -112,9 +113,9 @@ function Invoicing({ b }: { b?: Billable }) {
           {l.url && (
             <>
               {" "}
-              <a href={l.url} target="_blank" rel="noreferrer">
+              <FileLink href={l.url} title={`${l.side === "supplier" ? "Supplier" : "Client"} ${l.amount < 0 ? "credit note" : "invoice"} ${l.number}`}>
                 PDF
-              </a>
+              </FileLink>
             </>
           )}
         </small>

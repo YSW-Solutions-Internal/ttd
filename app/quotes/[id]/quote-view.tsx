@@ -11,6 +11,7 @@ import { ExtractButton } from "./extract-button";
 import { GenerateVersionButton } from "./generate-version-button";
 import { RetryPdfButton } from "./retry-pdf-button";
 import { UploadForm } from "./upload-form";
+import { FileLink } from "@/app/file-viewer";
 
 type ExtractionRow = {
   image_id: string;
@@ -213,9 +214,9 @@ export async function QuoteView({ id }: { id: string }) {
                   {!v.pdf_path ? (
                     editable ? <RetryPdfButton quoteId={quote.id} versionId={v.id} /> : "No PDF yet"
                   ) : pdfUrls.get(v.pdf_path) ? (
-                    <a href={pdfUrls.get(v.pdf_path)} target="_blank" rel="noreferrer">
+                    <FileLink href={pdfUrls.get(v.pdf_path)!} title={`${trip?.reference} V${v.version_no}`}>
                       Open PDF
-                    </a>
+                    </FileLink>
                   ) : (
                     "—"
                   )}

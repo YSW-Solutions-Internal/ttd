@@ -4,6 +4,7 @@ import { STAGE_LABEL, STATUS_LABEL, type InvoiceStatus, type Side } from "@/lib/
 import type { Billable } from "./invoicing-data";
 import { setNoSupplierInvoice } from "./invoice-actions";
 import { AddInvoiceForm, DeleteInvoiceButton, LinkForm, RemoveLinkButton, StatusForms } from "./invoice-forms";
+import { FileLink } from "@/app/file-viewer";
 
 const amount = (currency: string, n: number) => `${currency} ${n.toFixed(2)}`;
 
@@ -65,7 +66,7 @@ export async function Invoices({
               {urls.get(i.file_path) && (
                 <>
                   {" "}
-                  · <a href={urls.get(i.file_path)} target="_blank" rel="noreferrer">Open PDF</a>
+                  · <FileLink href={urls.get(i.file_path)!} title={`${total < 0 ? "Credit note" : "Invoice"} ${i.number}`}>Open PDF</FileLink>
                 </>
               )}
             </div>
