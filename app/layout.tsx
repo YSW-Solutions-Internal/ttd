@@ -35,6 +35,7 @@ export default async function RootLayout({
         {profile ? (
           <NavShell
             isAdmin={profile.role === "admin"}
+            isAccounts={profile.role === "admin" || profile.role === "accountant"}
             initialOpen={navOpen}
             who={
               <div className="flex items-center gap-3.5 text-[13px] text-muted">

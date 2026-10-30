@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changeCharge, expectsSupplierInvoice, invoicingStage, parseInvoice, parseLinkAmount } from "./invoicing.ts";
+import { awaitingQueue, changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, parseInvoice, parseLinkAmount, type Side } from "./invoicing.ts";
 
 const form = (o: Record<string, string>) => {
   const fd = new FormData();
@@ -37,4 +37,18 @@ test("the stage: Invoiced first, then flag, then Supplier side", () => {
   assert.deepEqual(s({ clientInvoiced: [1000, -250], supplierStatuses: ["verified"] }), { stage: "verified", toInvoice: 250 });
   // Nothing to charge and nothing invoiced is not Invoiced.
   assert.equal(s({ charge: 0 }).stage, "awaiting");
+});
+
+test("an Item cancelled before issue leaves only the Cancellation to invoice", () => {
+  assert.equal(itemCharge(12000, { issued: false, cancelled: true }), 0);
+  assert.equal(itemCharge(12000, { issued: true, cancelled: true }), 12000);
+  assert.equal(itemCharge(12000, { issued: false, cancelled: false }), 12000);
+});
+
+test("Awaiting: no Supplier invoice linked, even once invoiced to the Client; soonest first", () => {
+  const r = (expectedOn: string, side?: Side, expectsInvoice = true) => ({ expectedOn, expectsInvoice, links: side ? [{ side }] : [] });
+  const late = r("2026-11-01", "client");
+  const later = r("2026-11-20");
+  const q = awaitingQueue([later, r("2026-10-01", "supplier"), r("2026-10-02", undefined, false), late]);
+  assert.deepEqual(q, [late, later]);
 });

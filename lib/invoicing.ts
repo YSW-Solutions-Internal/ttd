@@ -88,3 +88,16 @@ export function invoicingStage(t: {
   else stage = "awaiting";
   return { stage, toInvoice };
 }
+
+/** An Item's own charge: nothing once it is cancelled before issue, when the Client pays only the Cancellation. */
+export const itemCharge = (total: number, b: { issued: boolean; cancelled: boolean }) => (b.cancelled && !b.issued ? 0 : total);
+
+/**
+ * The Awaiting queue: expects a Supplier invoice and has none linked, whatever its Client
+ * side, soonest expected first, so overdue ones lead.
+ */
+export function awaitingQueue<T extends { expectsInvoice: boolean; links: { side: Side }[]; expectedOn: string | null }>(rows: T[]): T[] {
+  return rows
+    .filter((r) => r.expectsInvoice && !r.links.some((l) => l.side === "supplier"))
+    .sort((a, b) => (a.expectedOn ?? "9999").localeCompare(b.expectedOn ?? "9999"));
+}

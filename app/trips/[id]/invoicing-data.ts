@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { itemTotal } from "@/lib/pdf/money";
 import { one } from "@/lib/relations";
-import { changeCharge, expectsSupplierInvoice, invoicingStage, type InvoiceStatus, type Side, type Stage } from "@/lib/invoicing";
+import { changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, type InvoiceStatus, type Side, type Stage } from "@/lib/invoicing";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 type Row = Record<string, unknown>;
@@ -28,6 +28,8 @@ export type Billable = {
   stage: Stage;
   toInvoice: number;
   noneExpectedFlag: boolean;
+  expectsInvoice: boolean; // a Supplier invoice is due: not flagged, and has Supplier charges
+  expectedOn: string | null; // when the Supplier invoice is expected
   links: LinkedInvoice[];
 };
 
@@ -42,7 +44,7 @@ export async function loadBillables(
   items: Map<string, { row: Row; label: string }>,
 ): Promise<Billable[]> {
   const [{ data: bookings }, { data: changes }, { data: links }] = await Promise.all([
-    supabase.from("item_bookings").select("entity_id, supplier_id, booking_reference, no_supplier_invoice, suppliers(name)").eq("quote_id", quoteId),
+    supabase.from("item_bookings").select("entity_id, supplier_id, booking_reference, no_supplier_invoice, expected_invoice_on, issued_at, suppliers(name)").eq("quote_id", quoteId),
     supabase.from("item_changes").select("*").eq("quote_id", quoteId).order("happened_on").order("created_at"),
     supabase
       .from("invoice_links")
@@ -68,7 +70,7 @@ export async function loadBillables(
         return [{ linkId: l.id, invoiceId: i.id, side: i.side, number: i.number, amount: Number(l.amount), currency: i.currency, status: i.status, url: urls.get(i.file_path) }];
       });
 
-  const billable = (b: NonNullable<typeof bookings>[number], changeId: string | null, label: string, charge: number, flag: boolean, expects: boolean): Billable => {
+  const billable = (b: NonNullable<typeof bookings>[number], changeId: string | null, label: string, charge: number, flag: boolean, expects: boolean, expectedOn: string | null): Billable => {
     const ls = linked(b.entity_id, changeId);
     return {
       key: changeId ? `${b.entity_id}|${changeId}` : b.entity_id,
@@ -78,6 +80,8 @@ export async function loadBillables(
       supplierName: one(b.suppliers)?.name ?? "",
       label,
       noneExpectedFlag: flag,
+      expectsInvoice: expects && !flag,
+      expectedOn,
       links: ls,
       ...invoicingStage({
         charge,
@@ -91,19 +95,21 @@ export async function loadBillables(
   return (bookings ?? []).flatMap((b) => {
     const item = items.get(b.entity_id);
     const head = `${item?.label ?? "Item"} · ${one(b.suppliers)?.name ?? ""} ${b.booking_reference}`;
-    const own = billable(b, null, head, item ? itemTotal(item.row, Number(item.row.rooms ?? 1)) ?? 0 : 0, b.no_supplier_invoice, true);
-    const ofItem = (changes ?? [])
-      .filter((c) => c.entity_id === b.entity_id)
-      .map((c) =>
-        billable(
-          b,
-          c.id,
-          `${head} · ${c.kind === "cancellation" ? "Cancellation" : "Change"} ${c.happened_on}${c.description ? `: ${c.description}` : ""}`,
-          changeCharge(c),
-          c.no_supplier_invoice,
-          expectsSupplierInvoice(c),
-        ),
-      );
+    const mine = (changes ?? []).filter((c) => c.entity_id === b.entity_id);
+    const total = item ? itemTotal(item.row, Number(item.row.rooms ?? 1)) ?? 0 : 0;
+    const charge = itemCharge(total, { issued: b.issued_at != null, cancelled: mine.some((c) => c.kind === "cancellation") });
+    const own = billable(b, null, head, charge, b.no_supplier_invoice, true, b.expected_invoice_on);
+    const ofItem = mine.map((c) =>
+      billable(
+        b,
+        c.id,
+        `${head} · ${c.kind === "cancellation" ? "Cancellation" : "Change"} ${c.happened_on}${c.description ? `: ${c.description}` : ""}`,
+        changeCharge(c),
+        c.no_supplier_invoice,
+        expectsSupplierInvoice(c),
+        c.expected_invoice_on,
+      ),
+    );
     return [own, ...ofItem];
   });
 }

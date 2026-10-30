@@ -16,11 +16,13 @@ const isPhone = () => window.matchMedia("(max-width: 700px)").matches;
  */
 export function NavShell({
   isAdmin,
+  isAccounts,
   initialOpen,
   who,
   children,
 }: {
   isAdmin: boolean;
+  isAccounts: boolean; // Accountants and Administrators
   initialOpen: boolean;
   who: React.ReactNode;
   children: React.ReactNode;
@@ -57,6 +59,7 @@ export function NavShell({
   const items = [
     { href: "/", label: "Trips", active: path === "/" || path.startsWith("/trips") || path.startsWith("/quotes") },
     { href: "/clients", label: "Clients", active: path.startsWith("/clients") },
+    ...(isAccounts ? [{ href: "/accounts", label: "Accounts", active: path.startsWith("/accounts") }] : []),
     ...(isAdmin
       ? [
           { href: "/admin/users", label: "Users", active: path.startsWith("/admin/users") },

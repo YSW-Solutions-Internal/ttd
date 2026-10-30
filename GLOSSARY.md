@@ -150,6 +150,10 @@ _Avoid_: Supplier document, XL invoice (XL is one supplier)
 How far an Item or Change has got from supplier to Client: Awaiting supplier invoice, Received, Verified, Invoiced, or No supplier invoice expected. Worked out from its Supplier invoices, its Client invoices and whether an Accountant has marked that no supplier invoice is expected; never set by hand, together with the Rand amount still to invoice. It is Invoiced once nothing is left to invoice, even while its Supplier invoice is still awaited; a Change with no supplier charges expects no Supplier invoice by itself; one whose Supplier invoice is under Query stays Received.
 _Avoid_: Client invoicing status, invoice status
 
+**Accounts queues**:
+The Accountant's work lists across all Trips. **Awaiting**: booked Items and Changes with no Supplier invoice linked and not marked "No supplier invoice expected", whatever their Invoicing stage (an Item invoiced to the Client first still waits here), overdue first, then by expected date. **To verify**: Supplier invoices still Received, oldest first. **To invoice**: Items and Changes with Rand still to invoice, whatever their supplier side. **Queries**: Supplier invoices in Query, with the reason. **Unlinked documents**: Supplier or Client invoices whose linked amounts do not add up to the whole invoice.
+_Avoid_: Inbox, worklist, dashboard
+
 **Refund fee**:
 What the agency charges if the Client cancels an Item after it has been issued. Taken from the Fee schedule; the Consultant can change it. Shown on the Quote as the cancellation / refund fee, never added to the Item total.
 _Avoid_: Cancellation fee, cxl fee
@@ -199,7 +203,7 @@ How much less the Client pays than a comparable fare found online, worked out fr
 _Avoid_: Savings, discount
 
 **Cancellation**:
-A Change that cancels a booked Item, carrying the charges for it: the supplier penalty and the agency's fee (the Transaction fee if before issue, the Refund fee after), and the refund amount expected from the supplier. It opens a Refund when that amount is above zero, and the agency's fee then comes off what the Client gets back rather than being invoiced; with nothing to refund, the fee is invoiced like any Change. It is the Item's last Change; from then on the Item shows as Cancelled, which is never set by hand. Not the same as unbooking, which undoes an Item marked booked by mistake and is only possible while it has no Changes or invoices.
+A Change that cancels a booked Item, carrying the charges for it: the supplier penalty and the agency's fee (the Transaction fee if before issue, the Refund fee after), and the refund amount expected from the supplier. It opens a Refund when that amount is above zero, and the agency's fee then comes off what the Client gets back rather than being invoiced; with nothing to refund, the fee is invoiced like any Change. Cancelled before issue, the Item itself leaves nothing to invoice and the Client pays only the Cancellation's charges; cancelled after issue, the Item keeps its full charge. It is the Item's last Change; from then on the Item shows as Cancelled, which is never set by hand. Not the same as unbooking, which undoes an Item marked booked by mistake and is only possible while it has no Changes or invoices.
 _Avoid_: Cancel (as a status), unbook (for a real cancellation)
 
 **Refund**:
