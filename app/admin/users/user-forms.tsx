@@ -3,10 +3,11 @@
 import { useActionState } from "react";
 import { inviteUser, setRole, type UserFormState } from "./actions";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/roles";
+import { Button, Msg } from "@/app/ui";
 
 function Message({ state }: { state: UserFormState }) {
-  if (state.error) return <div className="msg error">{state.error}</div>;
-  if (state.notice) return <div className="msg">{state.notice}</div>;
+  if (state.error) return <Msg tone="error">{state.error}</Msg>;
+  if (state.notice) return <Msg>{state.notice}</Msg>;
   return null;
 }
 
@@ -14,18 +15,18 @@ export function InviteUserForm() {
   const [state, action, pending] = useActionState<UserFormState, FormData>(inviteUser, {});
 
   return (
-    <form action={action} className="card">
-      <div className="field">
+    <form action={action} className="rounded-md border border-line bg-white p-5">
+      <div className="mb-3">
         <label htmlFor="email">Email</label>
         <input id="email" name="email" type="email" autoComplete="off" required />
       </div>
 
-      <div className="field">
+      <div className="mb-3">
         <label htmlFor="full_name">Full name</label>
         <input id="full_name" name="full_name" type="text" autoComplete="off" />
       </div>
 
-      <div className="field">
+      <div className="mb-3">
         <label htmlFor="role">Role</label>
         <select id="role" name="role" defaultValue="user">
           {ROLES.map((r) => (
@@ -36,7 +37,7 @@ export function InviteUserForm() {
         </select>
       </div>
 
-      <div className="sub" style={{ fontSize: 12 }}>
+      <div className="mb-3 text-xs text-muted">
         They get an email with a link to choose their password. Nobody can create an
         account without an invitation.
       </div>
@@ -53,22 +54,20 @@ export function RoleForm({ userId, role }: { userId: string; role: Role }) {
   const [state, action, pending] = useActionState<UserFormState, FormData>(setRole, {});
 
   return (
-    <form action={action} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <form action={action} className="flex items-center gap-2">
       <input type="hidden" name="user_id" value={userId} />
-      <select name="role" defaultValue={role} disabled={pending} style={{ width: "auto" }}>
+      <select name="role" defaultValue={role} disabled={pending} className="w-auto">
         {ROLES.map((r) => (
           <option key={r} value={r}>
             {ROLE_LABELS[r]}
           </option>
         ))}
       </select>
-      <button type="submit" className="link" disabled={pending}>
+      <Button type="submit" variant="quiet" disabled={pending}>
         {pending ? "Saving…" : "Save"}
-      </button>
+      </Button>
       {state.error && (
-        <span className="sub" style={{ margin: 0, fontSize: 12, color: "var(--danger)" }}>
-          {state.error}
-        </span>
+        <span className="text-xs text-danger">{state.error}</span>
       )}
     </form>
   );

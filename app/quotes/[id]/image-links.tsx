@@ -5,7 +5,7 @@ import { useRef, type ReactNode } from "react";
 /** A <dialog> that closes on Esc (built in), on its ✕, or on a click outside its content. */
 function Dialog({
   dialog,
-  className = "image-dialog",
+  className = "m-auto max-h-[92vh] max-w-[92vw] rounded-md border border-line bg-white p-4 backdrop:bg-ink/60",
   children,
 }: {
   dialog: React.RefObject<HTMLDialogElement | null>;
@@ -14,7 +14,7 @@ function Dialog({
 }) {
   return (
     <dialog ref={dialog} className={className} onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}>
-      <button type="button" className="link close" aria-label="Close" onClick={() => dialog.current?.close()}>
+      <button type="button" className="float-right -mt-1.5 -mr-1 mb-1 ml-2 bg-transparent px-1 py-0 text-lg leading-none text-muted hover:bg-transparent hover:text-ink" aria-label="Close" onClick={() => dialog.current?.close()}>
         ✕
       </button>
       {children}
@@ -44,7 +44,7 @@ export function JumpToItems({ imageId, tabs, children }: { imageId: string; tabs
     <>
       <button
         type="button"
-        className="image-open"
+        className="block w-full cursor-pointer rounded-none bg-transparent p-0 hover:bg-transparent"
         title="Go to its Items"
         onClick={() => (tabs.length === 1 ? jump(imageId, tabs[0][0]) : dialog.current?.showModal())}
       >
@@ -53,7 +53,7 @@ export function JumpToItems({ imageId, tabs, children }: { imageId: string; tabs
       {tabs.length > 1 && (
         <Dialog dialog={dialog}>
           <p>Which Items from this image?</p>
-          <div className="choices">
+          <div className="mt-2.5 flex flex-wrap gap-2">
             {tabs.map(([tab, label]) => (
               <button
                 key={tab}

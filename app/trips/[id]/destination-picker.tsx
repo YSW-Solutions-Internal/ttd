@@ -3,6 +3,7 @@
 import { useId, useRef, useState, useTransition } from "react";
 import { addDestination, guessCity } from "../stay-actions";
 import type { DestinationOption } from "./stays-form";
+import { Button, Msg } from "@/app/ui";
 
 /** Every country's English name, for the add form's suggestions. */
 function countryNames(): string[] {
@@ -82,7 +83,7 @@ export function DestinationPicker({
   }
 
   return (
-    <div className="destination-picker">
+    <div className="list-arrow-off min-w-[280px]">
       <input
         type="text"
         list={listId}
@@ -99,15 +100,15 @@ export function DestinationPicker({
         ))}
       </datalist>
       {typed.length >= 2 && !match && (
-        <button type="button" className="link" onClick={openAdd}>
+        <Button type="button" variant="quiet" className="mt-1 block text-left text-xs" onClick={openAdd}>
           Add “{typed}” as a destination
-        </button>
+        </Button>
       )}
 
-      <dialog ref={dialog} className="image-dialog" onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}>
-        <form ref={form} action={add} className="add-destination">
+      <dialog ref={dialog} className="m-auto max-h-[92vh] max-w-[92vw] rounded-md border border-line bg-white p-4 backdrop:bg-ink/60" onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}>
+        <form ref={form} action={add} className="list-arrow-off flex w-[min(420px,80vw)] flex-col gap-2.5 [&_label_input]:mt-1 [&_label_input]:font-normal">
           <b>Add a destination</b>
-          <p className="sub">It is added for everyone. The country sets the Fee region of Items in this Stay.</p>
+          <p className="mb-4 text-muted">It is added for everyone. The country sets the Fee region of Items in this Stay.</p>
           {/* data-autosave="off": these sit inside the Stay row, whose autosave listens for changes. */}
           <label>
             Name
@@ -126,14 +127,14 @@ export function DestinationPicker({
             Airport or city code (optional)
             <input type="text" name="code" maxLength={12} data-autosave="off" placeholder="e.g. MUB; left empty, one is made up" />
           </label>
-          {error && <div className="msg error">{error}</div>}
-          <div className="add-destination-actions">
+          {error && <Msg tone="error">{error}</Msg>}
+          <div className="flex items-center gap-3.5">
             <button type="submit" disabled={pending}>
               {pending ? "Working…" : "Add"}
             </button>
-            <button type="button" className="link" onClick={() => dialog.current?.close()}>
+            <Button type="button" variant="quiet" onClick={() => dialog.current?.close()}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       </dialog>

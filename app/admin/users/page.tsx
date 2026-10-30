@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdminPage } from "@/lib/auth";
 import { ROLE_LABELS, type Role } from "@/lib/roles";
 import { InviteUserForm, RoleForm } from "./user-forms";
+import { Badge, Msg } from "@/app/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +27,9 @@ export default async function UsersPage() {
   const rows = (users ?? []) as Row[];
 
   return (
-    <main className="container">
+    <main className="mx-auto my-8 max-w-[1200px] px-5">
       <h1>Users</h1>
-      <p className="sub">
+      <p className="mb-4 text-muted">
         Accounts are by invitation only. Administrators invite staff and change roles,
         including promoting someone to administrator. Standard users cannot reach this page.
       </p>
@@ -36,9 +37,9 @@ export default async function UsersPage() {
       <h2>Invite a user</h2>
       <InviteUserForm />
 
-      <h2 style={{ marginTop: 28 }}>All users</h2>
-      {error && <div className="msg error">Could not load users: {error.message}</div>}
-      {!error && rows.length === 0 && <p className="empty">No users yet.</p>}
+      <h2>All users</h2>
+      {error && <Msg tone="error">Could not load users: {error.message}</Msg>}
+      {!error && rows.length === 0 && <p className="py-3 text-muted">No users yet.</p>}
       {rows.length > 0 && (
         <table>
           <thead>
@@ -56,12 +57,12 @@ export default async function UsersPage() {
                 <tr key={u.id}>
                   <td>
                     {u.full_name ?? "—"}
-                    {isSelf && <span className="badge" style={{ marginLeft: 8 }}>you</span>}
+                    {isSelf && <Badge className="ml-2">you</Badge>}
                   </td>
                   <td>{u.email}</td>
                   <td>
                     {isSelf ? (
-                      <span className="badge ok">{ROLE_LABELS[u.role]}</span>
+                      <Badge tone="teal">{ROLE_LABELS[u.role]}</Badge>
                     ) : (
                       <RoleForm userId={u.id} role={u.role} />
                     )}

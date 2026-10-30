@@ -153,7 +153,7 @@ export async function TripView({ id }: { id: string }) {
 
       <h2 id="stays" className="scroll-mt-4">Stays</h2>
       <p className="mb-3 text-muted">The Trip's itinerary. Accommodation options are placed in these.</p>
-      <table className="stays">
+      <table className="[&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top">
         <thead>
           <tr>
             <th>Destination</th>
