@@ -14,6 +14,8 @@ import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
 import { Invoices } from "./invoices";
 import { loadBillables } from "./invoicing-data";
 import { FileLink } from "@/app/file-viewer";
+import { Badge, BUTTON, Button, Msg, TripStatusBadge } from "@/app/ui";
+import { StaysArc } from "./stays-arc";
 
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") : null);
 
@@ -93,7 +95,7 @@ export async function TripView({ id }: { id: string }) {
   }
   const versionLine = (v: (typeof versions)[number]) => (
     <>
-      {trip.reference} V{v.version_no} · {new Date(v.created_at).toLocaleDateString("en-ZA")} ·{" "}
+      {trip.reference} V{v.version_no}, {new Date(v.created_at).toLocaleDateString("en-ZA")}.{" "}
       {v.pdf_path && pdfUrls.get(v.pdf_path) ? (
         <FileLink href={pdfUrls.get(v.pdf_path)!} title={`${trip.reference} V${v.version_no}`}>
           Open PDF
@@ -104,25 +106,33 @@ export async function TripView({ id }: { id: string }) {
     </>
   );
 
+  const destinationName = new Map((destinations ?? []).map((d) => [d.code, d.name]));
   const destinationOptions = (destinations ?? []).map((d) => ({ code: d.code, label: `${d.name}, ${d.country}` }));
 
   return (
     <>
-      <h1>
-        {trip.reference}
-        {trip.title ? ` · ${trip.title}` : ""}
-      </h1>
-      <p className="sub">
-        For <Link href={`/clients/${client?.id}`}>{client?.full_name} ({client?.client_code})</Link> ·{" "}
-        {trip.starts_on ? `${date(trip.starts_on)} – ${date(trip.ends_on) ?? "?"}` : "No dates yet"}
-      </p>
+      <header className="mb-6 border-b border-line pb-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-semibold text-muted tabular-nums">{trip.reference}</span>
+          <TripStatusBadge status={trip.status} />
+        </div>
+        <h1 className="mt-1">{trip.title ?? "Untitled trip"}</h1>
+        <p className="text-muted">
+          For <Link href={`/clients/${client?.id}`}>{client?.full_name} ({client?.client_code})</Link>.{" "}
+          {trip.starts_on ? `${date(trip.starts_on)} to ${date(trip.ends_on) ?? "?"}` : "No dates yet"}
+          {trip.nights ? `, ${trip.nights} night${trip.nights === 1 ? "" : "s"}` : ""}.
+        </p>
+        <StaysArc
+          stays={(stays ?? []).map((s) => ({ ...s, name: destinationName.get(s.destination_code ?? "") ?? "Destination to choose" }))}
+        />
+      </header>
 
       {/* Accountants see the Trip but cannot change it (ADR 0010). */}
-      <fieldset className="plain" disabled={!editable}>
+      <fieldset className="min-w-0" disabled={!editable}>
       <TripForm trip={trip} company={client?.kind === "company"} />
 
-      <h2>Stays</h2>
-      <p className="sub">The Trip's itinerary. Accommodation options are placed in these.</p>
+      <h2 id="stays" className="scroll-mt-4">Stays</h2>
+      <p className="mb-3 text-muted">The Trip's itinerary. Accommodation options are placed in these.</p>
       <table className="stays">
         <thead>
           <tr>
@@ -143,12 +153,12 @@ export async function TripView({ id }: { id: string }) {
 
       <h2>Travellers</h2>
       {tripTravellers.length !== headCount && (
-        <p className="msg">
-          ⚠ {tripTravellers.length} Traveller{tripTravellers.length === 1 ? "" : "s"} on this Trip, but {trip.adults} adult
+        <Msg tone="warn" className="mb-3">
+          {tripTravellers.length} Traveller{tripTravellers.length === 1 ? "" : "s"} on this Trip, but {trip.adults} adult
           {trip.adults === 1 ? "" : "s"} and {trip.children} child{trip.children === 1 ? "" : "ren"} above.
-        </p>
+        </Msg>
       )}
-      {tripTravellers.length === 0 && <p className="empty">No Travellers on this Trip yet.</p>}
+      {tripTravellers.length === 0 && <p className="py-3 text-muted">No Travellers on this Trip yet.</p>}
       {tripTravellers.length > 0 && (
         <table>
           <tbody>
@@ -158,12 +168,12 @@ export async function TripView({ id }: { id: string }) {
                   {t.first_name} {t.last_name}
                 </td>
                 <td>{t.date_of_birth ? date(t.date_of_birth) : "—"}</td>
-                <td>{unidentified.has(t.id) && <span className="badge bad">No ID or Passport</span>}</td>
-                <td>
+                <td>{unidentified.has(t.id) && <Badge tone="danger">No ID or Passport</Badge>}</td>
+                <td className="text-right">
                   <form action={removeFromTrip.bind(null, trip.id, t.id)}>
-                    <button type="submit" className="danger">
+                    <Button type="submit" variant="danger">
                       Take off this Trip
-                    </button>
+                    </Button>
                   </form>
                 </td>
               </tr>
@@ -172,8 +182,8 @@ export async function TripView({ id }: { id: string }) {
         </table>
       )}
       {editable && others.length > 0 && (
-        <form action={addToTrip.bind(null, trip.id)} className="inline-form">
-          <select name="traveller_id" aria-label="Traveller to add" required>
+        <form action={addToTrip.bind(null, trip.id)} className="mt-3 flex items-center gap-2">
+          <select name="traveller_id" aria-label="Traveller to add" required className="w-auto">
             {others.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.first_name} {t.last_name}
@@ -184,35 +194,35 @@ export async function TripView({ id }: { id: string }) {
         </form>
       )}
       {editable && client && <AddTravellerForm clientId={client.id} tripId={trip.id} />}
-      <p className="sub">
+      <p className="mt-3 text-muted">
         IDs and Passports are kept on the <Link href={`/clients/${client?.id}`}>Client page</Link>.
       </p>
       </fieldset>
 
       <h2>Quote</h2>
-      <div className="quote-summary">
+      <div className="flex flex-col items-start gap-3">
         {quote && (
           <>
             <p>{counts.length > 0 ? counts.join(" · ") : "No Items yet"}</p>
             {blockers.length > 0 && (
-              <ul className="problems">
+              <ul className="list-none text-danger">
                 {blockers.map((b) => (
-                  <li key={b}>⚠ {b}</li>
+                  <li key={b}>{b}</li>
                 ))}
               </ul>
             )}
             <p>
-              <Link href={`/quotes/${quote.id}`} className="btn">
+              <Link href={`/quotes/${quote.id}`} className={BUTTON.primary}>
                 {editable ? "Edit quote" : "Open quote"}
               </Link>
             </p>
           </>
         )}
-        {versions.length === 0 && <p className="empty">No versions yet.</p>}
+        {versions.length === 0 && <p className="text-muted">No versions yet.</p>}
         {versions.length > 0 && <p>Latest: {versionLine(versions[0])}</p>}
         {versions.length > 1 && (
           <details>
-            <summary>Previous versions ({versions.length - 1})</summary>
+            <summary className="cursor-pointer">Previous versions ({versions.length - 1})</summary>
             <ul>
               {versions.slice(1).map((v) => (
                 <li key={v.id}>{versionLine(v)}</li>

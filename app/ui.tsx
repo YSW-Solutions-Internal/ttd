@@ -4,6 +4,7 @@ import { tripStatusLabel } from "@/lib/trip-status";
 
 const MSG = {
   info: "border-teal-deep text-ink",
+  warn: "border-amber text-ink",
   error: "border-danger text-danger",
 };
 

@@ -5,6 +5,7 @@ import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { deleteStay, saveStay } from "../stay-actions";
 import { DestinationPicker } from "./destination-picker";
+import { Msg } from "@/app/ui";
 
 export type StayValues = {
   id: string;
@@ -65,7 +66,8 @@ function ExistingStay({ tripId, stay, destinations }: Props & { stay: StayValues
   return (
     <tr ref={autosave.formRef}>
       <Cells formId={formId} stay={stay} destinations={destinations} onPick={(code) => autosave.change("destination_code", code)} />
-      <td className="stay-actions">
+      <td>
+        <div className="flex flex-wrap items-center gap-3">
         <ConfirmButton form={formId} className="danger" formAction={deleteStay.bind(null, stay.id)} confirmLabel="Sure? Its hotels become unplaced">
           Delete
         </ConfirmButton>
@@ -73,6 +75,7 @@ function ExistingStay({ tripId, stay, destinations }: Props & { stay: StayValues
         {["destination_code", "starts_on", "ends_on"].map((name) => (
           <FieldError key={name} autosave={autosave} name={name} />
         ))}
+        </div>
       </td>
     </tr>
   );
@@ -96,9 +99,11 @@ function NewStay({ tripId, destinations }: Props) {
   return (
     <tr>
       <Cells formId={formId} destinations={destinations} onPick={add} />
-      <td className="stay-actions">
-        {pending && <span className="msg">Adding…</span>}
-        {error && <span className="msg error">{error}</span>}
+      <td>
+        <div className="flex flex-wrap items-center gap-3">
+          {pending && <Msg as="span">Adding…</Msg>}
+          {error && <Msg as="span" tone="error">{error}</Msg>}
+        </div>
       </td>
     </tr>
   );
