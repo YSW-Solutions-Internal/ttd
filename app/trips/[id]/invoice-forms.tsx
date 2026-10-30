@@ -114,7 +114,7 @@ export function DeleteInvoiceButton({ tripId, invoiceId }: { tripId: string; inv
   const [state, action] = useActionState(deleteInvoice.bind(null, tripId, invoiceId), {});
   return (
     <form action={action} className="flex items-center gap-2">
-      <ConfirmButton className="danger" confirmLabel="Sure? Delete this invoice">
+      <ConfirmButton confirmLabel="Sure? Delete this invoice">
         Delete
       </ConfirmButton>
       <Message state={state} />

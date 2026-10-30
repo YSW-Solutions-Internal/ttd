@@ -32,7 +32,7 @@ export function MergeForm({ id, others }: { id: string; others: { id: string; na
         <option value="">Merge into…</option>
         {others.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
       </select>
-      <ConfirmButton className="danger" confirmLabel="Sure? This one is removed">
+      <ConfirmButton confirmLabel="Sure? This one is removed">
         Merge
       </ConfirmButton>
       <Message state={state} />

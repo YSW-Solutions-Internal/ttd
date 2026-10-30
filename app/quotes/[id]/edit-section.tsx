@@ -137,15 +137,15 @@ export async function EditSection({
   const visible = rows.filter((r) => r.row.image_id == null || shown.has(String(r.row.image_id)));
 
   const airlines = toConfirm.length > 0 && (
-    <section className="card confirm-airlines">
+    <section className="rounded-md border border-amber bg-white p-4">
       <b>Airline names to confirm</b>
-      <p className="sub">
+      <p className="mt-1 mb-3 text-muted">
         Confirm or correct each name once; it is then used on every Quote. Until then the PDF shows only the code.
       </p>
       {toConfirm.map(({ code, suggestion }) => (
-        <form key={code} action={confirmAirline.bind(null, quoteId)} className="inline-form">
+        <form key={code} action={confirmAirline.bind(null, quoteId)} className="mb-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="iata" value={code} />
-          <label htmlFor={`airline-${code}`}>{code}</label>
+          <label htmlFor={`airline-${code}`} className="mb-0 w-8 font-semibold">{code}</label>
           <input
             id={`airline-${code}`}
             type="text"
@@ -153,9 +153,10 @@ export async function EditSection({
             required
             defaultValue={suggestion?.name ?? ""}
             placeholder="Airline name"
+            className="max-w-80"
           />
           <button type="submit">Confirm</button>
-          {!suggestion && <small>Not in the list</small>}
+          {!suggestion && <small className="text-muted">Not in the list</small>}
         </form>
       ))}
     </section>

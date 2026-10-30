@@ -68,7 +68,7 @@ function ExistingStay({ tripId, stay, destinations }: Props & { stay: StayValues
       <Cells formId={formId} stay={stay} destinations={destinations} onPick={(code) => autosave.change("destination_code", code)} />
       <td>
         <div className="flex flex-wrap items-center gap-3">
-        <ConfirmButton form={formId} className="danger" formAction={deleteStay.bind(null, stay.id)} confirmLabel="Sure? Its hotels become unplaced">
+        <ConfirmButton form={formId} formAction={deleteStay.bind(null, stay.id)} confirmLabel="Sure? Its hotels become unplaced">
           Delete
         </ConfirmButton>
         <AutosaveStatus autosave={autosave} />

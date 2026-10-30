@@ -87,7 +87,7 @@ export function TravellerCard({
 
       {admin && (
         <form action={deleteTraveller.bind(null, traveller.id)}>
-          <ConfirmButton className="danger" confirmLabel="Sure? Deletes their ID and Passports too">
+          <ConfirmButton confirmLabel="Sure? Deletes their ID and Passports too">
             Delete Traveller
           </ConfirmButton>
         </form>
@@ -165,7 +165,7 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
         )}
         {admin && (
           <form action={deleteIdentity.bind(null, doc.id)}>
-            <ConfirmButton className="danger">Delete</ConfirmButton>
+            <ConfirmButton>Delete</ConfirmButton>
           </form>
         )}
       </div>

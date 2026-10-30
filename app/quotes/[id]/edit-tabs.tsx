@@ -31,7 +31,7 @@ export function EditTabs({ tabs }: { tabs: EditTab[] }) {
 
   return (
     <>
-      <div className="tabs" role="tablist">
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-line" role="tablist">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -40,11 +40,16 @@ export function EditTabs({ tabs }: { tabs: EditTab[] }) {
             id={`tab-${t.id}`}
             aria-selected={open === t.id}
             aria-controls={`panel-${t.id}`}
-            className={open === t.id ? "tab active" : "tab"}
+            className={`-mb-px rounded-t rounded-b-none border border-b-0 px-3.5 py-2 font-semibold ${open === t.id ? "border-line bg-white text-ink hover:bg-white" : "border-transparent bg-transparent text-muted hover:bg-white hover:text-ink"}`}
             onClick={() => choose(t.id)}
           >
-            {t.label} ({t.count})
-            {t.warn && <span className="warn" title="Something here stops Generate version"> ⚠</span>}
+            {t.label} <span className="font-normal tabular-nums">({t.count})</span>
+            {t.warn && (
+              <span title="Something here stops Generate version">
+                <span aria-hidden="true" className="ml-1.5 inline-block size-2 rounded-full bg-danger align-middle" />
+                <span className="sr-only">, has something that stops Generate version</span>
+              </span>
+            )}
           </button>
         ))}
       </div>

@@ -368,7 +368,6 @@ export function ItemForm({
         {booked && <small>{locked ? "Booked: only an administrator can edit it." : "Booked: edits are Corrections."}</small>}
         {!booked && !readOnly && (
           <ConfirmButton
-            className="danger"
             formAction={deleteItem.bind(null, quoteId, table, id)}
             confirmLabel={lastOfImage ? "Sure? This also removes the image" : "Sure? This cannot be undone"}
           >
