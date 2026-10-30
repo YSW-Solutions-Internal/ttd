@@ -108,7 +108,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Next milestones
 
-Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021) · 8. Company Clients, Travellers with IDs and Passports, new Trip statuses (migration 0022).
+Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021) · 8. Company Clients, Travellers with IDs and Passports, new Trip statuses (migration 0022) · 9. Booking, Corrections, Changes and Cancellations (migration 0023).
 
 ### Bookings and accounts (Lisa's brief, phase 1)
 

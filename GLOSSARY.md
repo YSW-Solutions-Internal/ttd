@@ -143,11 +143,11 @@ An edit that fixes booking details typed wrong on a booked Item (reference, Supp
 _Avoid_: Change (that is a real event), amendment
 
 **Supplier invoice**:
-An invoice or credit note from a Supplier (often XL Ticketing), kept here as a PDF with its number, date, amount and currency, and linked to that Supplier's Items and Changes it charges for, all on one Trip, with the part of its amount that belongs to each. An Accountant checks it: Received, then Verified, or Query. Verifying compares each linked amount with what was booked; a difference, or part of the amount linked to nothing, needs a note. A credit note is the same record with negative amounts. While the Trip is an Enquiry or Quoted, only the Client's Consultant and Administrators add them; once it is Booked, Travelled or Cancelled, any User can.
+An invoice or credit note from a Supplier (often XL Ticketing), kept here as a PDF with its number, date, amount and currency, and linked to that Supplier's Items and Changes it charges for, all on one Trip, with the part of its amount that belongs to each. An Accountant checks it: Received, then Verified, or Query. It can be Verified only once all its amount is linked and no Item or Change it covers would be charged more than was booked, or in another currency; billing in parts is fine. A difference is never explained away: the booking is Corrected, a Change is added, or the invoice goes to Query with a reason. A credit note is the same record with negative amounts. A Supplier never has two with the same number. While the Trip is an Enquiry or Quoted, only the Client's Consultant and Administrators add them; once it is Booked, Travelled or Cancelled, any User can.
 _Avoid_: Supplier document, XL invoice (XL is one supplier)
 
 **Invoicing stage**:
-How far an Item or Change has got from supplier to Client: Awaiting supplier invoice, Received, Verified, Invoiced, or No supplier invoice expected. Worked out from its Supplier invoices, its Client invoices and whether an Accountant has marked that no supplier invoice is expected; never set by hand, together with the Rand amount still to invoice.
+How far an Item or Change has got from supplier to Client: Awaiting supplier invoice, Received, Verified, Invoiced, or No supplier invoice expected. Worked out from its Supplier invoices, its Client invoices and whether an Accountant has marked that no supplier invoice is expected; never set by hand, together with the Rand amount still to invoice. It is Invoiced once nothing is left to invoice, even while its Supplier invoice is still awaited; a Change with no supplier charges expects no Supplier invoice by itself; one whose Supplier invoice is under Query stays Received.
 _Avoid_: Client invoicing status, invoice status
 
 **Refund fee**:
@@ -187,7 +187,7 @@ A file kept against a Client that belongs to no one Traveller, such as a company
 _Avoid_: Attachment, upload
 
 **Client invoice**:
-An invoice or credit note issued to a Client in Quicktrav, never created here. Its PDF is kept here, with its Quicktrav number and date, and linked to the Items and Changes it covers, all on one Trip, with the part of its amount that belongs to each; one Client invoice can cover several Items or part of one. A credit note is the same record with negative amounts. Who may add one follows the same rule as a Supplier invoice.
+An invoice or credit note issued to a Client in Quicktrav, never created here. Its PDF is kept here, with its Quicktrav number and date, and linked to the Items and Changes it covers, all on one Trip, with the part of its amount that belongs to each; one Client invoice can cover several Items or part of one. A credit note is the same record with negative amounts. No two share a Quicktrav number. Who may add one follows the same rule as a Supplier invoice.
 _Avoid_: Quicktrav invoice, sales invoice
 
 **Card surcharge**:

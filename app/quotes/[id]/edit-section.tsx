@@ -8,6 +8,8 @@ import { EditTabs, type EditTab } from "./edit-tabs";
 import { ImageViewer } from "./image-links";
 import { BookingPanel, type Booking } from "./booking-panel";
 import { one } from "@/lib/relations";
+import { ITEM_LABEL } from "./item-fields";
+import { loadBillables } from "@/app/trips/[id]/invoicing-data";
 
 type Row = Record<string, unknown>;
 type Image = { id: string; filename: string; url?: string };
@@ -83,6 +85,11 @@ export async function EditSection({
     (bookingRows ?? []).map((b) => [b.entity_id as string, { ...b, supplier: one(b.suppliers)?.name ?? "" } as Booking]),
   );
   const suppliers = (supplierRows ?? []).map((s) => s.name as string);
+  const billables = await loadBillables(
+    supabase,
+    quoteId,
+    new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table] }])),
+  );
 
   const form = ({ table, row }: { table: ItemTable; row: Row }) => {
     const entityId = String(row.entity_id);
@@ -109,6 +116,7 @@ export async function EditSection({
           booking={booking}
           changes={(changeRows ?? []).filter((c) => c.entity_id === entityId)}
           suppliers={suppliers}
+          billing={billables.filter((b) => b.entityId === entityId)}
           readOnly={readOnly}
         />
       </div>

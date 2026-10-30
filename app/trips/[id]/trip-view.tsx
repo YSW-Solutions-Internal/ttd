@@ -11,6 +11,8 @@ import { StayRow } from "./stays-form";
 import { TripForm } from "./trip-form";
 import { AddTravellerForm } from "@/app/clients/travellers";
 import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
+import { Invoices } from "./invoices";
+import { loadBillables } from "./invoicing-data";
 
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") : null);
 
@@ -23,7 +25,7 @@ export async function TripView({ id }: { id: string }) {
   const { data: trip } = await supabase
     .from("trips")
     .select(
-      "id, reference, title, status, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, custom_notes, ta_number, cost_centre, authorising_person, clients(id, client_code, full_name, kind)",
+      "id, reference, title, status, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, custom_notes, ta_number, cost_centre, authorising_person, clients(id, client_code, full_name, kind, consultant_id)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -71,6 +73,13 @@ export async function TripView({ id }: { id: string }) {
     return n > 0 ? [`${n} ${ITEM_LABEL[t]}${n === 1 ? "" : "s"}`] : [];
   });
   const blockers = quote ? problems({ ...items, flights: [] }) : [];
+
+  const itemsById = new Map(
+    TABS.flatMap(([t]) => items[t].map((row) => [String(row.entity_id), { row, label: [ITEM_LABEL[t], row.label ?? row.name].filter(Boolean).join(": ") }] as const)),
+  );
+  const billables = quote ? await loadBillables(supabase, quote.id, itemsById) : [];
+  const admin = me?.role === "admin";
+  const canAddInvoice = admin || ["booked", "travelled", "cancelled"].includes(trip.status) || client?.consultant_id === me?.id;
 
   // Private bucket: short-lived signed links for the Version PDFs.
   const pdfUrls = new Map<string, string>();
@@ -211,6 +220,17 @@ export async function TripView({ id }: { id: string }) {
           </details>
         )}
       </div>
+
+      {quote && (
+        <Invoices
+          tripId={trip.id}
+          quoteId={quote.id}
+          billables={billables}
+          canAdd={canAddInvoice}
+          accounts={admin || me?.role === "accountant"}
+          admin={admin}
+        />
+      )}
 
       <History tripId={trip.id} />
     </>
