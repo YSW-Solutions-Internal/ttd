@@ -9,6 +9,7 @@ import { ClientForm, DocumentUploadForm, type ClientValues } from "../client-for
 import { AddTravellerForm, TravellerCard } from "../travellers";
 import type { IdentityValues } from "@/lib/identity";
 import { FileLink } from "@/app/file-viewer";
+import { isImage } from "@/lib/files";
 
 export const dynamic = "force-dynamic";
 
@@ -117,7 +118,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   <td>{by?.full_name ?? by?.email ?? "—"}</td>
                   <td>{new Date(d.created_at).toLocaleDateString("en-ZA")}</td>
                   <td>
-                    <FileLink href={`/clients/${client.id}/documents/${d.id}`} title={d.filename}>
+                    <FileLink href={`/clients/${client.id}/documents/${d.id}`} title={d.filename} image={isImage(d.filename)}>
                       View
                     </FileLink>
                   </td>

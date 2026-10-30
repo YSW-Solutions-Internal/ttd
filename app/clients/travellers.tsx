@@ -5,6 +5,7 @@ import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { isExpired, orderIdentities, type IdentityValues } from "@/lib/identity";
 import { FileLink } from "@/app/file-viewer";
+import { isImage } from "@/lib/files";
 import {
   addIdentity,
   addTraveller,
@@ -149,7 +150,7 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
       </form>
       <div className="identity-actions">
         {doc.image_path ? (
-          <FileLink href={`/clients/${clientId}/identity/${doc.id}`} title={label}>
+          <FileLink href={`/clients/${clientId}/identity/${doc.id}`} title={label} image={isImage(doc.image_path)}>
             View image
           </FileLink>
         ) : (
