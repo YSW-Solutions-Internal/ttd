@@ -117,7 +117,7 @@ export async function saveItem(quoteId: string, table: string, id: string, formD
     if (flErr) return { error: `Saved the option, but not its flights: ${flErr.message}`, field: "flights" };
   }
 
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return { values: Object.fromEntries(computed.map((k) => [k, merged[k] == null ? "" : String(merged[k])])) };
 }
 
@@ -134,7 +134,7 @@ export async function addItem(quoteId: string, formData: FormData): Promise<void
     entity_id: `${TABLE_KIND[table]}_${randomUUID().slice(0, 8)}`,
   });
   if (error) throw new Error(`Could not add the Item: ${error.message}`);
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
 }
 
 export async function deleteItem(quoteId: string, table: string, id: string): Promise<void> {
@@ -156,7 +156,7 @@ export async function deleteItem(quoteId: string, table: string, id: string): Pr
         .eq("quote_id", quoteId);
     }
   }
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
 }
 
 /** A Consultant confirms or corrects an airline's name once, for everyone (migration 0012). */
@@ -172,5 +172,5 @@ export async function confirmAirline(quoteId: string, formData: FormData): Promi
     .from("airlines")
     .upsert({ iata, name, confirmed: true, confirmed_by: auth.user.id, updated_at: new Date().toISOString() });
   if (error) throw new Error(`Could not save the airline: ${error.message}`);
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
 }

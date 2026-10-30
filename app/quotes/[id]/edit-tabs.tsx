@@ -14,14 +14,15 @@ export function EditTabs({ tabs }: { tabs: EditTab[] }) {
   const [open, setOpen] = useState(fallback);
 
   useEffect(() => {
+    // Other anchors on the Trip page (#quote, #stays) leave the open tab alone.
     const fromHash = () => {
       const id = window.location.hash.slice(1);
-      setOpen(tabs.some((t) => t.id === id) ? id : fallback);
+      if (tabs.some((t) => t.id === id)) setOpen(id);
     };
     fromHash();
     window.addEventListener("hashchange", fromHash);
     return () => window.removeEventListener("hashchange", fromHash);
-  }, [tabs, fallback]);
+  }, [tabs]);
 
   function choose(id: string) {
     setOpen(id);

@@ -44,7 +44,7 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
   //    (app/api/cron/extract) picks up anything this run does not get to.
   after(() => readQueued(supabase, images.filter((i) => ids.has(i.id)), START_BUDGET_MS));
 
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return ids.size === 0
     ? { message: "Nothing new to send. The remaining images are already being read." }
     : { message: `${ids.size} sent to be read. You can leave this page; Items appear as each image is done.` };

@@ -67,7 +67,7 @@ export async function renderVersionPdf(quoteId: string, versionId: string, _prev
     return { error: e instanceof Error ? e.message : "PDF render failed." };
   }
 
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return {};
 }
 
@@ -145,7 +145,7 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
   }
 
   // The Version now exists; read back its frozen JSON (with " V<n>") and number to render.
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   const { data: version } = await supabase
     .from("quote_versions")
     .select("version_no, assembled")

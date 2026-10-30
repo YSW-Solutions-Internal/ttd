@@ -16,6 +16,7 @@ import { loadBillables } from "./invoicing-data";
 import { FileLink } from "@/app/file-viewer";
 import { Badge, BUTTON, Button, Msg, TripStatusBadge } from "@/app/ui";
 import { StaysArc } from "./stays-arc";
+import { QuoteEditor } from "@/app/quotes/[id]/quote-view";
 
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") : null);
 
@@ -84,9 +85,9 @@ export async function TripView({ id }: { id: string }) {
   const admin = me?.role === "admin";
   const canAddInvoice = admin || ["booked", "travelled", "cancelled"].includes(trip.status) || client?.consultant_id === me?.id;
 
-  // Private bucket: short-lived signed links for the Version PDFs.
+  // Private bucket: a short-lived signed link for the latest Version's PDF (the editor lists them all).
   const pdfUrls = new Map<string, string>();
-  const pdfPaths = versions.flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
+  const pdfPaths = versions.slice(0, 1).flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
   if (pdfPaths.length > 0) {
     const { data: signed } = await supabase.storage.from("quote-files").createSignedUrls(pdfPaths, 3600);
     signed?.forEach((s) => {
@@ -126,6 +127,25 @@ export async function TripView({ id }: { id: string }) {
           stays={(stays ?? []).map((s) => ({ ...s, name: destinationName.get(s.destination_code ?? "") ?? "Destination to choose" }))}
         />
       </header>
+
+      {quote && (
+        <section aria-label="Quote summary" className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-md border border-line bg-white p-4">
+          <div className="min-w-0">
+            <p className="font-semibold">{counts.length > 0 ? counts.join(", ") : "No Items yet"}</p>
+            {blockers.length > 0 && (
+              <ul className="mt-1 list-none text-danger">
+                {blockers.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-1 text-muted">{versions.length > 0 ? <>Latest: {versionLine(versions[0])}</> : "No versions yet."}</p>
+          </div>
+          <a href="#quote" className={BUTTON.primary}>
+            Go to the quote
+          </a>
+        </section>
+      )}
 
       {/* Accountants see the Trip but cannot change it (ADR 0010). */}
       <fieldset className="min-w-0" disabled={!editable}>
@@ -199,38 +219,7 @@ export async function TripView({ id }: { id: string }) {
       </p>
       </fieldset>
 
-      <h2>Quote</h2>
-      <div className="flex flex-col items-start gap-3">
-        {quote && (
-          <>
-            <p>{counts.length > 0 ? counts.join(" · ") : "No Items yet"}</p>
-            {blockers.length > 0 && (
-              <ul className="list-none text-danger">
-                {blockers.map((b) => (
-                  <li key={b}>{b}</li>
-                ))}
-              </ul>
-            )}
-            <p>
-              <Link href={`/quotes/${quote.id}`} className={BUTTON.primary}>
-                {editable ? "Edit quote" : "Open quote"}
-              </Link>
-            </p>
-          </>
-        )}
-        {versions.length === 0 && <p className="text-muted">No versions yet.</p>}
-        {versions.length > 0 && <p>Latest: {versionLine(versions[0])}</p>}
-        {versions.length > 1 && (
-          <details>
-            <summary className="cursor-pointer">Previous versions ({versions.length - 1})</summary>
-            <ul>
-              {versions.slice(1).map((v) => (
-                <li key={v.id}>{versionLine(v)}</li>
-              ))}
-            </ul>
-          </details>
-        )}
-      </div>
+      {quote && <QuoteEditor quoteId={quote.id} trip={trip} />}
 
       {quote && (
         <Invoices

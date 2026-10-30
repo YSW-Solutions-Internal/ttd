@@ -16,10 +16,8 @@ const failed = (e: unknown): InvoiceFormState => ({
   error: e instanceof FieldParseError || e instanceof Error ? e.message : "Could not read the form.",
 });
 
-const done = (tripId: string) => {
-  revalidatePath(`/trips/${tripId}`);
-  revalidatePath("/quotes/[id]", "page");
-};
+// The Trip page and the Trip modal both show invoices.
+const done = (_tripId: string) => revalidatePath("/", "layout");
 
 export async function addInvoice(tripId: string, side: Side, _prev: InvoiceFormState, fd: FormData): Promise<InvoiceFormState> {
   const supabase = await createClient();
