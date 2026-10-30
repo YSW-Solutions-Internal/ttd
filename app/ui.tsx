@@ -1,4 +1,6 @@
-// The three repeated pieces of UI (Msg, Badge, Button); everything else is Tailwind classes in place.
+import { tripStatusLabel } from "@/lib/trip-status";
+
+// The repeated pieces of UI (Msg, Badge and the Trip status badge, Button); everything else is Tailwind classes in place.
 
 const MSG = {
   info: "border-teal-deep text-ink",
@@ -49,10 +51,22 @@ export function Badge({
   );
 }
 
+const STATUS_TONE: Record<string, keyof typeof BADGE> = {
+  enquiry: "neutral",
+  quoted: "teal",
+  booked: "tealSolid",
+  travelled: "ink",
+  cancelled: "danger",
+};
+
+export const TripStatusBadge = ({ status }: { status: string }) => (
+  <Badge tone={STATUS_TONE[status] ?? "neutral"}>{tripStatusLabel(status)}</Badge>
+);
+
 /** Also used on Links that act as buttons, so both look the same. */
 export const BUTTON = {
   primary:
-    "inline-block cursor-pointer rounded border-0 bg-teal-deep px-4 py-2 font-semibold text-white no-underline hover:bg-ink hover:no-underline disabled:cursor-wait disabled:opacity-60",
+    "inline-block cursor-pointer rounded border-0 bg-teal-deep px-4 py-2 font-semibold text-white hover:bg-ink hover:no-underline disabled:cursor-wait disabled:opacity-60",
   quiet: "cursor-pointer bg-transparent p-0 font-medium text-muted hover:text-ink hover:underline",
   danger: "cursor-pointer bg-transparent p-0 font-semibold text-danger hover:underline",
 };

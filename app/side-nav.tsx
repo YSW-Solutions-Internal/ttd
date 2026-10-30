@@ -79,7 +79,7 @@ export function NavShell({
           >
             ☰
           </button>
-          <Link href="/" className="flex items-center gap-2.5 text-ink no-underline">
+          <Link href="/" className="flex items-center gap-2.5 text-ink hover:no-underline">
             <Image src={logo} alt="The Travel Department" width={44} height={44} priority />
             <span className="font-display text-[22px]">Quotes</span>
           </Link>
@@ -101,7 +101,7 @@ export function NavShell({
                   href={i.href}
                   aria-current={i.active ? "page" : undefined}
                   onClick={closeOnPhone}
-                  className="border-l-3 border-transparent px-6 py-2 text-ink no-underline hover:bg-white aria-[current=page]:border-teal aria-[current=page]:bg-white aria-[current=page]:font-semibold aria-[current=page]:text-teal-deep"
+                  className="border-l-3 border-transparent px-6 py-2 text-ink hover:bg-white hover:no-underline aria-[current=page]:border-teal aria-[current=page]:bg-white aria-[current=page]:font-semibold aria-[current=page]:text-teal-deep"
                 >
                   {i.label}
                 </Link>
