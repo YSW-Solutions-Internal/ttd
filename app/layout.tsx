@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Marcellus, Public_Sans } from "next/font/google";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { getProfile } from "@/lib/auth";
@@ -6,6 +7,9 @@ import { signOut } from "./login/actions";
 import { AutosaveProvider } from "./autosave";
 import { NavShell } from "./side-nav";
 import "./globals.css";
+
+const display = Marcellus({ weight: "400", subsets: ["latin"], variable: "--font-marcellus" });
+const sans = Public_Sans({ subsets: ["latin"], variable: "--font-public-sans" });
 
 export const metadata: Metadata = {
   title: "TTD Quotes",
@@ -23,7 +27,7 @@ export default async function RootLayout({
   const navOpen = (await cookies()).get("nav")?.value === "open";
 
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${sans.variable}`}>
       <body>
         <AutosaveProvider>
         {profile ? (
