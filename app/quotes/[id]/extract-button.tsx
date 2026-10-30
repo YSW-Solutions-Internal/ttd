@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { runExtraction, type ExtractState } from "./extract-actions";
+import { Msg } from "@/app/ui";
 
 export function ExtractButton({
   quoteId,
@@ -27,7 +28,7 @@ export function ExtractButton({
   }, [reading, router]);
 
   return (
-    <form action={action} style={{ marginTop: 14 }}>
+    <form action={action} className="mt-3.5 flex flex-wrap items-center gap-3">
       <button type="submit" disabled={running || waiting === 0}>
         {running
           ? "Sending images…"
@@ -35,9 +36,9 @@ export function ExtractButton({
             ? "All images extracted"
             : `Extract data (${waiting} new)`}
       </button>
-      {reading > 0 && <div className="msg">Reading {reading} image{reading === 1 ? "" : "s"}…</div>}
-      {state.message && <div className="msg">{state.message}</div>}
-      {state.error && <div className="msg error">{state.error}</div>}
+      {reading > 0 && <Msg>Reading {reading} image{reading === 1 ? "" : "s"}…</Msg>}
+      {state.message && <Msg>{state.message}</Msg>}
+      {state.error && <Msg tone="error">{state.error}</Msg>}
     </form>
   );
 }

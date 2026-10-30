@@ -4,6 +4,8 @@ import { useActionState, useId } from "react";
 import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { isExpired, orderIdentities, type IdentityValues } from "@/lib/identity";
+import { FileLink } from "@/app/file-viewer";
+import { isImage } from "@/lib/files";
 import {
   addIdentity,
   addTraveller,
@@ -14,6 +16,7 @@ import {
   setIdentityImage,
   type TravellerFormState,
 } from "./traveller-actions";
+import { Badge, Msg } from "@/app/ui";
 
 export type TravellerValues = {
   id: string;
@@ -26,8 +29,8 @@ export type TravellerValues = {
 };
 
 function Message({ state }: { state: TravellerFormState }) {
-  if (state.error) return <div className="msg error">{state.error}</div>;
-  if (state.notice) return <div className="msg">{state.notice}</div>;
+  if (state.error) return <Msg tone="error">{state.error}</Msg>;
+  if (state.notice) return <Msg>{state.notice}</Msg>;
   return null;
 }
 
@@ -54,14 +57,14 @@ export function TravellerCard({
   const autosave = useAutosave({ key: traveller.id, label: `Traveller: ${name}`, save: (fd) => saveTraveller(traveller.id, fd) });
 
   return (
-    <section className="card traveller">
+    <section className="mb-3.5 rounded-md border border-line bg-white p-5">
       <form ref={autosave.formRef}>
         <button type="submit" disabled hidden aria-hidden="true" />
-        <div className="traveller-head">
+        <div className="mb-2 flex flex-wrap items-center gap-2.5">
           <b>{name}</b>
-          {!identified && <span className="badge bad">No ID or Passport</span>}
+          {!identified && <Badge tone="danger">No ID or Passport</Badge>}
         </div>
-        <div className="row-fields">
+        <div className="flex flex-wrap items-end gap-x-3">
           <Field label="Title" name="title" value={traveller.title} width={70} />
           <Field label="First name" name="first_name" value={traveller.first_name} autosave={autosave} />
           <Field label="Last name" name="last_name" value={traveller.last_name} autosave={autosave} />
@@ -73,7 +76,7 @@ export function TravellerCard({
       </form>
 
       {identities === null ? (
-        <p className="sub">Only the Consultant and Administrators see this Traveller&apos;s ID and Passports.</p>
+        <p className="mb-4 text-muted">Only the Consultant and Administrators see this Traveller&apos;s ID and Passports.</p>
       ) : (
         <>
           {orderIdentities(identities).map((d) => (
@@ -84,8 +87,8 @@ export function TravellerCard({
       )}
 
       {admin && (
-        <form action={deleteTraveller.bind(null, traveller.id)}>
-          <ConfirmButton className="danger" confirmLabel="Sure? Deletes their ID and Passports too">
+        <form action={deleteTraveller.bind(null, traveller.id)} className="mt-3">
+          <ConfirmButton confirmLabel="Sure? Deletes their ID and Passports too">
             Delete Traveller
           </ConfirmButton>
         </form>
@@ -111,7 +114,7 @@ function Field({
 }) {
   const id = useId();
   return (
-    <div className="field" style={width ? { width } : undefined}>
+    <div className="mb-3" style={width ? { width } : undefined}>
       <label htmlFor={id}>{label}</label>
       <input id={id} name={name} type={type} defaultValue={value ?? ""} />
       {autosave && <FieldError autosave={autosave} name={name} />}
@@ -126,14 +129,14 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
   const [state, upload, pending] = useActionState(setIdentityImage.bind(null, clientId, doc.id), {});
 
   return (
-    <div className={`identity ${expired ? "expired" : "current"}`}>
+    <div className={`mt-2.5 border-l-4 bg-paper px-3 py-2.5 ${expired ? "border-line opacity-55" : "border-teal-deep"}`}>
       <form ref={autosave.formRef}>
         <button type="submit" disabled hidden aria-hidden="true" />
-        <div className="traveller-head">
+        <div className="mb-2 flex flex-wrap items-center gap-2.5">
           <b>{label}</b>
-          {expired && <span className="badge">Expired</span>}
+          {expired && <Badge>Expired</Badge>}
         </div>
-        <div className="row-fields">
+        <div className="flex flex-wrap items-end gap-x-3">
           <Field label="Number" name="number" value={doc.number} autosave={autosave} />
           {doc.kind === "passport" && (
             <>
@@ -146,14 +149,14 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
         </div>
         <AutosaveStatus autosave={autosave} />
       </form>
-      <div className="identity-actions">
+      <div className="flex flex-wrap items-center gap-3">
         {doc.image_path ? (
-          <a href={`/clients/${clientId}/identity/${doc.id}`} target="_blank" rel="noopener">
+          <FileLink href={`/clients/${clientId}/identity/${doc.id}`} title={label} image={isImage(doc.image_path)}>
             View image
-          </a>
+          </FileLink>
         ) : (
-          <form action={upload}>
-            <span className="sub">No image yet</span>{" "}
+          <form action={upload} className="flex flex-wrap items-center gap-2">
+            <span className="text-muted">No image yet</span>
             <input type="file" name="image" accept="application/pdf,image/jpeg,image/png" required aria-label={`${label} image`} />
             <button type="submit" disabled={pending}>
               {pending ? "Uploading…" : "Add image"}
@@ -163,7 +166,7 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
         )}
         {admin && (
           <form action={deleteIdentity.bind(null, doc.id)}>
-            <ConfirmButton className="danger">Delete</ConfirmButton>
+            <ConfirmButton>Delete</ConfirmButton>
           </form>
         )}
       </div>
@@ -174,13 +177,13 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
 function AddIdentityForm({ clientId, travellerId, hasId }: { clientId: string; travellerId: string; hasId: boolean }) {
   const [state, action, pending] = useActionState(addIdentity.bind(null, clientId, travellerId), {});
   return (
-    <details className="add-identity">
-      <summary>{hasId ? "+ Add a Passport" : "+ Add an ID or Passport"}</summary>
-      <form action={action} className="row-fields">
+    <details className="mt-3 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
+      <summary className="cursor-pointer font-semibold text-teal-deep">{hasId ? "Add a Passport" : "Add an ID or Passport"}</summary>
+      <form action={action} className="mt-3 flex flex-wrap items-end gap-x-3">
         {hasId ? (
           <input type="hidden" name="kind" value="passport" />
         ) : (
-          <div className="field">
+          <div className="mb-3">
             <label>Kind</label>
             <select name="kind" defaultValue="passport">
               <option value="passport">Passport</option>
@@ -193,11 +196,11 @@ function AddIdentityForm({ clientId, travellerId, hasId }: { clientId: string; t
         <Field label="Issued (Passport)" name="issued_on" type="date" value={null} />
         <Field label="Expires (Passport)" name="expires_on" type="date" value={null} />
         <Field label="Name as printed, if different" name="name_as_printed" value={null} />
-        <div className="field">
+        <div className="mb-3">
           <label>Image (optional)</label>
           <input type="file" name="image" accept="application/pdf,image/jpeg,image/png" />
         </div>
-        <button type="submit" disabled={pending}>
+        <button type="submit" disabled={pending} className="mb-3">
           {pending ? "Saving…" : "Add"}
         </button>
         <Message state={state} />
@@ -210,16 +213,16 @@ function AddIdentityForm({ clientId, travellerId, hasId }: { clientId: string; t
 export function AddTravellerForm({ clientId, tripId }: { clientId: string; tripId?: string }) {
   const [state, action, pending] = useActionState(addTraveller.bind(null, clientId, tripId ?? null), {});
   return (
-    <details className="add-identity">
-      <summary>+ New Traveller</summary>
-      <form action={action} className="row-fields">
+    <details className="mt-3 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
+      <summary className="cursor-pointer font-semibold text-teal-deep">New Traveller</summary>
+      <form action={action} className="mt-3 flex flex-wrap items-end gap-x-3">
         <Field label="Title" name="title" value={null} width={70} />
         <Field label="First name" name="first_name" value={null} />
         <Field label="Last name" name="last_name" value={null} />
         <Field label="Date of birth" name="date_of_birth" type="date" value={null} />
         <Field label="Email" name="email" type="email" value={null} />
         <Field label="Phone" name="phone" value={null} />
-        <button type="submit" disabled={pending}>
+        <button type="submit" disabled={pending} className="mb-3">
           {pending ? "Adding…" : "Add"}
         </button>
         <Message state={state} />

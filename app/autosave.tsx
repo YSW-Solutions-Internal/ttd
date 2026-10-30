@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge, Button, Msg } from "@/app/ui";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { SaveResult } from "@/lib/form-values";
@@ -182,22 +183,22 @@ export type Autosave = ReturnType<typeof useAutosave>;
 export function AutosaveStatus({ autosave }: { autosave: Autosave }) {
   const { state, error, saved, unsaved, retry } = autosave;
   return (
-    <span className="autosave-status">
-      {unsaved && state !== "saving" && <span className="badge">Not saved</span>}
-      {state === "saving" && <span className="msg">Saving…</span>}
+    <span className="inline-flex items-center gap-2 text-[13px]" aria-live="polite">
+      {unsaved && state !== "saving" && <Badge tone="amber">Not saved</Badge>}
+      {state === "saving" && <span className="text-muted">Saving…</span>}
       {state === "failed" && (
-        <span className="msg error">
+        <Msg as="span" tone="error">
           Couldn&apos;t save: {error?.error}{" "}
-          <button type="button" className="link" onClick={retry}>
+          <Button variant="quiet" onClick={retry}>
             Retry
-          </button>
-        </span>
+          </Button>
+        </Msg>
       )}
-      {saved && !unsaved && <span className="msg">Saved</span>}
+      {saved && !unsaved && <span className="text-teal-deep">Saved</span>}
     </span>
   );
 }
 
 export function FieldError({ autosave, name }: { autosave: Autosave; name: string }) {
-  return autosave.error?.field === name ? <small className="msg error">{autosave.error.error}</small> : null;
+  return autosave.error?.field === name ? <small className="mt-0.5 block text-xs text-danger">{autosave.error.error}</small> : null;
 }

@@ -87,7 +87,7 @@ export async function uploadImages(
     added++;
   }
 
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
 
   const parts: string[] = [];
   if (added) parts.push(`${added} added`);
@@ -115,5 +115,5 @@ export async function removeImage(quoteId: string, imageId: string) {
     .eq("quote_id", quoteId);
   if (error) throw new Error(`Could not remove the image: ${error.message}`);
 
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
 }

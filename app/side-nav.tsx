@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import logo from "@/lib/pdf/logo.png";
 
 const isPhone = () => window.matchMedia("(max-width: 700px)").matches;
 
@@ -65,11 +67,11 @@ export function NavShell({
 
   return (
     <>
-      <header className="topbar">
-        <div className="topbar-left">
+      <header className="flex items-center justify-between border-b border-line bg-white px-6 py-2 max-[700px]:px-4">
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            className="burger"
+            className="bg-transparent px-1.5 py-0.5 text-xl leading-none text-teal-deep hover:bg-paper"
             aria-label="Menu"
             aria-expanded={open}
             aria-controls="sidenav"
@@ -77,23 +79,29 @@ export function NavShell({
           >
             ☰
           </button>
-          <Link href="/" className="brand">
-            TTD Quotes
+          <Link href="/" className="flex items-center gap-2.5 text-ink hover:no-underline">
+            <Image src={logo} alt="The Travel Department" width={44} height={44} priority />
+            <span className="font-display text-[22px]">Quotes</span>
           </Link>
         </div>
         {who}
       </header>
-      <div className="shell">
+      <div className="flex items-start">
         {open && (
           <>
-            <div className="nav-backdrop" onClick={() => setOpen(false)} />
-            <nav id="sidenav" className="sidenav" aria-label="Main">
+            <div className="fixed inset-0 z-40 hidden bg-ink/35 max-[700px]:block" onClick={() => setOpen(false)} />
+            <nav
+              id="sidenav"
+              className="sticky top-0 flex w-[184px] shrink-0 flex-col py-5 max-[700px]:fixed max-[700px]:inset-y-0 max-[700px]:left-0 max-[700px]:z-50 max-[700px]:w-60 max-[700px]:bg-white max-[700px]:shadow-xl"
+              aria-label="Main"
+            >
               {items.map((i) => (
                 <Link
                   key={i.href}
                   href={i.href}
                   aria-current={i.active ? "page" : undefined}
                   onClick={closeOnPhone}
+                  className="border-l-3 border-transparent px-6 py-2 text-ink hover:bg-white hover:no-underline aria-[current=page]:border-teal aria-[current=page]:bg-white aria-[current=page]:font-semibold aria-[current=page]:text-teal-deep"
                 >
                   {i.label}
                 </Link>

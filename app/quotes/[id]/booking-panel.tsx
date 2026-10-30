@@ -6,6 +6,8 @@ import { cancellationFee, changeTotal } from "@/lib/booking";
 import { STAGE_LABEL, STATUS_LABEL } from "@/lib/invoicing";
 import type { Billable } from "@/app/trips/[id]/invoicing-data";
 import { addChange, bookItem, correctBooking, markIssued, unbookItem, type BookingFormState } from "./booking-actions";
+import { FileLink } from "@/app/file-viewer";
+import { Badge, Msg } from "@/app/ui";
 
 type Row = Record<string, unknown>;
 export type Booking = Row & { supplier: string };
@@ -14,15 +16,15 @@ const str = (v: unknown) => (v == null ? "" : String(v));
 const rand = (n: number) => `R${n.toFixed(2)}`;
 
 function Message({ state }: { state: BookingFormState }) {
-  if (state.error) return <div className="msg error">{state.error}</div>;
-  if (state.notice) return <div className="msg">{state.notice}</div>;
+  if (state.error) return <Msg tone="error">{state.error}</Msg>;
+  if (state.notice) return <Msg>{state.notice}</Msg>;
   return null;
 }
 
 function Text({ label, name, value, type = "text", required }: { label: string; name: string; value?: unknown; type?: string; required?: boolean }) {
   const id = useId();
   return (
-    <div className="field">
+    <div className="mb-3 min-w-[150px] flex-1">
       <label htmlFor={id}>{label}</label>
       <input id={id} name={name} type={type} step={type === "number" ? "0.01" : undefined} defaultValue={str(value)} required={required} />
     </div>
@@ -36,9 +38,9 @@ function CurrencyRate({ currency, rate }: { currency?: unknown; rate?: unknown }
   const isRand = cur.trim().toUpperCase() === "ZAR";
   return (
     <>
-      <div className="field">
+      <div className="mb-3 min-w-[150px] flex-1">
         <label htmlFor={id}>Currency</label>
-        <input id={id} name="currency" value={cur} onChange={(e) => setCur(e.target.value)} maxLength={3} size={4} required />
+        <input id={id} type="text" name="currency" value={cur} onChange={(e) => setCur(e.target.value)} maxLength={3} size={4} required />
       </div>
       {!isRand && <Text label="Rate to Rand" name="rate" type="number" value={rate} required />}
     </>
@@ -48,10 +50,10 @@ function CurrencyRate({ currency, rate }: { currency?: unknown; rate?: unknown }
 function BookingFields({ booking, suppliers, flight }: { booking?: Booking; suppliers: string[]; flight: boolean }) {
   const listId = useId();
   return (
-    <div className="row-fields">
-      <div className="field">
+    <div className="flex flex-wrap items-end gap-x-3">
+      <div className="mb-3 min-w-[150px] flex-1">
         <label htmlFor={`${listId}-s`}>Supplier</label>
-        <input id={`${listId}-s`} name="supplier" list={listId} defaultValue={booking?.supplier} required placeholder="e.g. XL Ticketing" />
+        <input id={`${listId}-s`} type="text" name="supplier" list={listId} defaultValue={booking?.supplier} required placeholder="e.g. XL Ticketing" />
         <datalist id={listId}>{suppliers.map((s) => <option key={s} value={s} />)}</datalist>
       </div>
       <Text label="Booking reference" name="booking_reference" value={booking?.booking_reference} required />
@@ -68,10 +70,10 @@ function ChangeForm({ quoteId, entityId, kind, item, issued }: { quoteId: string
   const [state, action, pending] = useActionState(addChange.bind(null, quoteId, entityId, kind), {});
   const cancel = kind === "cancellation";
   return (
-    <details>
-      <summary>{cancel ? "Cancel this Item" : "+ Record a Change"}</summary>
-      <form action={action}>
-        <div className="row-fields">
+    <details className="rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
+      <summary className={cancel ? "cursor-pointer font-semibold text-danger" : "cursor-pointer font-semibold text-teal-deep"}>{cancel ? "Cancel this Item" : "Record a Change"}</summary>
+      <form action={action} className="mt-3">
+        <div className="flex flex-wrap items-end gap-x-3">
           <Text label="Date" name="happened_on" type="date" value={new Date().toISOString().slice(0, 10)} required />
           <Text label="What happened" name="description" />
           <CurrencyRate />
@@ -88,10 +90,12 @@ function ChangeForm({ quoteId, entityId, kind, item, issued }: { quoteId: string
           {cancel && <Text label="Refund expected from the Supplier" name="expected_refund" type="number" />}
           <Text label="Supplier invoice expected" name="expected_invoice_on" type="date" />
         </div>
-        <button type="submit" className={cancel ? "danger" : undefined} disabled={pending}>
-          {cancel ? "Record the Cancellation" : "Record the Change"}
-        </button>
-        <Message state={state} />
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="submit" className={cancel ? "bg-danger hover:bg-ink" : undefined} disabled={pending}>
+            {cancel ? "Record the Cancellation" : "Record the Change"}
+          </button>
+          <Message state={state} />
+        </div>
       </form>
     </details>
   );
@@ -101,23 +105,22 @@ function ChangeForm({ quoteId, entityId, kind, item, issued }: { quoteId: string
 function Invoicing({ b }: { b?: Billable }) {
   if (!b) return null;
   return (
-    <div className="invoicing">
-      <span className={`badge ${b.stage === "invoiced" || b.stage === "none_expected" ? "ok" : ""}`}>{STAGE_LABEL[b.stage]}</span>
-      {b.toInvoice !== 0 && <small> {rand(b.toInvoice)} still to invoice</small>}
+    <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px]">
+      <Badge tone={b.stage === "invoiced" || b.stage === "none_expected" ? "teal" : "neutral"}>{STAGE_LABEL[b.stage]}</Badge>
+      {b.toInvoice !== 0 && <span className="tabular-nums">{rand(b.toInvoice)} still to invoice</span>}
       {b.links.map((l) => (
-        <small key={l.linkId}>
-          {" · "}
+        <span key={l.linkId} className="tabular-nums">
           {l.side === "supplier" ? "Supplier" : "Client"} {l.amount < 0 ? "credit note" : "invoice"} {l.number}: {l.currency} {l.amount.toFixed(2)}
           {l.status && ` (${STATUS_LABEL[l.status]})`}
           {l.url && (
             <>
               {" "}
-              <a href={l.url} target="_blank" rel="noreferrer">
+              <FileLink href={l.url} title={`${l.side === "supplier" ? "Supplier" : "Client"} ${l.amount < 0 ? "credit note" : "invoice"} ${l.number}`}>
                 PDF
-              </a>
+              </FileLink>
             </>
           )}
-        </small>
+        </span>
       ))}
     </div>
   );
@@ -157,15 +160,17 @@ export function BookingPanel({
   if (!booking) {
     if (readOnly) return null;
     return (
-      <details className="booking">
-        <summary>Book this Item</summary>
-        <form action={book}>
+      <details className="mt-2 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
+        <summary className="cursor-pointer font-semibold text-teal-deep">Book this Item</summary>
+        <form action={book} className="mt-3">
           <BookingFields suppliers={suppliers} flight={flight} />
-          <label>
-            <input type="checkbox" name="issued" /> Already issued
-          </label>
-          <button type="submit" disabled={bookPending}>Book</button>
-          <Message state={bookState} />
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="mb-0 flex items-center gap-2 font-normal">
+              <input type="checkbox" name="issued" /> Already issued
+            </label>
+            <button type="submit" disabled={bookPending}>Book</button>
+            <Message state={bookState} />
+          </div>
         </form>
       </details>
     );
@@ -177,15 +182,20 @@ export function BookingPanel({
   const rate = Number(booking.rate);
 
   return (
-    <section className="booking card">
-      <div className="item-head">
-        <b>Booked</b> with {booking.supplier} · {str(booking.booking_reference)} · {str(booking.currency)} {amount.toFixed(2)}
-        {booking.currency !== "ZAR" && ` at ${rate} = ${rand(amount * rate)}`} · Supplier invoice expected {str(booking.expected_invoice_on)}
-        {issued && <span className="badge ok">Issued</span>}
-        {cancelled && <span className="badge bad">Cancelled</span>}
+    <section className="mt-2 flex flex-col gap-3 rounded-md border border-teal/50 bg-white p-4">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <b>Booked with {booking.supplier}</b>
+        <span>Ref {str(booking.booking_reference)}</span>
+        <span className="font-semibold tabular-nums">
+          {str(booking.currency)} {amount.toFixed(2)}
+          {booking.currency !== "ZAR" && ` at ${rate} = ${rand(amount * rate)}`}
+        </span>
+        <span className="text-muted">Supplier invoice expected {str(booking.expected_invoice_on)}</span>
+        {issued && <Badge tone="tealSolid">Issued</Badge>}
+        {cancelled && <Badge tone="danger">Cancelled</Badge>}
       </div>
       {flight && Array.isArray(booking.ticket_numbers) && booking.ticket_numbers.length > 0 && (
-        <small>Tickets: {(booking.ticket_numbers as string[]).join(", ")}</small>
+        <p className="text-[13px]">Tickets: {(booking.ticket_numbers as string[]).join(", ")}</p>
       )}
       <Invoicing b={billing.find((b) => b.changeId === null)} />
 
@@ -195,10 +205,10 @@ export function BookingPanel({
             <tr>
               <th>Date</th>
               <th>What</th>
-              <th>Supplier charges</th>
-              <th>Agency fee</th>
-              <th>Markup</th>
-              <th>Client pays</th>
+              <th className="text-right">Supplier charges</th>
+              <th className="text-right">Agency fee</th>
+              <th className="text-right">Markup</th>
+              <th className="text-right">Client pays</th>
               <th>Invoicing</th>
             </tr>
           </thead>
@@ -211,14 +221,14 @@ export function BookingPanel({
                   <td>
                     {c.kind === "cancellation" ? "Cancellation" : "Change"}
                     {c.description ? `: ${str(c.description)}` : ""}
-                    {c.kind === "cancellation" && Number(c.expected_refund) > 0 && <small> · refund expected {rand(Number(c.expected_refund))}</small>}
+                    {c.kind === "cancellation" && Number(c.expected_refund) > 0 && <small className="block text-muted">Refund expected {rand(Number(c.expected_refund))}</small>}
                   </td>
-                  <td>
+                  <td className="text-right">
                     {str(c.currency)} {charges.toFixed(2)}
                   </td>
-                  <td>{rand(Number(c.agency_fee))}</td>
-                  <td>{rand(Number(c.markup))}</td>
-                  <td>{rand(changeTotal(c as Parameters<typeof changeTotal>[0]))}</td>
+                  <td className="text-right">{rand(Number(c.agency_fee))}</td>
+                  <td className="text-right">{rand(Number(c.markup))}</td>
+                  <td className="text-right font-semibold">{rand(changeTotal(c as Parameters<typeof changeTotal>[0]))}</td>
                   <td>
                     <Invoicing b={billing.find((b) => b.changeId === c.id)} />
                   </td>
@@ -231,17 +241,19 @@ export function BookingPanel({
 
       {!readOnly && (
         <>
-          <details>
-            <summary>Correct booking details</summary>
-            <form action={fix}>
+          <details className="rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
+            <summary className="cursor-pointer font-semibold text-teal-deep">Correct booking details</summary>
+            <form action={fix} className="mt-3">
               <BookingFields booking={booking} suppliers={suppliers} flight={flight} />
-              <button type="submit" disabled={fixing}>Save the Correction</button>
-              <Message state={fixState} />
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="submit" disabled={fixing}>Save the Correction</button>
+                <Message state={fixState} />
+              </div>
             </form>
           </details>
           {!issued && !cancelled && (
-            <form action={issue} className="inline-form">
-              {flight && <input name="ticket_numbers" aria-label="Ticket numbers" placeholder="Ticket numbers, comma separated" defaultValue={(booking.ticket_numbers as string[]).join(", ")} />}
+            <form action={issue} className="flex flex-wrap items-center gap-2">
+              {flight && <input className="w-72" type="text" name="ticket_numbers" aria-label="Ticket numbers" placeholder="Ticket numbers, comma separated" defaultValue={(booking.ticket_numbers as string[]).join(", ")} />}
               <button type="submit" disabled={issuing}>Mark issued</button>
               <Message state={issueState} />
             </form>
@@ -249,8 +261,8 @@ export function BookingPanel({
           {!cancelled && <ChangeForm quoteId={quoteId} entityId={entityId} kind="change" item={item} issued={issued} />}
           {!cancelled && <ChangeForm quoteId={quoteId} entityId={entityId} kind="cancellation" item={item} issued={issued} />}
           {changes.length === 0 && (
-            <form action={unbook} className="inline-form">
-              <ConfirmButton className="danger" confirmLabel="Sure? Only if it was booked by mistake">
+            <form action={unbook} className="flex flex-wrap items-center gap-2">
+              <ConfirmButton confirmLabel="Sure? Only if it was booked by mistake">
                 Unbook
               </ConfirmButton>
               <Message state={unbookState} />

@@ -53,7 +53,7 @@ export async function bookItem(
   } catch (e) {
     return failed(e);
   }
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return { notice: "Booked." };
 }
 
@@ -73,7 +73,7 @@ export async function correctBooking(
   } catch (e) {
     return failed(e);
   }
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return { notice: "Corrected." };
 }
 
@@ -100,7 +100,7 @@ export async function markIssued(
   } catch (e) {
     return failed(e);
   }
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return { notice: "Issued." };
 }
 
@@ -111,7 +111,7 @@ export async function unbookItem(quoteId: string, entityId: string, _prev: Booki
   // 23503: a Change or an invoice still points at the booking.
   if (error) return { error: error.code === "23503" ? "This Item has Changes or invoices, so it cannot be unbooked. Record a Cancellation instead." : `Could not unbook: ${error.message}` };
   if (!data?.length) return { error: "Could not unbook: you cannot change this booking." };
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return {};
 }
 
@@ -130,6 +130,6 @@ export async function addChange(
   } catch (e) {
     return failed(e);
   }
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return { notice: kind === "cancellation" ? "Cancelled." : "Change recorded." };
 }

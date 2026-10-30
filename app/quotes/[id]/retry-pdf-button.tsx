@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { renderVersionPdf, type PdfState } from "./pdf-actions";
+import { Badge, Msg } from "@/app/ui";
 
 export function RetryPdfButton({ quoteId, versionId }: { quoteId: string; versionId: string }) {
   const [state, action, running] = useActionState<PdfState, FormData>(
@@ -10,12 +11,12 @@ export function RetryPdfButton({ quoteId, versionId }: { quoteId: string; versio
   );
 
   return (
-    <form action={action}>
-      <span className="badge bad">PDF failed</span>{" "}
-      <button type="submit" disabled={running}>
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <Badge tone="danger">PDF failed</Badge>
+      <button type="submit" disabled={running} className="px-3 py-1">
         {running ? "Making PDF…" : "Retry"}
       </button>
-      {state.error && <div className="msg error">{state.error}</div>}
+      {state.error && <Msg tone="error">{state.error}</Msg>}
     </form>
   );
 }

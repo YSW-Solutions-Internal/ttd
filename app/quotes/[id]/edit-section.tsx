@@ -2,10 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { loadFeeContext } from "@/lib/fee-context";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { problems } from "@/lib/pdf/assemble";
-import { AddItemForm, ItemForm, type StayOption } from "./item-form";
+import { AddItemForm, ItemForm, type ItemSource, type StayOption } from "./item-form";
 import { confirmAirline } from "./item-actions";
 import { EditTabs, type EditTab } from "./edit-tabs";
-import { ImageViewer } from "./image-links";
 import { BookingPanel, type Booking } from "./booking-panel";
 import { one } from "@/lib/relations";
 import { ITEM_LABEL } from "./item-fields";
@@ -25,9 +24,9 @@ export const TABS: [ItemTable, string, string][] = [
 ];
 
 /**
- * The Working content of a Quote, editable: one tab per kind of Item, each with one
- * block per image (the image beside its Items of that kind) and one block for Items
- * of that kind entered by hand (ADR 0005).
+ * The Working content of a Quote, editable: one tab per kind of Item, each listing its Items
+ * from images in upload order, then those entered by hand (ADR 0005). Each Item links to the
+ * image it was read from, or says it was added by hand.
  */
 export async function EditSection({
   quoteId,
@@ -91,16 +90,23 @@ export async function EditSection({
     new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table] }])),
   );
 
+  const imageById = new Map(images.map((img, i) => [img.id, { ...img, order: i }]));
+
   const form = ({ table, row }: { table: ItemTable; row: Row }) => {
     const entityId = String(row.entity_id);
     const booking = bookings.get(entityId) ?? null;
+    const img = row.image_id == null ? undefined : imageById.get(String(row.image_id));
+    const source: ItemSource = img ? { filename: img.filename, url: img.url } : null;
     return (
       // Never re-mounts after a save: autosave puts the values the server filled in into the card.
-      <div key={String(row.id)}>
+      // data-image: a Source image thumbnail jumps to and highlights its Items (image-links.tsx).
+      <div key={String(row.id)} data-image={img?.id} className="rounded-md">
         <ItemForm
           quoteId={quoteId}
           table={table}
           row={row}
+          source={source}
+          readOnly={readOnly}
           flights={table === "flight_options" ? ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id) : undefined}
           stays={stays}
           rates={ctx.rates}
@@ -108,6 +114,8 @@ export async function EditSection({
           booked={!!booking}
           locked={!!booking && !admin}
         />
+        {/* Accountants see the booking but cannot change it (ADR 0010). */}
+        <fieldset className="min-w-0" disabled={readOnly}>
         <BookingPanel
           quoteId={quoteId}
           entityId={entityId}
@@ -119,6 +127,7 @@ export async function EditSection({
           billing={billables.filter((b) => b.entityId === entityId)}
           readOnly={readOnly}
         />
+        </fieldset>
       </div>
     );
   };
@@ -128,15 +137,15 @@ export async function EditSection({
   const visible = rows.filter((r) => r.row.image_id == null || shown.has(String(r.row.image_id)));
 
   const airlines = toConfirm.length > 0 && (
-    <section className="card confirm-airlines">
+    <section className="rounded-md border border-amber bg-white p-4">
       <b>Airline names to confirm</b>
-      <p className="sub">
+      <p className="mt-1 mb-3 text-muted">
         Confirm or correct each name once; it is then used on every Quote. Until then the PDF shows only the code.
       </p>
       {toConfirm.map(({ code, suggestion }) => (
-        <form key={code} action={confirmAirline.bind(null, quoteId)} className="inline-form">
+        <form key={code} action={confirmAirline.bind(null, quoteId)} className="mb-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="iata" value={code} />
-          <label htmlFor={`airline-${code}`}>{code}</label>
+          <label htmlFor={`airline-${code}`} className="mb-0 w-8 font-semibold">{code}</label>
           <input
             id={`airline-${code}`}
             type="text"
@@ -144,17 +153,19 @@ export async function EditSection({
             required
             defaultValue={suggestion?.name ?? ""}
             placeholder="Airline name"
+            className="max-w-80"
           />
           <button type="submit">Confirm</button>
-          {!suggestion && <small>Not in the list</small>}
+          {!suggestion && <small className="text-muted">Not in the list</small>}
         </form>
       ))}
     </section>
   );
 
   const tabs: EditTab[] = TABS.map(([table, id, label]) => {
-    const ofKind = visible.filter((r) => r.table === table);
-    const byHand = ofKind.filter((r) => r.row.image_id == null);
+    // Items from images in upload order, then those entered by hand; each group in the order added.
+    const rank = (r: { row: Row }) => (r.row.image_id == null ? images.length : (imageById.get(String(r.row.image_id))?.order ?? images.length));
+    const ofKind = visible.filter((r) => r.table === table).sort((a, b) => rank(a) - rank(b));
     const onlyThis = Object.fromEntries(tables.map((t) => [t, t === table ? ofKind.map((r) => r.row) : []]));
     return {
       id,
@@ -163,33 +174,12 @@ export async function EditSection({
       // The same check Generate version makes, for this kind only.
       warn: problems({ ...(onlyThis as Record<ItemTable, Row[]>), flights: [] }).length > 0,
       content: (
-        <>
+        <div className="flex flex-col gap-4">
           {table === "flight_options" && !readOnly && airlines}
-          {images.map((img) => {
-            const items = ofKind.filter((r) => r.row.image_id === img.id);
-            if (items.length === 0) return null;
-            return (
-              <section className="edit-block" key={img.id} id={`block-${id}-${img.id}`}>
-                <div className="edit-image">
-                  {img.url && <ImageViewer src={img.url} alt={img.filename} />}
-                  <small>{img.filename}</small>
-                </div>
-                <fieldset className="edit-items plain" disabled={readOnly}>
-                  {items.map(form)}
-                </fieldset>
-              </section>
-            );
-          })}
-          <section className="edit-block">
-            <div className="edit-image">
-              <b>Manual Capture</b>
-            </div>
-            <fieldset className="edit-items plain" disabled={readOnly}>
-              {byHand.map(form)}
-              {!readOnly && <AddItemForm quoteId={quoteId} table={table} />}
-            </fieldset>
-          </section>
-        </>
+          {ofKind.map(form)}
+          {ofKind.length === 0 && <p className="text-muted">No {label.toLowerCase()} yet.</p>}
+          {!readOnly && <AddItemForm quoteId={quoteId} table={table} />}
+        </div>
       ),
     };
   });
@@ -198,7 +188,7 @@ export async function EditSection({
     <>
       <EditTabs tabs={tabs} />
       {rows.length > visible.length && (
-        <p className="empty">Items from removed images are left out. Uploading the same image again within 90 days brings them back.</p>
+        <p className="mt-3 text-muted">Items from removed images are left out. Uploading the same image again within 90 days brings them back.</p>
       )}
     </>
   );

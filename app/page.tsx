@@ -3,10 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { canEdit, getProfile } from "@/lib/auth";
 import { one } from "@/lib/relations";
-import { isTripStatus, OPEN_STATUSES, tripStatusLabel } from "@/lib/trip-status";
+import { isTripStatus, OPEN_STATUSES } from "@/lib/trip-status";
+import { BUTTON, Msg, TripStatusBadge } from "./ui";
 import { TripFilters } from "./trip-filters";
 
 export const dynamic = "force-dynamic";
+// Extraction keeps reading after the response (after() in extract-actions.ts); 800 s is the Vercel Pro limit.
+// Set wherever the Quote editor can be open: its actions run in the page under the Trip modal too.
+export const maxDuration = 800;
 
 type Params = { status?: string; client?: string; consultant?: string; sort?: string; dir?: string };
 
@@ -79,13 +83,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   };
 
   return (
-    <main className="container">
-      <h1>Trips</h1>
-      {canEdit(me.role) && (
-        <p className="sub">
-          <Link href="/trips/new">+ New trip</Link>
-        </p>
-      )}
+    <main className="mx-auto my-8 max-w-[1200px] px-5">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <h1 className="mb-0">Trips</h1>
+        {canEdit(me.role) && (
+          <Link href="/trips/new" className={BUTTON.primary}>
+            New trip
+          </Link>
+        )}
+      </div>
 
       <TripFilters
         clients={clients ?? []}
@@ -97,8 +103,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         dir={dir}
       />
 
-      {error && <div className="msg error">Could not load trips: {error.message}</div>}
-      {trips && rows.length === 0 && <p className="empty">No trips match.</p>}
+      {error && <Msg tone="error">Could not load trips: {error.message}</Msg>}
+      {trips && rows.length === 0 && <p className="py-4 text-muted">No trips match these filters.</p>}
       {rows.length > 0 && (
         <table>
           <thead>
@@ -108,7 +114,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   {"unsortable" in c ? (
                     c.label
                   ) : (
-                    <Link href={href(c.key)} className="sort">
+                    <Link href={href(c.key)} className="text-inherit">
                       {c.label}
                       {sort === c.key ? (dir === "asc" ? " ▲" : " ▼") : ""}
                     </Link>
@@ -121,7 +127,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             {rows.map((t) => {
               const c = one(t.clients);
               return (
-                <tr key={t.id}>
+                <tr key={t.id} className="hover:bg-paper">
                   <td>
                     <Link href={`/trips/${t.id}`}>
                       <b>{t.reference}</b>
@@ -130,10 +136,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   <td>{t.title ?? "—"}</td>
                   <td>
                     {c?.full_name ?? "—"}
-                    <div className="sub" style={{ margin: 0, fontSize: 12 }}>{c?.client_code}</div>
+                    <div className="text-xs text-muted">{c?.client_code}</div>
                   </td>
                   <td>{consultantName(t) || "—"}</td>
-                  <td>{tripStatusLabel(t.status)}</td>
+                  <td>
+                    <TripStatusBadge status={t.status} />
+                  </td>
                   <td>{t.starts_on ? new Date(t.starts_on).toLocaleDateString("en-ZA") : "—"}</td>
                   <td>{new Date(t.created_at).toLocaleDateString("en-ZA")}</td>
                 </tr>

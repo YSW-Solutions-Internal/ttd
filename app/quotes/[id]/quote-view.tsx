@@ -1,8 +1,5 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canEdit, getProfile } from "@/lib/auth";
-import { one } from "@/lib/relations";
 import { removeImage } from "./actions";
 import { TABLE_KIND } from "@/lib/extraction/tables";
 import { EditSection, TABS } from "./edit-section";
@@ -11,6 +8,8 @@ import { ExtractButton } from "./extract-button";
 import { GenerateVersionButton } from "./generate-version-button";
 import { RetryPdfButton } from "./retry-pdf-button";
 import { UploadForm } from "./upload-form";
+import { FileLink } from "@/app/file-viewer";
+import { Badge, Button } from "@/app/ui";
 
 type ExtractionRow = {
   image_id: string;
@@ -30,19 +29,15 @@ function summarise(counts: Map<string, number> | undefined): string {
   return [...counts].map(([k, n]) => `${n} ${k.replace("_", " ")}`).join(", ");
 }
 
-export async function QuoteView({ id }: { id: string }) {
+/**
+ * The Quote's editor, inside the Trip page: Source images, the Items tab by tab, and Versions.
+ * Each Trip has exactly one Quote (GLOSSARY: Quote).
+ */
+export async function QuoteEditor({ quoteId: id, trip }: { quoteId: string; trip: { id: string; reference: string } }) {
   const supabase = await createClient();
   const me = await getProfile();
   const editable = !!me && canEdit(me.role);
-
-  const { data: quote } = await supabase
-    .from("quotes")
-    .select("id, created_at, trips(id, reference, title, clients(client_code, full_name))")
-    .eq("id", id)
-    .maybeSingle();
-  if (!quote) notFound();
-  const trip = one(quote.trips);
-  const client = one(trip?.clients);
+  const quote = { id };
 
   const [{ data: images }, { data: versions }] = await Promise.all([
     supabase
@@ -113,62 +108,52 @@ export async function QuoteView({ id }: { id: string }) {
   }
 
   return (
-    <>
-      <p className="sub">
-        <Link href={trip ? `/trips/${trip.id}` : "/"}>← Trip {trip?.reference}</Link>
-      </p>
-      <h1>
-        Quote · {trip?.reference}
-        {trip?.title ? ` · ${trip.title}` : ""}
-      </h1>
-      <p className="sub">
-        {client ? `Prepared for ${client.full_name} (${client.client_code})` : "No client set"}
-      </p>
-
+    <section id="quote" className="scroll-mt-4">
       <h2>Source images</h2>
       {editable && <UploadForm quoteId={quote.id} />}
 
-      <div style={{ marginTop: 14 }}>
-        {(!images || images.length === 0) && <p className="empty">No images yet.</p>}
+      <div className="mt-4">
+        {(!images || images.length === 0) && <p className="text-muted">No images yet.</p>}
         {images && images.length > 0 && (
-          <div className="images">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3.5">
             {images.map((img) => {
               const ex = extractions.get(img.id);
               return (
-                <div className="thumb" key={img.id}>
+                <div className="overflow-hidden rounded-md border border-line bg-white" key={img.id}>
                   {urls.get(img.storage_path) ? (
                     <JumpToItems imageId={img.id} tabs={tabsOf(counts.get(img.id))}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={urls.get(img.storage_path)} alt={img.filename} />
+                      <img src={urls.get(img.storage_path)} alt={img.filename} className="h-[140px] w-full bg-paper object-cover" />
                     </JumpToItems>
                   ) : (
-                    <div style={{ height: 140 }} />
+                    <div className="h-[140px] bg-paper" />
                   )}
-                  <div className="meta">
-                    <span className="name" title={img.filename}>
+                  <div className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs">
+                    <span className="truncate" title={img.filename}>
                       {img.filename}
                     </span>
                     {editable && (
                       <form action={removeImage.bind(null, quote.id, img.id)}>
-                        <button type="submit" className="danger">
+                        <Button type="submit" variant="danger">
                           Remove
-                        </button>
+                        </Button>
                       </form>
                     )}
                   </div>
-                  <div className="status">
-                    {!ex && <span className="badge">Not extracted</span>}
-                    {ex?.status === "pending" && <span className="badge">Queued</span>}
-                    {ex?.status === "running" && <span className="badge">Reading…</span>}
+                  <div className="px-2.5 pb-2.5">
+                    {!ex && <Badge>Not extracted</Badge>}
+                    {ex?.status === "pending" && <Badge>Queued</Badge>}
+                    {ex?.status === "running" && <Badge tone="amber">Reading…</Badge>}
                     {ex?.status === "done" && (
-                      <span className="badge ok">
-                        {ex.image_type && `${ex.image_type} · `}{summarise(counts.get(img.id))}
-                      </span>
+                      <Badge tone="teal" className="whitespace-normal">
+                        {ex.image_type && `${ex.image_type}: `}
+                        {summarise(counts.get(img.id))}
+                      </Badge>
                     )}
                     {ex?.status === "failed" && (
-                      <span className="badge bad" title={ex.error ?? ""}>
+                      <Badge tone="danger" className="whitespace-normal">
                         Failed: {ex.error}
-                      </span>
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -180,20 +165,18 @@ export async function QuoteView({ id }: { id: string }) {
 
       {editable && images && images.length > 0 && <ExtractButton quoteId={quote.id} pending={waiting} reading={reading} />}
 
-      <h2>{editable ? "Edit" : "Items"}</h2>
-      {trip && (
-        <EditSection
-          quoteId={quote.id}
-          tripId={trip.id}
-          images={(images ?? []).map((i) => ({ id: i.id, filename: i.filename, url: urls.get(i.storage_path) }))}
-          readOnly={!editable}
-          admin={me?.role === "admin"}
-        />
-      )}
+      <h2>{editable ? "Items" : "Items (view only)"}</h2>
+      <EditSection
+        quoteId={quote.id}
+        tripId={trip.id}
+        images={(images ?? []).map((i) => ({ id: i.id, filename: i.filename, url: urls.get(i.storage_path) }))}
+        readOnly={!editable}
+        admin={me?.role === "admin"}
+      />
 
       <h2>Versions</h2>
       {editable && <GenerateVersionButton quoteId={quote.id} />}
-      {(!versions || versions.length === 0) && <p className="empty">No versions yet.</p>}
+      {(!versions || versions.length === 0) && <p className="text-muted">No versions yet.</p>}
       {versions && versions.length > 0 && (
         <table>
           <thead>
@@ -207,25 +190,25 @@ export async function QuoteView({ id }: { id: string }) {
             {versions.map((v) => (
               <tr key={v.id}>
                 <td>
-                  {trip?.reference} V{v.version_no}
+                  {trip.reference} V{v.version_no}
                 </td>
                 <td>
                   {!v.pdf_path ? (
                     editable ? <RetryPdfButton quoteId={quote.id} versionId={v.id} /> : "No PDF yet"
                   ) : pdfUrls.get(v.pdf_path) ? (
-                    <a href={pdfUrls.get(v.pdf_path)} target="_blank" rel="noreferrer">
+                    <FileLink href={pdfUrls.get(v.pdf_path)!} title={`${trip.reference} V${v.version_no}`}>
                       Open PDF
-                    </a>
+                    </FileLink>
                   ) : (
                     "—"
                   )}
                 </td>
-                <td>{new Date(v.created_at).toLocaleString("en-ZA")}</td>
+                <td className="tabular-nums">{new Date(v.created_at).toLocaleString("en-ZA")}</td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
-    </>
+    </section>
   );
 }

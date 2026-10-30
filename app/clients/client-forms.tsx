@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition, type ReactN
 import { AutosaveStatus, FieldError, useAutosave, useSaves } from "@/app/autosave";
 import { FileDrop } from "@/app/file-drop";
 import { addClient, updateClient, uploadDocument, type ClientFormState } from "./actions";
+import { Msg } from "@/app/ui";
 
 export type ClientValues = {
   id: string;
@@ -21,8 +22,8 @@ export type ClientValues = {
 export type ConsultantOption = { id: string; label: string };
 
 function Message({ state }: { state: ClientFormState }) {
-  if (state.error) return <div className="msg error">{state.error}</div>;
-  if (state.notice) return <div className="msg">{state.notice}</div>;
+  if (state.error) return <Msg tone="error">{state.error}</Msg>;
+  if (state.notice) return <Msg>{state.notice}</Msg>;
   return null;
 }
 
@@ -53,7 +54,7 @@ function EditClientForm({ client, consultants }: { client: ClientValues; consult
   const autosave = useAutosave({ key: client.id, label: "Client details", save: (fd) => updateClient(client.id, fd) });
 
   return (
-    <form ref={autosave.formRef} className="card">
+    <form ref={autosave.formRef} className="rounded-md border border-line bg-white p-5">
       {/* Enter in a text box would submit the form; a disabled first submit button makes it do nothing. */}
       <button type="submit" disabled hidden aria-hidden="true" />
       <ClientFields client={client} consultants={consultants} error={(name) => <FieldError autosave={autosave} name={name} />} />
@@ -131,7 +132,7 @@ function NewClientForm({
   }, [block]);
 
   return (
-    <form ref={formRef} className="card">
+    <form ref={formRef} className="rounded-md border border-line bg-white p-5">
       <button type="submit" disabled hidden aria-hidden="true" />
       {next && <input type="hidden" name="next" value={next} />}
       <ClientFields consultants={consultants} defaultConsultantId={defaultConsultantId} />
@@ -139,11 +140,11 @@ function NewClientForm({
         Save
       </button>
       {pending ? (
-        <div className="msg">Adding…</div>
+        <Msg>Adding…</Msg>
       ) : error ? (
-        <div className="msg error">{error}</div>
+        <Msg tone="error">{error}</Msg>
       ) : (
-        <div className="sub">Save, or move on from this form, to add the client.</div>
+        <div className="text-muted">Save, or move on from this form, to add the client.</div>
       )}
     </form>
   );
@@ -165,7 +166,7 @@ function ClientFields({
   return (
     <>
       {!client && (
-        <div className="field">
+        <div className="mb-3">
           <label>
             <input type="radio" name="kind" value="person" checked={kind === "person"} onChange={() => setKind("person")} /> Person
           </label>{" "}
@@ -176,12 +177,12 @@ function ClientFields({
       )}
       {kind === "person" ? (
         <>
-          <div className="field">
+          <div className="mb-3">
             <label htmlFor="first_name">First name</label>
             <input id="first_name" name="first_name" type="text" required defaultValue={client?.first_name ?? ""} />
             {error("first_name")}
           </div>
-          <div className="field">
+          <div className="mb-3">
             <label htmlFor="last_name">Last name</label>
             <input id="last_name" name="last_name" type="text" required defaultValue={client?.last_name ?? ""} />
             {error("last_name")}
@@ -189,32 +190,32 @@ function ClientFields({
         </>
       ) : (
         <>
-          <div className="field">
+          <div className="mb-3">
             <label htmlFor="company_name">Company name</label>
             <input id="company_name" name="company_name" type="text" required defaultValue={client?.company_name ?? ""} />
             {error("company_name")}
           </div>
-          <div className="field">
+          <div className="mb-3">
             <label htmlFor="contact_name">Contact person</label>
             <input id="contact_name" name="contact_name" type="text" defaultValue={client?.contact_name ?? ""} />
           </div>
         </>
       )}
-      <div className="field">
+      <div className="mb-3">
         <label htmlFor="email">Email</label>
         <input id="email" name="email" type="email" defaultValue={client?.email ?? ""} />
       </div>
-      <div className="field">
+      <div className="mb-3">
         <label htmlFor="phone">Phone</label>
         <input id="phone" name="phone" type="text" defaultValue={client?.phone ?? ""} />
       </div>
-      <div className="field">
+      <div className="mb-3">
         <label htmlFor="notes">Notes</label>
         <textarea id="notes" name="notes" rows={3} defaultValue={client?.notes ?? ""} />
       </div>
 
       {consultants && (
-        <div className="field">
+        <div className="mb-3">
           <label htmlFor="consultant_id">Consultant</label>
           <select
             id="consultant_id"
@@ -231,7 +232,7 @@ function ClientFields({
       )}
 
       {client && (
-        <div className="field">
+        <div className="mb-3">
           <label>
             <input type="checkbox" name="active" defaultChecked={client.active} /> Active
           </label>
@@ -249,9 +250,9 @@ export function DocumentUploadForm({ clientId }: { clientId: string }) {
   );
 
   return (
-    <form action={action} className="card">
+    <form action={action} className="rounded-md border border-line bg-white p-5">
       <label htmlFor="file">Add a document (PDF, JPG or PNG, up to 10 MB). ID and passport images go with the Traveller.</label>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="flex flex-wrap items-center gap-3">
         <FileDrop id="file" name="file" accept="application/pdf,image/jpeg,image/png" required />
         <button type="submit" disabled={pending}>
           {pending ? "Uploading…" : "Upload"}

@@ -3,6 +3,7 @@
 import { useActionState, useState, startTransition } from "react";
 import { useSaves } from "@/app/autosave";
 import { generateVersion, type PdfState } from "./pdf-actions";
+import { Msg } from "@/app/ui";
 
 /** Saves every change on screen first; generates nothing if one could not be saved. */
 export function GenerateVersionButton({ quoteId }: { quoteId: string }) {
@@ -21,24 +22,24 @@ export function GenerateVersionButton({ quoteId }: { quoteId: string }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ marginBottom: 14 }}>
+    <form onSubmit={submit} className="mb-3.5 flex flex-col items-start gap-2.5">
       <button type="submit" disabled={running || saving}>
         {saving ? "Saving…" : running ? "Generating…" : "Generate version"}
       </button>
       {unsaved.length > 0 && (
-        <div className="msg error">Couldn&apos;t save these, so nothing was generated: {unsaved.join(", ")}</div>
+        <Msg tone="error">Couldn&apos;t save these, so nothing was generated: {unsaved.join(", ")}</Msg>
       )}
       {state.problems && (
-        <div className="msg error">
+        <Msg tone="error">
           Fix these first:
-          <ul>
+          <ul className="mt-1 list-disc pl-5">
             {state.problems.map((p, i) => (
               <li key={i}>{p}</li>
             ))}
           </ul>
-        </div>
+        </Msg>
       )}
-      {state.error && <div className="msg error">{state.error}</div>}
+      {state.error && <Msg tone="error">{state.error}</Msg>}
     </form>
   );
 }
