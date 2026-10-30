@@ -5,6 +5,7 @@ import type { Billable } from "./invoicing-data";
 import { setNoSupplierInvoice } from "./invoice-actions";
 import { AddInvoiceForm, DeleteInvoiceButton, LinkForm, RemoveLinkButton, StatusForms } from "./invoice-forms";
 import { FileLink } from "@/app/file-viewer";
+import { Badge, Button, Msg } from "@/app/ui";
 
 const amount = (currency: string, n: number) => `${currency} ${n.toFixed(2)}`;
 
@@ -56,40 +57,53 @@ export async function Invoices({
         const linkedKeys = new Set(links.map((l) => (l.change_id ? `${l.entity_id}|${l.change_id}` : l.entity_id)));
         const targets = billables.filter((b) => !linkedKeys.has(b.key) && (side === "client" || b.supplierId === i.supplier_id));
         return (
-          <section key={i.id} className="card">
-            <div className="item-head">
+          <section key={i.id} className="mb-3 rounded-md border border-line bg-white p-4">
+            <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
               <b>
                 {total < 0 ? "Credit note" : "Invoice"} {i.number}
               </b>
-              {side === "supplier" && ` · ${one(i.suppliers)?.name ?? ""}`} · {i.issued_on} · {amount(i.currency, total)}
-              {i.status && <span className={`badge ${verified ? "ok" : i.status === "query" ? "bad" : ""}`}>{STATUS_LABEL[i.status as InvoiceStatus]}</span>}
+              {side === "supplier" && <span>{one(i.suppliers)?.name ?? ""}</span>}
+              <span className="text-muted tabular-nums">{i.issued_on}</span>
+              <span className="font-semibold tabular-nums">{amount(i.currency, total)}</span>
+              {i.status && (
+                <Badge tone={verified ? "teal" : i.status === "query" ? "danger" : "neutral"}>{STATUS_LABEL[i.status as InvoiceStatus]}</Badge>
+              )}
               {urls.get(i.file_path) && (
-                <>
-                  {" "}
-                  · <FileLink href={urls.get(i.file_path)!} title={`${total < 0 ? "Credit note" : "Invoice"} ${i.number}`}>Open PDF</FileLink>
-                </>
+                <FileLink href={urls.get(i.file_path)!} title={`${total < 0 ? "Credit note" : "Invoice"} ${i.number}`}>
+                  Open PDF
+                </FileLink>
               )}
             </div>
-            {i.status === "query" && <p className="msg">Query: {i.query_reason}</p>}
+            {i.status === "query" && (
+              <Msg tone="error" className="mb-3">
+                Query: {i.query_reason}
+              </Msg>
+            )}
             {links.length > 0 && (
               <table>
                 <tbody>
                   {links.map((l) => (
                     <tr key={l.id}>
                       <td>{byKey.get(l.change_id ? `${l.entity_id}|${l.change_id}` : l.entity_id)?.label ?? "An Item no longer on the Quote"}</td>
-                      <td>{amount(i.currency, Number(l.amount))}</td>
-                      <td>{changeable && <RemoveLinkButton tripId={tripId} linkId={l.id} />}</td>
+                      <td className="text-right">{amount(i.currency, Number(l.amount))}</td>
+                      <td className="w-24 text-right">{changeable && <RemoveLinkButton tripId={tripId} linkId={l.id} />}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-            {unlinked !== 0 && <p className="msg">⚠ {amount(i.currency, unlinked)} not linked to any Item or Change.</p>}
-            {changeable && unlinked !== 0 && (
-              <LinkForm tripId={tripId} invoiceId={i.id} quoteId={quoteId} credit={total < 0} targets={targets} remaining={unlinked} />
+            {unlinked !== 0 && (
+              <Msg tone="warn" className="mt-3">
+                {amount(i.currency, unlinked)} not linked to any Item or Change.
+              </Msg>
             )}
-            {accounts && side === "supplier" && <StatusForms tripId={tripId} invoiceId={i.id} status={i.status ?? ""} />}
-            {canAdd && (!verified || admin) && <DeleteInvoiceButton tripId={tripId} invoiceId={i.id} />}
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 empty:hidden">
+              {changeable && unlinked !== 0 && (
+                <LinkForm tripId={tripId} invoiceId={i.id} quoteId={quoteId} credit={total < 0} targets={targets} remaining={unlinked} />
+              )}
+              {accounts && side === "supplier" && <StatusForms tripId={tripId} invoiceId={i.id} status={i.status ?? ""} />}
+              {canAdd && (!verified || admin) && <DeleteInvoiceButton tripId={tripId} invoiceId={i.id} />}
+            </div>
           </section>
         );
       });
@@ -97,14 +111,14 @@ export async function Invoices({
   return (
     <>
       <h2>Invoices</h2>
-      {billables.length === 0 && <p className="empty">Nothing booked yet.</p>}
+      {billables.length === 0 && <p className="py-3 text-muted">Nothing booked yet.</p>}
       {billables.length > 0 && (
         <table>
           <thead>
             <tr>
               <th>Booked</th>
               <th>Invoicing stage</th>
-              <th>Still to invoice</th>
+              <th className="text-right">Still to invoice</th>
               <th />
             </tr>
           </thead>
@@ -112,14 +126,16 @@ export async function Invoices({
             {billables.map((b) => (
               <tr key={b.key}>
                 <td>{b.label}</td>
-                <td>{STAGE_LABEL[b.stage]}</td>
-                <td>{b.toInvoice !== 0 ? `R ${b.toInvoice.toFixed(2)}` : "—"}</td>
                 <td>
+                  <Badge tone={b.stage === "invoiced" || b.stage === "none_expected" ? "teal" : "neutral"}>{STAGE_LABEL[b.stage]}</Badge>
+                </td>
+                <td className="text-right">{b.toInvoice !== 0 ? `R ${b.toInvoice.toFixed(2)}` : "—"}</td>
+                <td className="text-right">
                   {accounts && (b.noneExpectedFlag || b.stage === "awaiting") && (
                     <form action={setNoSupplierInvoice.bind(null, tripId, quoteId, b.entityId, b.changeId, !b.noneExpectedFlag)}>
-                      <button type="submit" className="link">
+                      <Button type="submit" variant="quiet">
                         {b.noneExpectedFlag ? "A supplier invoice is expected after all" : "No supplier invoice expected"}
-                      </button>
+                      </Button>
                     </form>
                   )}
                 </td>
