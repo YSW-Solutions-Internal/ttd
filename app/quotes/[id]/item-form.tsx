@@ -271,6 +271,17 @@ export function ItemForm({
   const rate = rateFor(rates, kind, row.fee_region, row.variant);
   const suggestion = kind === "car_rental" && row.prepaid ? tenPercent(row.price, rate?.prepayment_fee) : null;
 
+  // Placing a booked option is not a price change, so it stays open when the rest is locked (migration 0025).
+  const stayPicker = table === "accommodation_options" && (
+    <div className="mb-3">
+      <label htmlFor={`${formId}-stay`}>Stay</label>
+      <select id={`${formId}-stay`} name="stay_id" defaultValue={str(row.stay_id)} disabled={readOnly}>
+        <option value="">Not placed</option>
+        {stays.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+      </select>
+    </div>
+  );
+
   const fields = (
     <>
       <div className={GRID}>
@@ -281,15 +292,7 @@ export function ItemForm({
             <FieldError autosave={autosave} name={f.name} />
           </div>
         ))}
-        {table === "accommodation_options" && (
-          <div className="mb-3">
-            <label htmlFor={`${formId}-stay`}>Stay</label>
-            <select id={`${formId}-stay`} name="stay_id" defaultValue={str(row.stay_id)}>
-              <option value="">Not placed</option>
-              {stays.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </div>
-        )}
+        {!locked && stayPicker}
       </div>
 
       <div className={GRID}>
@@ -362,7 +365,10 @@ export function ItemForm({
             </div>
           </div>
         ) : (
-          <fieldset className="min-w-0" disabled={frozen}>{fields}</fieldset>
+          <>
+            <fieldset className="min-w-0" disabled={frozen}>{fields}</fieldset>
+            {locked && <div className={GRID}>{stayPicker}</div>}
+          </>
         )}
       <div className="mt-1 flex flex-wrap items-center gap-3.5">
         {booked && <small>{locked ? "Booked: only an administrator can edit it." : "Booked: edits are Corrections."}</small>}

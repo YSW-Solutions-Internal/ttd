@@ -22,8 +22,8 @@ const ITEM_TABLES = [
 
 /** Renders the frozen JSON, uploads the PDF and records its path. Throws on failure. */
 async function storePdf(supabase: SupabaseClient, quoteId: string, versionId: string, versionNo: number, quote: QuoteJson) {
-  // The frozen reference is the Trip's (docs/adr/0007).
-  const path = `${quoteId}/pdf/${quote.reference}-v${versionNo}.pdf`;
+  // The frozen reference is the Trip's (docs/adr/0007), ending in " V<n>" since 0018; never twice.
+  const path = `${quoteId}/pdf/${quote.reference.replace(/ V\d+$/, "")} V${versionNo}.pdf`;
   const pdf = await renderQuotePdf(quote);
   const { error: upErr } = await supabase.storage
     .from("quote-files")

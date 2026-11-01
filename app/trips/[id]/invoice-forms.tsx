@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId } from "react";
+import { useKeptForm } from "@/app/kept-form";
 import { ConfirmButton } from "@/app/confirm-button";
 import type { Side } from "@/lib/invoicing";
 import { Button, Msg } from "@/app/ui";
@@ -24,6 +25,7 @@ function Field({ label, name, type = "text", required, defaultValue }: { label: 
 
 export function AddInvoiceForm({ tripId, side, suppliers }: { tripId: string; side: Side; suppliers: { id: string; name: string }[] }) {
   const [state, action, pending] = useActionState(addInvoice.bind(null, tripId, side), {});
+  const kept = useKeptForm(action, state);
   const id = useId();
   const supplier = side === "supplier";
   if (supplier && suppliers.length === 0) return <p className="mt-2 text-muted">Book an Item with its Supplier first; Supplier invoices are linked to booked Items.</p>;
@@ -32,7 +34,7 @@ export function AddInvoiceForm({ tripId, side, suppliers }: { tripId: string; si
       <summary className="cursor-pointer font-semibold text-teal-deep">
         {supplier ? "Add a Supplier invoice or credit note" : "Add a Client invoice or credit note (Quicktrav PDF)"}
       </summary>
-      <form action={action} className="mt-3">
+      <form {...kept} className="mt-3">
         <div className="flex flex-wrap items-end gap-x-3">
           {supplier && (
             <div className="mb-3 min-w-[200px] flex-1">
@@ -83,9 +85,10 @@ export function LinkForm({
   remaining: number;
 }) {
   const [state, action, pending] = useActionState(addLink.bind(null, tripId, invoiceId, quoteId, credit), {});
+  const kept = useKeptForm(action, state);
   if (targets.length === 0) return null;
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2">
+    <form {...kept} className="flex flex-wrap items-center gap-2">
       <select className="w-auto max-w-full" name="target" aria-label="Item or Change this invoice is for" required>
         {targets.map((t) => (
           <option key={t.key} value={t.key}>
@@ -127,6 +130,7 @@ export function StatusForms({ tripId, invoiceId, status }: { tripId: string; inv
   const [verifyState, verify, verifying] = useActionState(setInvoiceStatus.bind(null, tripId, invoiceId, "verified"), {});
   const [queryState, query, querying] = useActionState(setInvoiceStatus.bind(null, tripId, invoiceId, "query"), {});
   const [backState, back] = useActionState(setInvoiceStatus.bind(null, tripId, invoiceId, "received"), {});
+  const keptQuery = useKeptForm(query, queryState);
   return (
     <>
       {status !== "verified" && (
@@ -136,7 +140,7 @@ export function StatusForms({ tripId, invoiceId, status }: { tripId: string; inv
         </form>
       )}
       {status !== "query" && (
-        <form action={query} className="flex items-center gap-2">
+        <form {...keptQuery} className="flex items-center gap-2">
           <input className="w-64" type="text" name="query_reason" aria-label="What is wrong with it" placeholder="What is wrong with it" required />
           <button type="submit" disabled={querying}>Query</button>
           <Message state={queryState} />

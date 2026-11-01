@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId } from "react";
+import { useKeptForm } from "@/app/kept-form";
 import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { isExpired, orderIdentities, type IdentityValues } from "@/lib/identity";
@@ -127,6 +128,7 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
   const label = doc.kind === "id" ? "ID" : `Passport${doc.nationality ? ` (${doc.nationality})` : ""}`;
   const autosave = useAutosave({ key: doc.id, label, save: (fd) => saveIdentity(doc.id, fd) });
   const [state, upload, pending] = useActionState(setIdentityImage.bind(null, clientId, doc.id), {});
+  const kept = useKeptForm(upload, state);
 
   return (
     <div className={`mt-2.5 border-l-4 bg-paper px-3 py-2.5 ${expired ? "border-line opacity-55" : "border-teal-deep"}`}>
@@ -155,7 +157,7 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
             View image
           </FileLink>
         ) : (
-          <form action={upload} className="flex flex-wrap items-center gap-2">
+          <form {...kept} className="flex flex-wrap items-center gap-2">
             <span className="text-muted">No image yet</span>
             <input type="file" name="image" accept="application/pdf,image/jpeg,image/png" required aria-label={`${label} image`} />
             <button type="submit" disabled={pending}>
@@ -176,10 +178,11 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
 
 function AddIdentityForm({ clientId, travellerId, hasId }: { clientId: string; travellerId: string; hasId: boolean }) {
   const [state, action, pending] = useActionState(addIdentity.bind(null, clientId, travellerId), {});
+  const kept = useKeptForm(action, state);
   return (
     <details className="mt-3 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
       <summary className="cursor-pointer font-semibold text-teal-deep">{hasId ? "Add a Passport" : "Add an ID or Passport"}</summary>
-      <form action={action} className="mt-3 flex flex-wrap items-end gap-x-3">
+      <form {...kept} className="mt-3 flex flex-wrap items-end gap-x-3">
         {hasId ? (
           <input type="hidden" name="kind" value="passport" />
         ) : (
@@ -212,10 +215,11 @@ function AddIdentityForm({ clientId, travellerId, hasId }: { clientId: string; t
 /** A new Traveller for the Client; on a Trip page (`tripId`) they also go on that Trip. */
 export function AddTravellerForm({ clientId, tripId }: { clientId: string; tripId?: string }) {
   const [state, action, pending] = useActionState(addTraveller.bind(null, clientId, tripId ?? null), {});
+  const kept = useKeptForm(action, state);
   return (
     <details className="mt-3 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
       <summary className="cursor-pointer font-semibold text-teal-deep">New Traveller</summary>
-      <form action={action} className="mt-3 flex flex-wrap items-end gap-x-3">
+      <form {...kept} className="mt-3 flex flex-wrap items-end gap-x-3">
         <Field label="Title" name="title" value={null} width={70} />
         <Field label="First name" name="first_name" value={null} />
         <Field label="Last name" name="last_name" value={null} />

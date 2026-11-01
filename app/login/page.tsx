@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { use, useActionState } from "react";
+import { useKeptForm } from "@/app/kept-form";
 import { signIn, type LoginState } from "./actions";
 import { Msg } from "@/app/ui";
 
@@ -12,6 +13,7 @@ export default function LoginPage({
 }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(signIn, {});
   const { error: linkError } = use(searchParams);
+  const kept = useKeptForm(action, state);
 
   return (
     <main className="mx-auto max-w-[380px]">
@@ -23,7 +25,7 @@ export default function LoginPage({
           get a new one.
         </Msg>
       )}
-      <form action={action} className="rounded-md border border-line bg-white p-5">
+      <form {...kept} className="rounded-md border border-line bg-white p-5">
         <div className="mb-3">
           <label htmlFor="email">Email</label>
           <input id="email" name="email" type="email" autoComplete="email" required />
