@@ -10,6 +10,7 @@ import type { IdentityValues } from "@/lib/identity";
 import { FileLink } from "@/app/file-viewer";
 import { isImage } from "@/lib/files";
 import { BUTTON, TripStatusBadge } from "@/app/ui";
+import { AccountList } from "@/app/admin/payment-accounts/account-list";
 
 export const dynamic = "force-dynamic";
 
@@ -127,6 +128,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           </tbody>
         </table>
       )}
+
+      <h2>Payment accounts</h2>
+      <p className="mb-3 text-muted">How this Client pays, by nickname only. EFT is there from the start; Administrators add cards and Cash.</p>
+      <AccountList clientId={client.id} admin={me.role === "admin"} />
 
       <div className="mt-8 mb-2.5 flex flex-wrap items-end justify-between gap-3">
         <h2 className="m-0">Trips</h2>

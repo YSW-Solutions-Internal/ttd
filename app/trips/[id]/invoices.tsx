@@ -20,6 +20,8 @@ export async function Invoices({
   canAdd,
   accounts,
   admin,
+  paid,
+  settled,
 }: {
   tripId: string;
   quoteId: string;
@@ -27,6 +29,8 @@ export async function Invoices({
   canAdd: boolean; // the Trip's status and Consultant (migration 0024)
   accounts: boolean; // Accountants and Administrators
   admin: boolean;
+  paid: Map<string, number>; // by Billable key, in its booked currency
+  settled: Map<string, number>; // by Client invoice id, in Rand
 }) {
   const supabase = await createClient();
   const { data: invoices } = await supabase
@@ -92,6 +96,11 @@ export async function Invoices({
                 </tbody>
               </table>
             )}
+            {side === "client" && total > 0 && (
+              <p className="mt-2 text-[13px] tabular-nums">
+                Settled {amount("R", settled.get(i.id) ?? 0)}, outstanding {amount("R", total - (settled.get(i.id) ?? 0))}
+              </p>
+            )}
             {unlinked !== 0 && (
               <Msg tone="warn" className="mt-3">
                 {amount(i.currency, unlinked)} not linked to any Item or Change.
@@ -119,6 +128,7 @@ export async function Invoices({
               <th>Booked</th>
               <th>Invoicing stage</th>
               <th className="text-right">Still to invoice</th>
+              <th className="text-right">Paid to Supplier</th>
               <th />
             </tr>
           </thead>
@@ -131,6 +141,9 @@ export async function Invoices({
                 </td>
                 <td className="text-right">
                   {b.toInvoice > 0 ? `R ${b.toInvoice.toFixed(2)}` : b.toInvoice < 0 ? <span className="text-danger">Credit note due: R {(-b.toInvoice).toFixed(2)}</span> : "—"}
+                </td>
+                <td className="text-right tabular-nums">
+                  {b.supplierDue !== 0 ? `${amount(b.currency, paid.get(b.key) ?? 0)} of ${b.supplierDue.toFixed(2)}` : "—"}
                 </td>
                 <td className="text-right">
                   {accounts && (b.noneExpectedFlag || b.stage === "awaiting") && (

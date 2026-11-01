@@ -113,8 +113,8 @@ export async function markIssued(
 export async function unbookItem(quoteId: string, entityId: string, _prev: BookingFormState): Promise<BookingFormState> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("item_bookings").delete().eq("quote_id", quoteId).eq("entity_id", entityId).select("entity_id");
-  // 23503: a Change or an invoice still points at the booking.
-  if (error) return { error: error.code === "23503" ? "This Item has Changes or invoices, so it cannot be unbooked. Record a Cancellation instead." : `Could not unbook: ${error.message}` };
+  // 23503: a Change, an invoice or a Payment still points at the booking.
+  if (error) return { error: error.code === "23503" ? "This Item has Changes, invoices or Payments, so it cannot be unbooked. Record a Cancellation instead." : `Could not unbook: ${error.message}` };
   if (!data?.length) return { error: "Could not unbook: you cannot change this booking." };
   revalidatePath("/", "layout");
   return {};

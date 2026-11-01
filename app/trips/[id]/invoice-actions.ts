@@ -64,7 +64,7 @@ export async function addInvoice(tripId: string, side: Side, _prev: InvoiceFormS
 export async function deleteInvoice(tripId: string, invoiceId: string, _prev: InvoiceFormState): Promise<InvoiceFormState> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("invoices").delete().eq("id", invoiceId).select("file_path");
-  if (error) return { error: `Could not delete: ${error.message}` };
+  if (error) return { error: error.code === "23503" ? "Payments settle this invoice; unlink them first." : `Could not delete: ${error.message}` };
   if (!data?.length) return { error: "Could not delete: you cannot change this invoice." };
   await removePdf(supabase, data[0].file_path);
   done(tripId);

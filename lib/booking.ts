@@ -57,7 +57,7 @@ function date(fd: FormData, name: string, label: string, need: boolean): string 
 }
 
 /** Currency and rate; Rand is always at rate 1, whatever was typed. */
-function currencyAndRate(fd: FormData): { currency: string; rate: number } {
+export function currencyAndRate(fd: FormData): { currency: string; rate: number } {
   const currency = (text(fd, "currency") || "ZAR").toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) throw new FieldParseError("Currency must be a three-letter code such as USD.", "currency");
   if (currency === "ZAR") return { currency, rate: 1 };
