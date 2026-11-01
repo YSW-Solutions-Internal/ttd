@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useKeptForm } from "@/app/kept-form";
 import { AutosaveStatus, FieldError, useAutosave, useSaves } from "@/app/autosave";
 import { FileDrop } from "@/app/file-drop";
 import { addClient, updateClient, uploadDocument, type ClientFormState } from "./actions";
@@ -248,9 +249,10 @@ export function DocumentUploadForm({ clientId }: { clientId: string }) {
     uploadDocument.bind(null, clientId),
     {},
   );
+  const kept = useKeptForm(action, state);
 
   return (
-    <form action={action} className="rounded-md border border-line bg-white p-5">
+    <form {...kept} className="rounded-md border border-line bg-white p-5">
       <label htmlFor="file">Add a document (PDF, JPG or PNG, up to 10 MB). ID and passport images go with the Traveller.</label>
       <div className="flex flex-wrap items-center gap-3">
         <FileDrop id="file" name="file" accept="application/pdf,image/jpeg,image/png" required />

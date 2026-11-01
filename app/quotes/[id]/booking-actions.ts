@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { FieldParseError } from "@/lib/form-values";
 import { parseBooking, parseChange, ticketNumbers, type BookingValues } from "@/lib/booking";
+import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 
 export type BookingFormState = { error?: string; notice?: string };
 
@@ -46,6 +47,10 @@ export async function bookItem(
 ): Promise<BookingFormState> {
   const supabase = await createClient();
   try {
+    // Booked prices are locked, so one booked "On request" would never be invoiced.
+    const table = (Object.keys(TABLE_KIND) as ItemTable[]).find((t) => TABLE_KIND[t] === kind);
+    const { data: item } = table ? await supabase.from(table).select("price").eq("quote_id", quoteId).eq("entity_id", entityId).maybeSingle() : { data: null };
+    if (item?.price == null) return { error: "Give the Item its price before booking it." };
     const v = parseBooking(fd);
     const row = { ...(await bookingRow(supabase, v)), quote_id: quoteId, entity_id: entityId, kind, issued_at: issuedAt(kind, fd, v.ticket_numbers) };
     const { error } = await supabase.from("item_bookings").insert(row);

@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { itemTotal } from "@/lib/pdf/money";
 import { one } from "@/lib/relations";
-import { changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, type InvoiceStatus, type Side, type Stage } from "@/lib/invoicing";
+import { changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, itemExpectsInvoice, type InvoiceStatus, type Side, type Stage } from "@/lib/invoicing";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 type Row = Record<string, unknown>;
@@ -42,6 +42,7 @@ export async function loadBillables(
   supabase: Supabase,
   quoteId: string,
   items: Map<string, { row: Row; label: string }>,
+  sign = true, // signed PDF links; /accounts shows none
 ): Promise<Billable[]> {
   const [{ data: bookings }, { data: changes }, { data: links }] = await Promise.all([
     supabase.from("item_bookings").select("entity_id, supplier_id, booking_reference, no_supplier_invoice, expected_invoice_on, issued_at, suppliers(name)").eq("quote_id", quoteId),
@@ -56,7 +57,7 @@ export async function loadBillables(
   // Private bucket: short-lived signed links for the PDFs.
   const paths = [...new Set((links ?? []).flatMap((l) => one(l.invoices)?.file_path ?? []))];
   const urls = new Map<string, string>();
-  if (paths.length > 0) {
+  if (sign && paths.length > 0) {
     const { data: signed } = await supabase.storage.from("invoice-files").createSignedUrls(paths, 3600);
     signed?.forEach((s) => s.path && s.signedUrl && urls.set(s.path, s.signedUrl));
   }
@@ -97,8 +98,8 @@ export async function loadBillables(
     const head = `${item?.label ?? "Item"} · ${one(b.suppliers)?.name ?? ""} ${b.booking_reference}`;
     const mine = (changes ?? []).filter((c) => c.entity_id === b.entity_id);
     const total = item ? itemTotal(item.row, Number(item.row.rooms ?? 1)) ?? 0 : 0;
-    const charge = itemCharge(total, { issued: b.issued_at != null, cancelled: mine.some((c) => c.kind === "cancellation") });
-    const own = billable(b, null, head, charge, b.no_supplier_invoice, true, b.expected_invoice_on);
+    const state = { issued: b.issued_at != null, cancelled: mine.some((c) => c.kind === "cancellation") };
+    const own = billable(b, null, head, itemCharge(total, state), b.no_supplier_invoice, itemExpectsInvoice(state), b.expected_invoice_on);
     const ofItem = mine.map((c) =>
       billable(
         b,

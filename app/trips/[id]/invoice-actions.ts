@@ -16,6 +16,12 @@ const failed = (e: unknown): InvoiceFormState => ({
   error: e instanceof FieldParseError || e instanceof Error ? e.message : "Could not read the form.",
 });
 
+/** A PDF no invoice points at any more (storage allows only that, migration 0026). Row first: a file left behind only costs storage. */
+async function removePdf(supabase: Awaited<ReturnType<typeof createClient>>, path: string) {
+  const { error } = await supabase.storage.from("invoice-files").remove([path]);
+  if (error) console.error("invoice PDF left in storage:", path, error.message);
+}
+
 // The Trip page and the Trip modal both show invoices.
 const done = (_tripId: string) => revalidatePath("/", "layout");
 
@@ -42,8 +48,8 @@ export async function addInvoice(tripId: string, side: Side, _prev: InvoiceFormS
       supplier_id: side === "supplier" ? supplierId : null,
       status: side === "supplier" ? "received" : null,
     });
-    // shortcut: a refused insert leaves the uploaded PDF behind (only admins delete files); purge orphans if it adds up.
     if (error) {
+      await removePdf(supabase, path);
       if (error.code === "23505") return { error: `Invoice ${v.number} is already here${side === "supplier" ? " for this Supplier" : ""}.` };
       if (error.code === "42501") return { error: "Only the Client's Consultant or an Administrator can add invoices until the Trip is Booked." };
       return { error: `Could not save: ${error.message}` };
@@ -57,9 +63,10 @@ export async function addInvoice(tripId: string, side: Side, _prev: InvoiceFormS
 
 export async function deleteInvoice(tripId: string, invoiceId: string, _prev: InvoiceFormState): Promise<InvoiceFormState> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("invoices").delete().eq("id", invoiceId).select("id");
+  const { data, error } = await supabase.from("invoices").delete().eq("id", invoiceId).select("file_path");
   if (error) return { error: `Could not delete: ${error.message}` };
   if (!data?.length) return { error: "Could not delete: you cannot change this invoice." };
+  await removePdf(supabase, data[0].file_path);
   done(tripId);
   return {};
 }

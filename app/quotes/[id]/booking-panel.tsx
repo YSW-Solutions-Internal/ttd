@@ -6,6 +6,7 @@ import { cancellationFee, changeTotal } from "@/lib/booking";
 import { STAGE_LABEL, STATUS_LABEL } from "@/lib/invoicing";
 import type { Billable } from "@/app/trips/[id]/invoicing-data";
 import { addChange, bookItem, correctBooking, markIssued, unbookItem, type BookingFormState } from "./booking-actions";
+import { useKeptForm } from "@/app/kept-form";
 import { FileLink } from "@/app/file-viewer";
 import { Badge, Msg } from "@/app/ui";
 
@@ -69,10 +70,11 @@ function BookingFields({ booking, suppliers, flight }: { booking?: Booking; supp
 function ChangeForm({ quoteId, entityId, kind, item, issued }: { quoteId: string; entityId: string; kind: "change" | "cancellation"; item: Row; issued: boolean }) {
   const [state, action, pending] = useActionState(addChange.bind(null, quoteId, entityId, kind), {});
   const cancel = kind === "cancellation";
+  const kept = useKeptForm(action, state);
   return (
     <details className="rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
       <summary className={cancel ? "cursor-pointer font-semibold text-danger" : "cursor-pointer font-semibold text-teal-deep"}>{cancel ? "Cancel this Item" : "Record a Change"}</summary>
-      <form action={action} className="mt-3">
+      <form {...kept} className="mt-3">
         <div className="flex flex-wrap items-end gap-x-3">
           <Text label="Date" name="happened_on" type="date" value={new Date().toISOString().slice(0, 10)} required />
           <Text label="What happened" name="description" />
@@ -107,7 +109,8 @@ function Invoicing({ b }: { b?: Billable }) {
   return (
     <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-[13px]">
       <Badge tone={b.stage === "invoiced" || b.stage === "none_expected" ? "teal" : "neutral"}>{STAGE_LABEL[b.stage]}</Badge>
-      {b.toInvoice !== 0 && <span className="tabular-nums">{rand(b.toInvoice)} still to invoice</span>}
+      {b.toInvoice > 0 && <span className="tabular-nums">{rand(b.toInvoice)} still to invoice</span>}
+      {b.toInvoice < 0 && <span className="tabular-nums text-danger">Credit note due: {rand(-b.toInvoice)}</span>}
       {b.links.map((l) => (
         <span key={l.linkId} className="tabular-nums">
           {l.side === "supplier" ? "Supplier" : "Client"} {l.amount < 0 ? "credit note" : "invoice"} {l.number}: {l.currency} {l.amount.toFixed(2)}
@@ -156,13 +159,17 @@ export function BookingPanel({
   const [fixState, fix, fixing] = useActionState(correctBooking.bind(null, quoteId, entityId), {});
   const [issueState, issue, issuing] = useActionState(markIssued.bind(null, quoteId, entityId, kind), {});
   const [unbookState, unbook] = useActionState(unbookItem.bind(null, quoteId, entityId), {});
+  const keptBook = useKeptForm(book, bookState);
+  const keptFix = useKeptForm(fix, fixState);
+  const keptIssue = useKeptForm(issue, issueState);
 
   if (!booking) {
     if (readOnly) return null;
+    if (item.price == null || item.price === "") return <p className="mt-2 text-[13px] text-muted">Give it a price to book it.</p>;
     return (
       <details className="mt-2 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
         <summary className="cursor-pointer font-semibold text-teal-deep">Book this Item</summary>
-        <form action={book} className="mt-3">
+        <form {...keptBook} className="mt-3">
           <BookingFields suppliers={suppliers} flight={flight} />
           <div className="flex flex-wrap items-center gap-4">
             <label className="mb-0 flex items-center gap-2 font-normal">
@@ -243,7 +250,7 @@ export function BookingPanel({
         <>
           <details className="rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
             <summary className="cursor-pointer font-semibold text-teal-deep">Correct booking details</summary>
-            <form action={fix} className="mt-3">
+            <form {...keptFix} className="mt-3">
               <BookingFields booking={booking} suppliers={suppliers} flight={flight} />
               <div className="flex flex-wrap items-center gap-3">
                 <button type="submit" disabled={fixing}>Save the Correction</button>
@@ -252,7 +259,7 @@ export function BookingPanel({
             </form>
           </details>
           {!issued && !cancelled && (
-            <form action={issue} className="flex flex-wrap items-center gap-2">
+            <form {...keptIssue} className="flex flex-wrap items-center gap-2">
               {flight && <input className="w-72" type="text" name="ticket_numbers" aria-label="Ticket numbers" placeholder="Ticket numbers, comma separated" defaultValue={(booking.ticket_numbers as string[]).join(", ")} />}
               <button type="submit" disabled={issuing}>Mark issued</button>
               <Message state={issueState} />

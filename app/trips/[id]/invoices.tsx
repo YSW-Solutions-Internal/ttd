@@ -129,7 +129,9 @@ export async function Invoices({
                 <td>
                   <Badge tone={b.stage === "invoiced" || b.stage === "none_expected" ? "teal" : "neutral"}>{STAGE_LABEL[b.stage]}</Badge>
                 </td>
-                <td className="text-right">{b.toInvoice !== 0 ? `R ${b.toInvoice.toFixed(2)}` : "—"}</td>
+                <td className="text-right">
+                  {b.toInvoice > 0 ? `R ${b.toInvoice.toFixed(2)}` : b.toInvoice < 0 ? <span className="text-danger">Credit note due: R {(-b.toInvoice).toFixed(2)}</span> : "—"}
+                </td>
                 <td className="text-right">
                   {accounts && (b.noneExpectedFlag || b.stage === "awaiting") && (
                     <form action={setNoSupplierInvoice.bind(null, tripId, quoteId, b.entityId, b.changeId, !b.noneExpectedFlag)}>

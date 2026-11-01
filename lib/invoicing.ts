@@ -92,6 +92,9 @@ export function invoicingStage(t: {
 /** An Item's own charge: nothing once it is cancelled before issue, when the Client pays only the Cancellation. */
 export const itemCharge = (total: number, b: { issued: boolean; cancelled: boolean }) => (b.cancelled && !b.issued ? 0 : total);
 
+/** Cancelled before issue, an Item expects no Supplier invoice by itself; any penalty is on its Cancellation. */
+export const itemExpectsInvoice = (b: { issued: boolean; cancelled: boolean }) => !(b.cancelled && !b.issued);
+
 /**
  * The Awaiting queue: expects a Supplier invoice and has none linked, whatever its Client
  * side, soonest expected first, so overdue ones lead.

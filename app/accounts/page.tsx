@@ -2,12 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
-import { one } from "@/lib/relations";
+import { everyRow, one } from "@/lib/relations";
 import { awaitingQueue, STAGE_LABEL } from "@/lib/invoicing";
 import { TABS } from "@/app/quotes/[id]/edit-section";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { loadBillables, type Billable } from "@/app/trips/[id]/invoicing-data";
-import { Badge, Msg } from "@/app/ui";
+import { Badge } from "@/app/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -35,44 +35,48 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const queue: Queue = QUEUES.some((q) => q.key === asked) ? (asked as Queue) : "awaiting";
 
   const supabase = await createClient();
-  const [{ data: booked }, { data: invoices, error }] = await Promise.all([
-    supabase.from("item_bookings").select("quote_id"),
-    supabase
-      .from("invoices")
-      .select("id, side, number, issued_on, amount, currency, status, query_reason, suppliers(name), trips(id, reference, title, clients(full_name)), invoice_links(amount)")
-      .order("issued_on")
-      .order("created_at"),
+  const [quotes, invoices] = await Promise.all([
+    // Booked Quotes only (inner join), each with its Item rows (every table in TABS).
+    everyRow((from, to) =>
+      supabase
+        .from("quotes")
+        .select("id, trips(id, reference, title), item_bookings!inner(entity_id), flight_options(*), accommodation_options(*), excursions(*), transfers(*), rail_journeys(*), car_rentals(*)")
+        .order("id")
+        .range(from, to),
+    ),
+    everyRow((from, to) =>
+      supabase
+        .from("invoices")
+        .select("id, side, number, issued_on, amount, currency, status, query_reason, suppliers(name), trips(id, reference, title, clients(full_name)), invoice_links(amount)")
+        .order("issued_on")
+        .order("created_at")
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
   // Every booked Item and Change, Quote by Quote, as the Trip page sees them.
   // shortcut: one loadBillables per booked Quote, fine for a few hundred; batch it if the page gets slow.
-  const quoteIds = [...new Set((booked ?? []).map((b) => b.quote_id as string))];
-  const [{ data: quotes }, ...tables] = quoteIds.length
-    ? await Promise.all([
-        supabase.from("quotes").select("id, trips(id, reference, title)").in("id", quoteIds),
-        ...TABS.map(([t]) => supabase.from(t).select("*").in("quote_id", quoteIds)),
-      ])
-    : [{ data: [] }];
   const rows: (Billable & { trip: Trip })[] = (
     await Promise.all(
-      (quotes ?? []).map(async (q) => {
+      quotes.map(async (q) => {
         const items = new Map(
-          TABS.flatMap(([t], i) =>
-            (tables[i]?.data ?? [])
-              .filter((row) => row.quote_id === q.id)
-              .map((row) => [String(row.entity_id), { row, label: [ITEM_LABEL[t], row.label ?? row.name].filter(Boolean).join(": ") }] as const),
+          TABS.flatMap(([t]) =>
+            ((q[t] ?? []) as Record<string, unknown>[]).map(
+              (row) => [String(row.entity_id), { row, label: [ITEM_LABEL[t], row.label ?? row.name].filter(Boolean).join(": ") }] as const,
+            ),
           ),
         );
         const trip = one(q.trips) as Trip;
-        return (await loadBillables(supabase, q.id, items)).map((b) => ({ ...b, trip }));
+        return (await loadBillables(supabase, q.id, items, false)).map((b) => ({ ...b, trip }));
       }),
     )
   ).flat();
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
   const awaiting = awaitingQueue(rows);
-  const toInvoice = rows.filter((b) => b.toInvoice > 0).sort((a, b) => a.trip.reference.localeCompare(b.trip.reference));
-  const docs = (invoices ?? []).map((i) => ({
+  const toInvoice = rows.filter((b) => b.toInvoice !== 0).sort((a, b) => a.trip.reference.localeCompare(b.trip.reference));
+  const docs = invoices.map((i) => ({
     ...i,
     trip: one(i.trips),
     unlinked: round(Number(i.amount) - (i.invoice_links ?? []).reduce((a, l) => a + Number(l.amount), 0)),
@@ -95,7 +99,6 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   return (
     <main className="mx-auto my-8 max-w-[1200px] px-5">
       <h1>Accounts</h1>
-      {error && <Msg tone="error">Could not load invoices: {error.message}</Msg>}
       <nav aria-label="Queues" className="mb-4 flex flex-wrap gap-1 border-b border-line">
         {QUEUES.map((q) => (
           <Link
@@ -142,7 +145,9 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                 <td>{tripLink(b.trip)}</td>
                 <td>{b.label}</td>
                 <td><Badge>{STAGE_LABEL[b.stage]}</Badge></td>
-                <td>{rand(b.toInvoice)}</td>
+                <td>
+                  {b.toInvoice < 0 ? <>{rand(-b.toInvoice)} <Badge tone="danger">Credit note due</Badge></> : rand(b.toInvoice)}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { awaitingQueue, changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, parseInvoice, parseLinkAmount, type Side } from "./invoicing.ts";
+import { awaitingQueue, changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, itemExpectsInvoice, parseInvoice, parseLinkAmount, type Side } from "./invoicing.ts";
 
 const form = (o: Record<string, string>) => {
   const fd = new FormData();
@@ -43,6 +43,14 @@ test("an Item cancelled before issue leaves only the Cancellation to invoice", (
   assert.equal(itemCharge(12000, { issued: false, cancelled: true }), 0);
   assert.equal(itemCharge(12000, { issued: true, cancelled: true }), 12000);
   assert.equal(itemCharge(12000, { issued: false, cancelled: false }), 12000);
+  assert.equal(itemExpectsInvoice({ issued: false, cancelled: true }), false);
+  assert.equal(itemExpectsInvoice({ issued: true, cancelled: true }), true);
+  assert.equal(itemExpectsInvoice({ issued: false, cancelled: false }), true);
+});
+
+test("more invoiced than charged leaves a credit note due", () => {
+  const r = invoicingStage({ charge: 0, clientInvoiced: [12000], supplierStatuses: [], noneExpected: true });
+  assert.deepEqual(r, { stage: "invoiced", toInvoice: -12000 });
 });
 
 test("Awaiting: no Supplier invoice linked, even once invoiced to the Client; soonest first", () => {
