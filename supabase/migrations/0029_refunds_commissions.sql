@@ -12,7 +12,8 @@
 --     Supplier payment or claimed later (claimed date, reference, due date). What came in
 --     is summed from Payments in commission_totals.
 --   * Any User, Accountants included, sets Refunds and Commissions, through set_refund()
---     and set_commission() (Accountants edit no booking otherwise).
+--     and set_commission() (Accountants edit no booking otherwise). Their rules are
+--     triggers on the tables, so a direct update keeps them too.
 --   * Payment links by kind: paid to an Item never beyond booked less a deducted
 --     Commission; refund in to a Cancellation up to the approved Rand; refund out to a
 --     Client credit note up to its amount; commission in to a claimed Commission up to it.
@@ -28,7 +29,7 @@ alter table public.payments
     side = 'supplier' and kind in ('paid', 'refund_in', 'commission_in')
     or side = 'client' and kind in ('received', 'refund_out'));
 
--- Replaces the 0027 version: a reversal also copies the kind.
+-- Replaces the 0027 version: a reversal copies the kind; a Payment that names none (the app before 0029) takes its side's.
 create or replace function public.guard_new_payment() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
@@ -46,6 +47,7 @@ begin
     new.amount := -o.amount; new.currency := o.currency; new.rate := o.rate;
     new.account_id := o.account_id; new.landed_account_id := o.landed_account_id;
   else
+    new.kind := coalesce(new.kind, case new.side when 'supplier' then 'paid' else 'received' end);
     select client_id into v_client from public.trips where id = new.trip_id;
     select * into acc from public.payment_accounts where id = new.account_id;
     if acc.retired_at is not null then
@@ -136,47 +138,74 @@ language sql stable security definer set search_path = public as $$
    where l.quote_id = p_quote_id and l.entity_id = p_entity_id and l.change_id is null and p.kind = p_kind
 $$;
 
--- A Cancellation's expected refund is not taken away while refund money is linked to it;
--- once none is expected, its Refund goes too.
-create function public.guard_refund_correction() returns trigger
+-- A Refund's amounts never fall below what has come in, and it is not Declined once money
+-- has come in; once no refund is expected, the Refund goes. On the table, so a direct update
+-- obeys it as much as set_refund() does.
+create function public.guard_refund() returns trigger
 language plpgsql security definer set search_path = public as $$
+declare
+  v_received numeric := public.refund_received(old.id);
 begin
-  if coalesce(new.expected_refund, 0) <= 0 and coalesce(old.expected_refund, 0) > 0 then
-    if public.refund_received(old.id) <> 0 then
-      raise exception 'This Refund has money received against it.' using errcode = 'check_violation';
+  if coalesce(new.expected_refund, 0) <= 0 then
+    if v_received <> 0 then
+      raise exception 'R % has come in for this Refund, so a refund is still expected.', v_received using errcode = 'check_violation';
     end if;
     new.refund_status := null; new.refund_requested_on := null; new.refund_reference := null; new.refund_approved := null;
+    return new;
+  end if;
+  if new.refund_status = 'declined' and v_received <> 0 then
+    raise exception 'R % has come in for this Refund, so it is not declined; reverse that Payment first.', v_received using errcode = 'check_violation';
+  end if;
+  if coalesce(new.refund_approved, new.expected_refund) < v_received then
+    raise exception 'R % has already come in, more than R %.', v_received, coalesce(new.refund_approved, new.expected_refund) using errcode = 'check_violation';
   end if;
   return new;
 end $$;
-create trigger item_changes_refund_correction before update of expected_refund on public.item_changes
-  for each row execute function public.guard_refund_correction();
+create trigger item_changes_refund before update of expected_refund, refund_status, refund_approved on public.item_changes
+  for each row execute function public.guard_refund();
 
+-- A Commission never falls below what has come in, stays claimed once money has, and a
+-- deducted one leaves the Supplier paid no more than booked less it. Also checked when the
+-- booked amount is corrected.
+create function public.guard_commission() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_received numeric := public.item_linked(old.quote_id, old.entity_id, 'commission_in');
+begin
+  if v_received <> 0 and (new.commission is null or new.commission_deducted) then
+    raise exception '% % of this Commission has come in, so it stays claimed.', new.currency, v_received using errcode = 'check_violation';
+  end if;
+  if new.commission < v_received then
+    raise exception '% % has already come in, more than a Commission of % %.', new.currency, v_received, new.currency, new.commission using errcode = 'check_violation';
+  end if;
+  if new.commission_deducted then
+    if new.commission > new.amount then
+      raise exception 'A deducted Commission cannot be more than the % % booked.', new.currency, new.amount using errcode = 'check_violation';
+    end if;
+    if public.item_linked(old.quote_id, old.entity_id, 'paid') > new.amount - new.commission then
+      raise exception 'The Supplier has already been paid more than % % less the Commission.', new.currency, new.amount using errcode = 'check_violation';
+    end if;
+  end if;
+  return new;
+end $$;
+create trigger item_bookings_commission before update of commission, commission_deducted, amount on public.item_bookings
+  for each row execute function public.guard_commission();
+
+-- Accountants edit no booking, so Refunds and Commissions are set here; the triggers above keep the rules.
 create function public.set_refund(p_change_id uuid, p_status text, p_requested_on date, p_reference text, p_approved numeric)
 returns void
 language plpgsql security definer set search_path = public as $$
-declare
-  c public.item_changes;
-  v_received numeric;
 begin
   if not (public.can_edit() or public.is_accounts()) then
     raise exception 'Not allowed.' using errcode = 'insufficient_privilege';
   end if;
-  select * into c from public.item_changes where id = p_change_id;
-  if c.id is null or c.kind <> 'cancellation' or coalesce(c.expected_refund, 0) <= 0 then
+  if not exists (select 1 from public.item_changes where id = p_change_id and kind = 'cancellation' and expected_refund > 0) then
     raise exception 'Only a Cancellation with a refund expected has a Refund.' using errcode = 'check_violation';
-  end if;
-  v_received := public.refund_received(c.id);
-  if p_status = 'declined' and v_received <> 0 then
-    raise exception 'R % has come in for this Refund, so it is not declined; reverse that Payment first.', v_received using errcode = 'check_violation';
-  end if;
-  if coalesce(p_approved, c.expected_refund) < v_received then
-    raise exception 'R % has already come in, more than the R % approved.', v_received, coalesce(p_approved, c.expected_refund) using errcode = 'check_violation';
   end if;
   update public.item_changes
      set refund_status = p_status, refund_requested_on = p_requested_on,
          refund_reference = nullif(btrim(p_reference), ''), refund_approved = p_approved
-   where id = c.id;
+   where id = p_change_id;
 end $$;
 revoke execute on function public.set_refund(uuid, text, date, text, numeric) from public, anon;
 grant execute on function public.set_refund(uuid, text, date, text, numeric) to authenticated;
@@ -187,34 +216,13 @@ create function public.set_commission(p_quote_id uuid, p_entity_id text, p_amoun
 returns void
 language plpgsql security definer set search_path = public as $$
 declare
-  b public.item_bookings;
   v_claimed boolean := p_amount is not null and not coalesce(p_deducted, false);
-  v_received numeric;
 begin
   if not (public.can_edit() or public.is_accounts()) then
     raise exception 'Not allowed.' using errcode = 'insufficient_privilege';
   end if;
-  select * into b from public.item_bookings where quote_id = p_quote_id and entity_id = p_entity_id;
-  if b.quote_id is null then
+  if not exists (select 1 from public.item_bookings where quote_id = p_quote_id and entity_id = p_entity_id) then
     raise exception 'Only a booked Item has a Commission.' using errcode = 'check_violation';
-  end if;
-  if p_amount is not null and p_amount <= 0 then
-    raise exception 'A Commission is above 0; clear it to take it off.' using errcode = 'check_violation';
-  end if;
-  v_received := public.item_linked(p_quote_id, p_entity_id, 'commission_in');
-  if v_received <> 0 and not v_claimed then
-    raise exception '% % of this Commission has come in, so it stays claimed.', b.currency, v_received using errcode = 'check_violation';
-  end if;
-  if p_amount < v_received then
-    raise exception '% % has already come in, more than a Commission of % %.', b.currency, v_received, b.currency, p_amount using errcode = 'check_violation';
-  end if;
-  if p_amount is not null and p_deducted then
-    if p_amount > b.amount then
-      raise exception 'A deducted Commission cannot be more than the % % booked.', b.currency, b.amount using errcode = 'check_violation';
-    end if;
-    if public.item_linked(p_quote_id, p_entity_id, 'paid') > b.amount - p_amount then
-      raise exception 'The Supplier has already been paid more than % % less this Commission.', b.currency, b.amount using errcode = 'check_violation';
-    end if;
   end if;
   update public.item_bookings
      set commission = p_amount,
@@ -254,6 +262,8 @@ begin
   if abs(coalesce((select sum(amount) from public.payment_links where payment_id = p.id and id <> new.id), 0) + new.amount) > abs(p.amount) then
     raise exception 'The links would add up to more than the Payment.' using errcode = 'check_violation';
   end if;
+  -- A reversal's links copy links that passed; taking money back is never refused.
+  if p.reverses_id is not null then return new; end if;
 
   if p.side = 'supplier' then
     if new.invoice_id is not null then
