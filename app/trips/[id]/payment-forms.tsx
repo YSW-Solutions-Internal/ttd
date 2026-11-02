@@ -4,19 +4,20 @@ import { useActionState, useId, useState } from "react";
 import { useKeptForm } from "@/app/kept-form";
 import { ConfirmButton } from "@/app/confirm-button";
 import type { Side } from "@/lib/invoicing";
-import type { PaymentStatus } from "@/lib/payments";
+import { KINDS, PAYMENT_KIND_LABEL, type PaymentKind, type PaymentStatus } from "@/lib/payments";
+import type { KindTarget } from "./payments";
 import { Button, Msg } from "@/app/ui";
 import { addPayment, addPaymentLink, deletePayment, removePaymentLink, reversePayment, setPaymentStatus, type PaymentFormState } from "./payment-actions";
 
-type Option = { id: string; label: string; lands?: boolean }; // lands: a Client's EFT or Cash, which lands in an agency account
+export type Option = { id: string; label: string; lands?: boolean }; // lands: a Client's EFT or Cash, which lands in an agency account
 
-function Message({ state }: { state: PaymentFormState }) {
+export function Message({ state }: { state: PaymentFormState }) {
   if (state.error) return <Msg tone="error">{state.error}</Msg>;
   if (state.notice) return <Msg>{state.notice}</Msg>;
   return null;
 }
 
-function Field({ label, name, type = "text", required, defaultValue }: { label: string; name: string; type?: string; required?: boolean; defaultValue?: string }) {
+export function Field({ label, name, type = "text", required, defaultValue }: { label: string; name: string; type?: string; required?: boolean; defaultValue?: string }) {
   const id = useId();
   return (
     <div className="mb-3 min-w-[150px] flex-1">
@@ -26,12 +27,12 @@ function Field({ label, name, type = "text", required, defaultValue }: { label: 
   );
 }
 
-function Select({ label, name, options, required, empty, onChange }: { label: string; name: string; options: Option[]; required?: boolean; empty?: string; onChange?: (id: string) => void }) {
+export function Select({ label, name, options, required, empty, defaultValue, onChange }: { label: string; name: string; options: Option[]; required?: boolean; empty?: string; defaultValue?: string; onChange?: (id: string) => void }) {
   const id = useId();
   return (
     <div className="mb-3 min-w-[200px] flex-1">
       <label htmlFor={id}>{label}</label>
-      <select id={id} name={name} required={required} onChange={onChange && ((e) => onChange(e.target.value))}>
+      <select id={id} name={name} required={required} defaultValue={defaultValue} onChange={onChange && ((e) => onChange(e.target.value))}>
         {empty !== undefined && <option value="">{empty}</option>}
         {options.map((o) => (
           <option key={o.id} value={o.id}>
@@ -45,22 +46,73 @@ function Select({ label, name, options, required, empty, onChange }: { label: st
 
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
 
-export function AddPaymentForm({ tripId, side, suppliers, accounts, landing }: { tripId: string; side: Side; suppliers: Option[]; accounts: Option[]; landing: Option[] }) {
-  const [state, action, pending] = useActionState(addPayment.bind(null, tripId, side), {});
+export function AddPaymentForm({
+  tripId,
+  quoteId,
+  side,
+  targets,
+  suppliers,
+  accounts,
+  landing,
+}: {
+  tripId: string;
+  quoteId: string;
+  side: Side;
+  targets: KindTarget[];
+  suppliers: Option[];
+  accounts: Option[];
+  landing: Option[];
+}) {
+  const [state, action, pending] = useActionState(addPayment.bind(null, tripId, quoteId, side), {});
+  const [kind, setKind] = useState<PaymentKind>(KINDS[side][0]);
+  const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? "");
+  const fits = targets.filter((t) => t.kind === kind && (side === "client" || t.supplierId === supplierId));
   const kept = useKeptForm(action, state);
   const supplier = side === "supplier";
   const [chosen, setChosen] = useState(accounts[0]?.id ?? "");
   const lands = accounts.find((a) => a.id === chosen)?.lands ?? false;
+  const [currency, setCurrency] = useState("ZAR");
+  const uid = useId();
   if (supplier && suppliers.length === 0) return null;
   return (
     <details className="mt-3 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
-      <summary className="cursor-pointer font-semibold text-teal-deep">{supplier ? "Record a Payment to a Supplier" : "Record a Payment from the Client"}</summary>
-      <form {...kept} onReset={() => setChosen(accounts[0]?.id ?? "")} className="mt-3">
+      <summary className="cursor-pointer font-semibold text-teal-deep">{supplier ? "Record a Payment to or from a Supplier" : "Record a Payment from or to the Client"}</summary>
+      <form
+        {...kept}
+        onReset={() => {
+          setChosen(accounts[0]?.id ?? "");
+          setCurrency("ZAR");
+          setKind(KINDS[side][0]);
+          setSupplierId(suppliers[0]?.id ?? "");
+        }}
+        className="mt-3"
+      >
         <div className="flex flex-wrap items-end gap-x-3">
-          {supplier && <Select label="Supplier" name="supplier_id" options={suppliers} required />}
+          <Select label="What" name="kind" options={KINDS[side].map((k) => ({ id: k, label: PAYMENT_KIND_LABEL[k] }))} required onChange={(k) => setKind(k as PaymentKind)} />
+          {supplier && <Select label="Supplier" name="supplier_id" options={suppliers} required onChange={setSupplierId} />}
+          {/* Keyed so the choice resets with the kind and Supplier; one match is chosen for you. */}
+          <Select
+            key={`${kind}|${supplierId}`}
+            label="For"
+            name="target"
+            options={fits}
+            empty="Link later (or to several)"
+            defaultValue={fits.length === 1 ? fits[0].id : ""}
+          />
           <Field label="Date" name="paid_on" type="date" defaultValue={today()} required />
-          {supplier && <Field label="Currency" name="currency" defaultValue="ZAR" required />}
-          {supplier && <Field label="Rate to Rand (not for Rand)" name="rate" type="number" />}
+          {supplier && (
+            <div className="mb-3 min-w-[90px] flex-none">
+              <label htmlFor={`${uid}-cur`}>Currency</label>
+              <input id={`${uid}-cur`} name="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={3} size={4} required />
+            </div>
+          )}
+          {/* Like booking: the rate is asked for only when the money is not in Rand. */}
+          {supplier && currency.trim().toUpperCase() !== "ZAR" && (
+            <div className="mb-3 min-w-[150px] flex-1">
+              <label htmlFor={`${uid}-rate`}>Rate to Rand</label>
+              <input id={`${uid}-rate`} name="rate" type="number" step="any" min="0" required />
+            </div>
+          )}
           <Field label={supplier ? "Amount" : "Amount (R)"} name="amount" type="number" required />
           <Select label={supplier ? "Paid with" : "Paid by"} name="account_id" options={accounts} required onChange={setChosen} />
           {lands && landing.length > 0 && <Select label="Into" name="landed_account_id" options={landing} required />}
@@ -86,7 +138,7 @@ export function PaymentLinkForm({ paymentId, quoteId, side, targets, remaining }
   if (targets.length === 0) return null;
   return (
     <form {...kept} className="flex flex-wrap items-center gap-2">
-      <select className="w-auto max-w-full" name="target" aria-label={side === "client" ? "Client invoice it settles" : "Item or Change it pays"} required>
+      <select className="w-auto max-w-full" name="target" aria-label="What it is for" required>
         {targets.map((t) => (
           <option key={t.id} value={t.id}>
             {t.label}

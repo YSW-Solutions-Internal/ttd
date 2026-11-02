@@ -7,7 +7,10 @@ import { awaitingQueue, STAGE_LABEL } from "@/lib/invoicing";
 import { TABS } from "@/app/quotes/[id]/edit-section";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { loadBillables, type Billable } from "@/app/trips/[id]/invoicing-data";
-import { Badge } from "@/app/ui";
+import { Badge, BUTTON } from "@/app/ui";
+import { PAYMENT_KIND_LABEL, type PaymentKind } from "@/lib/payments";
+import { REFUND_STATUS_LABEL, type RefundStatus } from "@/lib/refunds";
+import { loadCommissionQueue, loadRefundQueue } from "./refunds-data";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,8 @@ const QUEUES = [
   { key: "reconcile", label: "To reconcile" },
   { key: "queries", label: "Queries" },
   { key: "unlinked", label: "Unlinked documents" },
+  { key: "refunds", label: "Refunds" },
+  { key: "commissions", label: "Commissions owed" },
 ] as const;
 type Queue = (typeof QUEUES)[number]["key"];
 
@@ -36,7 +41,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const queue: Queue = QUEUES.some((q) => q.key === asked) ? (asked as Queue) : "awaiting";
 
   const supabase = await createClient();
-  const [quotes, invoices, payments, { data: statements }] = await Promise.all([
+  const [quotes, invoices, payments, { data: statements }, refunds, commissions] = await Promise.all([
     // Booked Quotes only (inner join), each with its Item rows (every table in TABS).
     everyRow((from, to) =>
       supabase
@@ -57,7 +62,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     everyRow((from, to) =>
       supabase
         .from("payments")
-        .select("id, side, paid_on, amount, currency, status, query_reason, reverses_id, suppliers(name), trips(id, reference, title, clients(full_name)), payment_links(amount)")
+        .select("id, side, kind, paid_on, amount, currency, status, query_reason, reverses_id, suppliers(name), trips(id, reference, title, clients(full_name)), payment_links(amount)")
         .order("paid_on")
         .order("created_at")
         .order("id")
@@ -65,6 +70,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     ),
     // The accounts with a statement of their own (ADR 0013).
     supabase.from("payment_accounts").select("id, nickname, retired_at, clients(full_name)").or("client_id.is.null,kind.eq.card").order("nickname"),
+    loadRefundQueue(),
+    loadCommissionQueue(),
   ]);
 
   // Every booked Item and Change, Quote by Quote, as the Trip page sees them.
@@ -94,6 +101,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     ...invoices.map((i) => ({
       id: i.id,
       payment: false,
+      kind: null as string | null,
       side: i.side,
       date: i.issued_on,
       what: i.number,
@@ -108,9 +116,10 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     ...payments.map((p) => ({
       id: p.id,
       payment: true,
+      kind: p.kind as string | null,
       side: p.side,
       date: p.paid_on,
-      what: p.reverses_id ? "Reversal" : p.side === "supplier" ? "Payment to" : "Payment from",
+      what: p.reverses_id ? "Reversal" : PAYMENT_KIND_LABEL[p.kind as PaymentKind],
       party: p.side === "supplier" ? one(p.suppliers)?.name : one(one(p.trips)?.clients)?.full_name,
       trip: one(p.trips),
       amount: Number(p.amount),
@@ -132,6 +141,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     reconcile: toReconcile.length,
     queries: queries.length,
     unlinked: unlinked.length,
+    refunds: refunds.length,
+    commissions: commissions.length,
   };
 
   const tripLink = (t: { id: string; reference: string; title: string | null } | null) =>
@@ -210,6 +221,61 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         </table>
       )}
 
+      {(queue === "refunds" || queue === "commissions") && counts[queue] > 0 && (
+        <p className="mb-3">
+          <a className={BUTTON.primary} href={`/accounts/${queue}/csv`} download>
+            Download CSV
+          </a>
+        </p>
+      )}
+
+      {queue === "refunds" && refunds.length > 0 && (
+        <table>
+          <thead>
+            <tr><th>Requested</th><th>Trip</th><th>Booking</th><th>Status</th><th>Approved</th><th>Received</th><th>Due back</th><th>Paid back</th></tr>
+          </thead>
+          <tbody>
+            {refunds.map((r) => (
+              <tr key={r.change_id}>
+                <td>{r.since}</td>
+                <td>{tripLink(r.trip)}</td>
+                <td>{r.supplierName} {r.booking_reference}</td>
+                <td>
+                  <Badge>{REFUND_STATUS_LABEL[r.status as RefundStatus]}</Badge> {r.outOfPocket && <Badge tone="danger">Out of pocket</Badge>}
+                </td>
+                <td>{rand(r.approved)}</td>
+                <td>{rand(r.received)}</td>
+                <td>{rand(r.dueBack)}</td>
+                <td>{rand(r.paid_back)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {queue === "commissions" && commissions.length > 0 && (
+        <table>
+          <thead>
+            <tr><th>Due</th><th>Trip</th><th>Booking</th><th>Commission</th><th>Received</th><th>Owed</th><th>Claim</th></tr>
+          </thead>
+          <tbody>
+            {commissions.map((c) => (
+              <tr key={`${c.quote_id}|${c.entity_id}`}>
+                <td>
+                  {c.commission_due_on ?? "Not set"} {c.commission_due_on && c.commission_due_on < today && <Badge tone="danger">Overdue</Badge>}
+                </td>
+                <td>{tripLink(c.trip)}</td>
+                <td>{c.supplierName} {c.booking_reference}</td>
+                <td>{money(c.currency, c.commission)}</td>
+                <td>{money(c.currency, c.received)}</td>
+                <td>{money(c.currency, c.owed)}</td>
+                <td>{[c.commission_claimed_on, c.commission_claim_reference].filter(Boolean).join(" · ") || "Not claimed yet"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
       {(queue === "verify" || queue === "reconcile" || queue === "queries" || queue === "unlinked") && counts[queue] > 0 && (
         <table>
           <thead>
@@ -225,7 +291,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                 <td>{i.date}</td>
                 <td>
                   {i.what} {queue === "unlinked" && !i.payment && <Badge>{i.side === "supplier" ? "Supplier" : "Client"}</Badge>}
-                  {queue === "unlinked" && i.payment && i.side === "client" && <Badge>Deposit</Badge>}
+                  {queue === "unlinked" && i.kind === "received" && <Badge>Deposit</Badge>}
                 </td>
                 <td>{i.party}</td>
                 <td>{tripLink(i.trip)}</td>

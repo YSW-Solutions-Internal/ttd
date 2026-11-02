@@ -32,7 +32,7 @@ export type Billable = {
   expectsInvoice: boolean; // a Supplier invoice is due: not flagged, and has Supplier charges
   expectedOn: string | null; // when the Supplier invoice is expected
   currency: string; // the Supplier's, as booked
-  supplierDue: number; // what the Supplier charges for it, in that currency
+  supplierDue: number; // what the Supplier is paid for it, in that currency (less a deducted Commission)
   links: LinkedInvoice[];
 };
 
@@ -48,7 +48,7 @@ export async function loadBillables(
   sign = true, // signed PDF links; /accounts shows none
 ): Promise<Billable[]> {
   const [{ data: bookings }, { data: changes }, { data: links }] = await Promise.all([
-    supabase.from("item_bookings").select("entity_id, supplier_id, booking_reference, no_supplier_invoice, expected_invoice_on, issued_at, currency, amount, suppliers(name)").eq("quote_id", quoteId),
+    supabase.from("item_bookings").select("entity_id, supplier_id, booking_reference, no_supplier_invoice, expected_invoice_on, issued_at, currency, amount, commission, commission_deducted, suppliers(name)").eq("quote_id", quoteId),
     supabase.from("item_changes").select("*").eq("quote_id", quoteId).order("happened_on").order("created_at"),
     supabase
       .from("invoice_links")
@@ -114,13 +114,15 @@ export async function loadBillables(
     const mine = (changes ?? []).filter((c) => c.entity_id === b.entity_id);
     const total = item ? itemTotal(item.row, Number(item.row.rooms ?? 1)) ?? 0 : 0;
     const state = { issued: b.issued_at != null, cancelled: mine.some((c) => c.kind === "cancellation") };
-    const own = billable(b, null, head, itemCharge(total, state), b.no_supplier_invoice, itemExpectsInvoice(state), b.expected_invoice_on, b.currency, Number(b.amount));
+    // A deducted Commission is what the Supplier is not paid.
+    const due = Number(b.amount) - (b.commission_deducted ? Number(b.commission) : 0);
+    const own = billable(b, null, head, itemCharge(total, state), b.no_supplier_invoice, itemExpectsInvoice(state), b.expected_invoice_on, b.currency, due);
     const ofItem = mine.map((c) =>
       billable(
         b,
         c.id,
         `${head} · ${c.kind === "cancellation" ? "Cancellation" : "Change"} ${c.happened_on}${c.description ? `: ${c.description}` : ""}`,
-        changeCharge(c),
+        changeCharge(c, state.issued),
         c.no_supplier_invoice,
         expectsSupplierInvoice(c),
         c.expected_invoice_on,

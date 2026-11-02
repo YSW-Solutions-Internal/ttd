@@ -8,9 +8,26 @@ export type PaymentStatus = "unreconciled" | "reconciled" | "query";
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = { unreconciled: "Unreconciled", reconciled: "Reconciled", query: "Query" };
 
+export type PaymentKind = "paid" | "received" | "refund_in" | "refund_out" | "commission_in";
+
+export const PAYMENT_KIND_LABEL: Record<PaymentKind, string> = {
+  paid: "Paid to Supplier",
+  received: "Received from Client",
+  refund_in: "Refund from Supplier",
+  refund_out: "Refund to Client",
+  commission_in: "Commission from Supplier",
+};
+
+/** The kinds each side can record; the first is the default. */
+export const KINDS: Record<Side, PaymentKind[]> = { supplier: ["paid", "refund_in", "commission_in"], client: ["received", "refund_out"] };
+
+/** Money into the agency, positive on a statement. */
+export const moneyIn = (kind: PaymentKind) => kind === "received" || kind === "refund_in" || kind === "commission_in";
+
 export const ACCOUNT_KIND_LABEL: Record<string, string> = { bank: "Bank account", eft: "EFT", card: "Card", cash: "Cash" };
 
 export type PaymentValues = {
+  kind: PaymentKind;
   paid_on: string;
   amount: number;
   currency: string;
@@ -25,6 +42,8 @@ const text = (fd: FormData, name: string) => String(fd.get(name) ?? "").trim();
 
 /** The add-payment form. Client Payments are in Rand; the database checks the accounts fit (migration 0027). */
 export function parsePayment(fd: FormData, side: Side): PaymentValues {
+  const kind = (text(fd, "kind") || KINDS[side][0]) as PaymentKind;
+  if (!KINDS[side].includes(kind)) throw new FieldParseError("Choose what kind of Payment this is.", "kind");
   const paid_on = text(fd, "paid_on");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(paid_on)) throw new FieldParseError("Date is required.", "paid_on");
   let amount: number | null;
@@ -39,6 +58,7 @@ export function parsePayment(fd: FormData, side: Side): PaymentValues {
   const supplier_id = side === "supplier" ? text(fd, "supplier_id") : null;
   if (side === "supplier" && !supplier_id) throw new FieldParseError("Choose the Supplier.", "supplier_id");
   return {
+    kind,
     paid_on,
     amount,
     ...(side === "client" ? { currency: "ZAR", rate: 1 } : currencyAndRate(fd)),

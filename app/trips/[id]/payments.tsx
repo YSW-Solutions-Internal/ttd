@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
 import type { Side } from "@/lib/invoicing";
-import { PAYMENT_STATUS_LABEL, type PaymentStatus } from "@/lib/payments";
+import { KINDS, PAYMENT_KIND_LABEL, PAYMENT_STATUS_LABEL, type PaymentKind, type PaymentStatus } from "@/lib/payments";
 import type { Billable } from "./invoicing-data";
 import { AddPaymentForm, DeletePaymentButton, PaymentLinkForm, PaymentStatusForms, RemovePaymentLinkButton, ReverseForm } from "./payment-forms";
 import { Badge, Msg } from "@/app/ui";
@@ -9,9 +9,13 @@ import { Badge, Msg } from "@/app/ui";
 const amount = (currency: string, n: number) => `${currency} ${n.toFixed(2)}`;
 const round = (n: number) => Math.round(n * 100) / 100;
 
+type Target = { id: string; label: string };
+export type KindTarget = Target & { kind: PaymentKind; supplierId: string | null };
+
 /**
  * The Trip's Payments, Supplier side and Client side, each with what it pays or settles
- * (GLOSSARY: Payment). `outstanding` is each Client invoice's Rand not yet settled.
+ * (GLOSSARY: Payment). `outstanding` is each Client invoice's (or credit note's) Rand not yet
+ * settled; `refunds` and `commissions` are what each Supplier still has to send.
  */
 export async function Payments({
   tripId,
@@ -19,6 +23,9 @@ export async function Payments({
   clientId,
   billables,
   invoices,
+  creditNotes,
+  refunds,
+  commissions,
   accounts,
 }: {
   tripId: string;
@@ -26,6 +33,9 @@ export async function Payments({
   clientId: string;
   billables: Billable[];
   invoices: { id: string; number: string; outstanding: number }[];
+  creditNotes: { id: string; number: string; outstanding: number }[];
+  refunds: { key: string; supplierId: string; label: string; left: number }[]; // key: "entityId|changeId"
+  commissions: { key: string; supplierId: string; currency: string; label: string; left: number }[]; // key: entityId
   accounts: boolean; // Accountants and Administrators
 }) {
   const supabase = await createClient();
@@ -33,7 +43,7 @@ export async function Payments({
     supabase
       .from("payments")
       .select(
-        "id, side, supplier_id, paid_on, amount, currency, rand_amount, status, query_reason, reverses_id, notes, suppliers(name), account:payment_accounts!payments_account_id_fkey(nickname), landed:payment_accounts!payments_landed_account_id_fkey(nickname), payment_links(id, entity_id, change_id, invoice_id, amount)",
+        "id, side, kind, supplier_id, paid_on, amount, currency, rand_amount, status, query_reason, reverses_id, notes, suppliers(name), account:payment_accounts!payments_account_id_fkey(nickname), landed:payment_accounts!payments_landed_account_id_fkey(nickname), payment_links(id, entity_id, change_id, invoice_id, amount)",
       )
       .eq("trip_id", tripId)
       .order("paid_on")
@@ -42,7 +52,7 @@ export async function Payments({
   ]);
 
   const byKey = new Map(billables.map((b) => [b.key, b]));
-  const invoiceNo = new Map(invoices.map((i) => [i.id, i.number]));
+  const invoiceNo = new Map([...invoices, ...creditNotes].map((i) => [i.id, i.number]));
   const reversed = new Set((payments ?? []).flatMap((p) => (p.reverses_id ? [p.reverses_id] : [])));
   const agency = (payAccounts ?? []).filter((a) => !a.client_id);
   const clients = (payAccounts ?? []).filter((a) => a.client_id);
@@ -54,6 +64,22 @@ export async function Payments({
   const landing = agency.filter((a) => a.kind !== "card").map(option);
   const suppliers = [...new Map(billables.map((b) => [b.supplierId, { id: b.supplierId, label: b.supplierName }])).values()];
 
+  // What a Payment of each kind can go against, for a Supplier (null: the Client side).
+  const targetsOf = (kind: PaymentKind, supplierId: string | null): Target[] =>
+    ({
+      paid: () => billables.filter((b) => b.supplierId === supplierId).map((b) => ({ id: b.key, label: b.label })),
+      refund_in: () =>
+        refunds.filter((r) => r.supplierId === supplierId && r.left > 0).map((r) => ({ id: r.key, label: `${r.label} (R ${r.left.toFixed(2)} still to come)` })),
+      commission_in: () =>
+        commissions.filter((c) => c.supplierId === supplierId && c.left > 0).map((c) => ({ id: c.key, label: `${c.label} (${amount(c.currency, c.left)} owed)` })),
+      received: () => invoices.filter((i) => i.outstanding > 0).map((i) => ({ id: i.id, label: `Invoice ${i.number} (R ${i.outstanding.toFixed(2)} outstanding)` })),
+      refund_out: () => creditNotes.filter((i) => i.outstanding > 0).map((i) => ({ id: i.id, label: `Credit note ${i.number} (R ${i.outstanding.toFixed(2)} to pay back)` })),
+    })[kind]();
+  const newTargets = (side: Side): KindTarget[] =>
+    KINDS[side].flatMap((kind) =>
+      (side === "client" ? [null] : suppliers.map((s) => s.id)).flatMap((supplierId) => targetsOf(kind, supplierId).map((t) => ({ ...t, kind, supplierId }))),
+    );
+
   const block = (side: Side) =>
     (payments ?? [])
       .filter((p) => p.side === side)
@@ -63,15 +89,17 @@ export async function Payments({
         const unlinked = round(total - links.reduce((a, l) => a + Number(l.amount), 0));
         const locked = !!p.reverses_id || reversed.has(p.id); // a reversal and what it reverses keep their links
         const linked = new Set(links.map((l) => l.invoice_id ?? (l.change_id ? `${l.entity_id}|${l.change_id}` : l.entity_id)));
-        const targets =
-          side === "client"
-            ? invoices.filter((i) => i.outstanding > 0 && !linked.has(i.id)).map((i) => ({ id: i.id, label: `Invoice ${i.number} (R ${i.outstanding.toFixed(2)} outstanding)` }))
-            : billables.filter((b) => b.supplierId === p.supplier_id && !linked.has(b.key)).map((b) => ({ id: b.key, label: b.label }));
+        const kind = p.kind as PaymentKind;
+        const targets = targetsOf(kind, side === "client" ? null : p.supplier_id).filter((t) => !linked.has(t.id));
         const status = p.status as PaymentStatus;
         return (
           <section key={p.id} className="mb-3 rounded-md border border-line bg-white p-4">
             <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <b>{p.reverses_id ? "Reversal" : side === "supplier" ? `To ${one(p.suppliers)?.name ?? ""}` : "From the Client"}</b>
+              <b>
+                {p.reverses_id ? "Reversal: " : ""}
+                {PAYMENT_KIND_LABEL[kind]}
+                {side === "supplier" && ` · ${one(p.suppliers)?.name ?? ""}`}
+              </b>
               <span className="text-muted tabular-nums">{p.paid_on}</span>
               <span className="font-semibold tabular-nums">
                 {amount(p.currency, total)}
@@ -97,7 +125,7 @@ export async function Payments({
                     <tr key={l.id}>
                       <td>
                         {l.invoice_id
-                          ? `Client invoice ${invoiceNo.get(l.invoice_id) ?? ""}`
+                          ? `${kind === "refund_out" ? "Credit note" : "Client invoice"} ${invoiceNo.get(l.invoice_id) ?? ""}`
                           : (byKey.get(l.change_id ? `${l.entity_id}|${l.change_id}` : l.entity_id)?.label ?? "An Item no longer on the Quote")}
                       </td>
                       <td className="text-right">{amount(p.currency, Number(l.amount))}</td>
@@ -109,7 +137,8 @@ export async function Payments({
             )}
             {unlinked !== 0 && !locked && (
               <Msg tone="warn" className="mt-3">
-                {amount(p.currency, unlinked)} {side === "client" ? "not yet linked to a Client invoice (a deposit)." : "not linked to any Item or Change."}
+                {amount(p.currency, unlinked)}{" "}
+                {kind === "received" ? "not yet linked to a Client invoice (a deposit)." : kind === "refund_out" ? "not yet linked to a credit note." : "not linked to anything yet."}
               </Msg>
             )}
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 empty:hidden">
@@ -127,10 +156,10 @@ export async function Payments({
       <h2>Payments</h2>
       <h3>To Suppliers</h3>
       {block("supplier")}
-      <AddPaymentForm tripId={tripId} side="supplier" suppliers={suppliers} accounts={[...agency, ...clients.filter((a) => a.kind === "card")].map(option)} landing={landing} />
+      <AddPaymentForm tripId={tripId} quoteId={quoteId} side="supplier" targets={newTargets("supplier")} suppliers={suppliers} accounts={[...agency, ...clients.filter((a) => a.kind === "card")].map(option)} landing={landing} />
       <h3>From the Client</h3>
       {block("client")}
-      <AddPaymentForm tripId={tripId} side="client" suppliers={[]} accounts={clients.map(option)} landing={landing} />
+      <AddPaymentForm tripId={tripId} quoteId={quoteId} side="client" targets={newTargets("client")} suppliers={[]} accounts={clients.map(option)} landing={landing} />
     </>
   );
 }

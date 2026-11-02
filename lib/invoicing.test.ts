@@ -17,10 +17,18 @@ test("a credit note is stored negative; a Client invoice is always in Rand", () 
   assert.equal(parseLinkAmount("200", true), -200);
 });
 
-test("a Cancellation with a refund is not invoiced; without one, its penalty and fee are", () => {
+test("a Cancellation with no refund, or a Declined one, invoices its penalty and fee", () => {
   const c = { kind: "cancellation" as const, extra_fare: 0, extra_taxes: 0, supplier_penalty: 10, rate: 18, agency_fee: 300, markup: 0, expected_refund: 4000 };
-  assert.equal(changeCharge(c), 0);
-  assert.equal(changeCharge({ ...c, expected_refund: 0 }), 480);
+  assert.equal(changeCharge({ ...c, expected_refund: 0 }, true), 480);
+  assert.equal(changeCharge({ ...c, refund_status: "declined" }, true), 480); // nothing for the fee to come off
+});
+
+test("after issue, a Refund's Cancellation credits the Client the approved amount less the fee; before issue, it invoices its charges", () => {
+  const c = { kind: "cancellation" as const, extra_fare: 0, extra_taxes: 0, supplier_penalty: 10, rate: 18, agency_fee: 300, markup: 0, expected_refund: 4000 };
+  assert.equal(changeCharge(c, true), -3700); // a credit note due
+  assert.equal(changeCharge({ ...c, refund_approved: 200 }, true), 100); // approved below the fee: the rest is invoiced
+  assert.equal(changeCharge(c, false), 480); // the Item's own credit gives the Client their money back
+  assert.equal(changeCharge({ ...c, refund_status: "declined" }, true), 480);
   assert.equal(expectsSupplierInvoice({ ...c, supplier_penalty: 0 }), false);
 });
 
