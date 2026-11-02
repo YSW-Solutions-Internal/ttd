@@ -4,7 +4,7 @@ import { useActionState, useId, useState } from "react";
 import { useKeptForm } from "@/app/kept-form";
 import { ConfirmButton } from "@/app/confirm-button";
 import type { Side } from "@/lib/invoicing";
-import type { PaymentStatus } from "@/lib/payments";
+import { KINDS, PAYMENT_KIND_LABEL, type PaymentStatus } from "@/lib/payments";
 import { Button, Msg } from "@/app/ui";
 import { addPayment, addPaymentLink, deletePayment, removePaymentLink, reversePayment, setPaymentStatus, type PaymentFormState } from "./payment-actions";
 
@@ -54,9 +54,10 @@ export function AddPaymentForm({ tripId, side, suppliers, accounts, landing }: {
   if (supplier && suppliers.length === 0) return null;
   return (
     <details className="mt-3 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
-      <summary className="cursor-pointer font-semibold text-teal-deep">{supplier ? "Record a Payment to a Supplier" : "Record a Payment from the Client"}</summary>
+      <summary className="cursor-pointer font-semibold text-teal-deep">{supplier ? "Record a Payment to or from a Supplier" : "Record a Payment from or to the Client"}</summary>
       <form {...kept} onReset={() => setChosen(accounts[0]?.id ?? "")} className="mt-3">
         <div className="flex flex-wrap items-end gap-x-3">
+          <Select label="What" name="kind" options={KINDS[side].map((k) => ({ id: k, label: PAYMENT_KIND_LABEL[k] }))} required />
           {supplier && <Select label="Supplier" name="supplier_id" options={suppliers} required />}
           <Field label="Date" name="paid_on" type="date" defaultValue={today()} required />
           {supplier && <Field label="Currency" name="currency" defaultValue="ZAR" required />}
@@ -86,7 +87,7 @@ export function PaymentLinkForm({ paymentId, quoteId, side, targets, remaining }
   if (targets.length === 0) return null;
   return (
     <form {...kept} className="flex flex-wrap items-center gap-2">
-      <select className="w-auto max-w-full" name="target" aria-label={side === "client" ? "Client invoice it settles" : "Item or Change it pays"} required>
+      <select className="w-auto max-w-full" name="target" aria-label="What it is for" required>
         {targets.map((t) => (
           <option key={t.id} value={t.id}>
             {t.label}

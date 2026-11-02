@@ -8,6 +8,7 @@ import { TABS } from "@/app/quotes/[id]/edit-section";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { loadBillables, type Billable } from "@/app/trips/[id]/invoicing-data";
 import { Badge } from "@/app/ui";
+import { PAYMENT_KIND_LABEL, type PaymentKind } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     everyRow((from, to) =>
       supabase
         .from("payments")
-        .select("id, side, paid_on, amount, currency, status, query_reason, reverses_id, suppliers(name), trips(id, reference, title, clients(full_name)), payment_links(amount)")
+        .select("id, side, kind, paid_on, amount, currency, status, query_reason, reverses_id, suppliers(name), trips(id, reference, title, clients(full_name)), payment_links(amount)")
         .order("paid_on")
         .order("created_at")
         .order("id")
@@ -94,6 +95,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     ...invoices.map((i) => ({
       id: i.id,
       payment: false,
+      kind: null as string | null,
       side: i.side,
       date: i.issued_on,
       what: i.number,
@@ -108,9 +110,10 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     ...payments.map((p) => ({
       id: p.id,
       payment: true,
+      kind: p.kind as string | null,
       side: p.side,
       date: p.paid_on,
-      what: p.reverses_id ? "Reversal" : p.side === "supplier" ? "Payment to" : "Payment from",
+      what: p.reverses_id ? "Reversal" : PAYMENT_KIND_LABEL[p.kind as PaymentKind],
       party: p.side === "supplier" ? one(p.suppliers)?.name : one(one(p.trips)?.clients)?.full_name,
       trip: one(p.trips),
       amount: Number(p.amount),
@@ -225,7 +228,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                 <td>{i.date}</td>
                 <td>
                   {i.what} {queue === "unlinked" && !i.payment && <Badge>{i.side === "supplier" ? "Supplier" : "Client"}</Badge>}
-                  {queue === "unlinked" && i.payment && i.side === "client" && <Badge>Deposit</Badge>}
+                  {queue === "unlinked" && i.kind === "received" && <Badge>Deposit</Badge>}
                 </td>
                 <td>{i.party}</td>
                 <td>{tripLink(i.trip)}</td>

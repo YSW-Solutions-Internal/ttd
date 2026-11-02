@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { everyRow, one } from "@/lib/relations";
-import { statementMonth } from "@/lib/payments";
+import { moneyIn, PAYMENT_KIND_LABEL, statementMonth, type PaymentKind } from "@/lib/payments";
 
 /** One statement account's Payments in one month, across all Trips (ADR 0013). Null if there is no such account. */
 export async function loadStatement(accountId: string, rawMonth: string | undefined) {
@@ -12,7 +12,7 @@ export async function loadStatement(accountId: string, rawMonth: string | undefi
   const rows = await everyRow((a, b) =>
     supabase
       .from("payments")
-      .select("id, side, paid_on, amount, currency, rate, rand_amount, status, query_reason, reverses_id, suppliers(name), trips(id, reference, clients(full_name))")
+      .select("id, side, kind, paid_on, amount, currency, rate, rand_amount, status, query_reason, reverses_id, suppliers(name), trips(id, reference, clients(full_name))")
       .eq("statement_account_id", accountId)
       .gte("paid_on", from)
       .lt("paid_on", to)
@@ -25,9 +25,9 @@ export async function loadStatement(accountId: string, rawMonth: string | undefi
     ...p,
     trip: one(p.trips),
     party: p.side === "supplier" ? one(p.suppliers)?.name ?? "" : one(one(p.trips)?.clients)?.full_name ?? "",
-    kind: `${p.reverses_id ? "Reversal: " : ""}${p.side === "supplier" ? "Paid to Supplier" : "Received from Client"}`,
+    kind: `${p.reverses_id ? "Reversal: " : ""}${PAYMENT_KIND_LABEL[p.kind as PaymentKind]}`,
     // Money in is positive, as on a statement.
-    signed: (p.side === "client" ? 1 : -1) * Number(p.rand_amount),
+    signed: (moneyIn(p.kind as PaymentKind) ? 1 : -1) * Number(p.rand_amount),
   }));
   return { account: { ...account, owner: one(account.clients)?.full_name ?? null }, month, payments };
 }
