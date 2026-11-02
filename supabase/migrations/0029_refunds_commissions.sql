@@ -348,7 +348,7 @@ end $$;
 create view public.refund_totals with (security_invoker = true) as
 select q.trip_id, c.quote_id, c.entity_id, c.id as change_id, b.supplier_id, b.booking_reference, c.happened_on,
        c.refund_status, c.refund_requested_on, c.refund_reference, c.expected_refund,
-       coalesce(c.refund_approved, c.expected_refund) as approved, c.agency_fee,
+       c.refund_approved, coalesce(c.refund_approved, c.expected_refund) as approved, c.agency_fee,
        public.refund_received(c.id) as received,
        coalesce((
          select round(sum(cl.amount / n.amount * (

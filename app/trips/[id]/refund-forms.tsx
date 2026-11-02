@@ -6,7 +6,7 @@ import { REFUND_STATUS_LABEL, type RefundStatus } from "@/lib/refunds";
 import { Field, Message, Select } from "./payment-forms";
 import { setCommission, setRefund } from "./refund-actions";
 
-export function RefundForm({ changeId, status, requestedOn, reference, approved }: { changeId: string; status: RefundStatus; requestedOn: string; reference: string; approved: string }) {
+export function RefundForm({ changeId, status, requestedOn, reference, approved, expected }: { changeId: string; status: RefundStatus; requestedOn: string; reference: string; approved: string; expected: string }) {
   const [state, action, pending] = useActionState(setRefund.bind(null, changeId), {});
   const kept = useKeptForm(action, state);
   return (
@@ -15,7 +15,7 @@ export function RefundForm({ changeId, status, requestedOn, reference, approved 
         <Select label="Supplier's answer" name="status" options={Object.entries(REFUND_STATUS_LABEL).map(([id, label]) => ({ id, label }))} defaultValue={status} required />
         <Field label="Requested on" name="requested_on" type="date" defaultValue={requestedOn} />
         <Field label="Supplier reference" name="reference" defaultValue={reference} />
-        <Field label="Approved (R)" name="approved" type="number" defaultValue={approved} />
+        <Field label={`Approved (R; blank: as expected, ${expected})`} name="approved" type="number" defaultValue={approved} />
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <button type="submit" disabled={pending}>Save Refund</button>

@@ -34,11 +34,14 @@ export function RefundsAndCommissions({ quoteId, billables, refunds, commissions
               {rand(s.dueBack)} · Paid back {rand(num(r.paid_back))}
             </p>
             <RefundForm
+              // Remount after a save: a reset form would otherwise show (and resend) the values it opened with.
+              key={[status, str(r.refund_requested_on), str(r.refund_reference), str(r.refund_approved)].join("|")}
               changeId={str(r.change_id)}
               status={status}
               requestedOn={str(r.refund_requested_on)}
               reference={str(r.refund_reference)}
-              approved={r.approved == null ? "" : num(r.approved).toFixed(2)}
+              approved={r.refund_approved == null ? "" : num(r.refund_approved).toFixed(2)}
+              expected={num(r.expected_refund).toFixed(2)}
             />
           </section>
         );
@@ -65,6 +68,7 @@ export function RefundsAndCommissions({ quoteId, billables, refunds, commissions
             </div>
             {c?.commission_note ? <p className="text-[13px] text-muted">{str(c.commission_note)}</p> : null}
             <CommissionForm
+              key={c ? JSON.stringify([c.commission, c.commission_note, deducted, c.commission_claimed_on, c.commission_claim_reference, c.commission_due_on]) : "none"}
               quoteId={quoteId}
               entityId={b.entityId}
               currency={b.currency}
