@@ -4,7 +4,8 @@ import { useActionState, useId, useState } from "react";
 import { useKeptForm } from "@/app/kept-form";
 import { ConfirmButton } from "@/app/confirm-button";
 import type { Side } from "@/lib/invoicing";
-import { KINDS, PAYMENT_KIND_LABEL, type PaymentStatus } from "@/lib/payments";
+import { KINDS, PAYMENT_KIND_LABEL, type PaymentKind, type PaymentStatus } from "@/lib/payments";
+import type { KindTarget } from "./payments";
 import { Button, Msg } from "@/app/ui";
 import { addPayment, addPaymentLink, deletePayment, removePaymentLink, reversePayment, setPaymentStatus, type PaymentFormState } from "./payment-actions";
 
@@ -45,8 +46,27 @@ export function Select({ label, name, options, required, empty, defaultValue, on
 
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
 
-export function AddPaymentForm({ tripId, side, suppliers, accounts, landing }: { tripId: string; side: Side; suppliers: Option[]; accounts: Option[]; landing: Option[] }) {
-  const [state, action, pending] = useActionState(addPayment.bind(null, tripId, side), {});
+export function AddPaymentForm({
+  tripId,
+  quoteId,
+  side,
+  targets,
+  suppliers,
+  accounts,
+  landing,
+}: {
+  tripId: string;
+  quoteId: string;
+  side: Side;
+  targets: KindTarget[];
+  suppliers: Option[];
+  accounts: Option[];
+  landing: Option[];
+}) {
+  const [state, action, pending] = useActionState(addPayment.bind(null, tripId, quoteId, side), {});
+  const [kind, setKind] = useState<PaymentKind>(KINDS[side][0]);
+  const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? "");
+  const fits = targets.filter((t) => t.kind === kind && (side === "client" || t.supplierId === supplierId));
   const kept = useKeptForm(action, state);
   const supplier = side === "supplier";
   const [chosen, setChosen] = useState(accounts[0]?.id ?? "");
@@ -62,12 +82,23 @@ export function AddPaymentForm({ tripId, side, suppliers, accounts, landing }: {
         onReset={() => {
           setChosen(accounts[0]?.id ?? "");
           setCurrency("ZAR");
+          setKind(KINDS[side][0]);
+          setSupplierId(suppliers[0]?.id ?? "");
         }}
         className="mt-3"
       >
         <div className="flex flex-wrap items-end gap-x-3">
-          <Select label="What" name="kind" options={KINDS[side].map((k) => ({ id: k, label: PAYMENT_KIND_LABEL[k] }))} required />
-          {supplier && <Select label="Supplier" name="supplier_id" options={suppliers} required />}
+          <Select label="What" name="kind" options={KINDS[side].map((k) => ({ id: k, label: PAYMENT_KIND_LABEL[k] }))} required onChange={(k) => setKind(k as PaymentKind)} />
+          {supplier && <Select label="Supplier" name="supplier_id" options={suppliers} required onChange={setSupplierId} />}
+          {/* Keyed so the choice resets with the kind and Supplier; one match is chosen for you. */}
+          <Select
+            key={`${kind}|${supplierId}`}
+            label="For"
+            name="target"
+            options={fits}
+            empty="Link later (or to several)"
+            defaultValue={fits.length === 1 ? fits[0].id : ""}
+          />
           <Field label="Date" name="paid_on" type="date" defaultValue={today()} required />
           {supplier && (
             <div className="mb-3 min-w-[90px] flex-none">

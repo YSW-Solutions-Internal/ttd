@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
 import type { Side } from "@/lib/invoicing";
-import { PAYMENT_KIND_LABEL, PAYMENT_STATUS_LABEL, type PaymentKind, type PaymentStatus } from "@/lib/payments";
+import { KINDS, PAYMENT_KIND_LABEL, PAYMENT_STATUS_LABEL, type PaymentKind, type PaymentStatus } from "@/lib/payments";
 import type { Billable } from "./invoicing-data";
 import { AddPaymentForm, DeletePaymentButton, PaymentLinkForm, PaymentStatusForms, RemovePaymentLinkButton, ReverseForm } from "./payment-forms";
 import { Badge, Msg } from "@/app/ui";
@@ -10,6 +10,7 @@ const amount = (currency: string, n: number) => `${currency} ${n.toFixed(2)}`;
 const round = (n: number) => Math.round(n * 100) / 100;
 
 type Target = { id: string; label: string };
+export type KindTarget = Target & { kind: PaymentKind; supplierId: string | null };
 
 /**
  * The Trip's Payments, Supplier side and Client side, each with what it pays or settles
@@ -63,6 +64,22 @@ export async function Payments({
   const landing = agency.filter((a) => a.kind !== "card").map(option);
   const suppliers = [...new Map(billables.map((b) => [b.supplierId, { id: b.supplierId, label: b.supplierName }])).values()];
 
+  // What a Payment of each kind can go against, for a Supplier (null: the Client side).
+  const targetsOf = (kind: PaymentKind, supplierId: string | null): Target[] =>
+    ({
+      paid: () => billables.filter((b) => b.supplierId === supplierId).map((b) => ({ id: b.key, label: b.label })),
+      refund_in: () =>
+        refunds.filter((r) => r.supplierId === supplierId && r.left > 0).map((r) => ({ id: r.key, label: `${r.label} (R ${r.left.toFixed(2)} still to come)` })),
+      commission_in: () =>
+        commissions.filter((c) => c.supplierId === supplierId && c.left > 0).map((c) => ({ id: c.key, label: `${c.label} (${c.left.toFixed(2)} owed)` })),
+      received: () => invoices.filter((i) => i.outstanding > 0).map((i) => ({ id: i.id, label: `Invoice ${i.number} (R ${i.outstanding.toFixed(2)} outstanding)` })),
+      refund_out: () => creditNotes.filter((i) => i.outstanding > 0).map((i) => ({ id: i.id, label: `Credit note ${i.number} (R ${i.outstanding.toFixed(2)} to pay back)` })),
+    })[kind]();
+  const newTargets = (side: Side): KindTarget[] =>
+    KINDS[side].flatMap((kind) =>
+      (side === "client" ? [null] : suppliers.map((s) => s.id)).flatMap((supplierId) => targetsOf(kind, supplierId).map((t) => ({ ...t, kind, supplierId }))),
+    );
+
   const block = (side: Side) =>
     (payments ?? [])
       .filter((p) => p.side === side)
@@ -73,16 +90,7 @@ export async function Payments({
         const locked = !!p.reverses_id || reversed.has(p.id); // a reversal and what it reverses keep their links
         const linked = new Set(links.map((l) => l.invoice_id ?? (l.change_id ? `${l.entity_id}|${l.change_id}` : l.entity_id)));
         const kind = p.kind as PaymentKind;
-        const targets: Target[] = {
-          paid: () => billables.filter((b) => b.supplierId === p.supplier_id && !linked.has(b.key)).map((b) => ({ id: b.key, label: b.label })),
-          refund_in: () =>
-            refunds.filter((r) => r.supplierId === p.supplier_id && r.left > 0 && !linked.has(r.key)).map((r) => ({ id: r.key, label: `${r.label} (R ${r.left.toFixed(2)} still to come)` })),
-          commission_in: () =>
-            commissions.filter((c) => c.supplierId === p.supplier_id && c.left > 0 && !linked.has(c.key)).map((c) => ({ id: c.key, label: `${c.label} (${c.left.toFixed(2)} owed)` })),
-          received: () => invoices.filter((i) => i.outstanding > 0 && !linked.has(i.id)).map((i) => ({ id: i.id, label: `Invoice ${i.number} (R ${i.outstanding.toFixed(2)} outstanding)` })),
-          refund_out: () =>
-            creditNotes.filter((i) => i.outstanding > 0 && !linked.has(i.id)).map((i) => ({ id: i.id, label: `Credit note ${i.number} (R ${i.outstanding.toFixed(2)} to pay back)` })),
-        }[kind]();
+        const targets = targetsOf(kind, side === "client" ? null : p.supplier_id).filter((t) => !linked.has(t.id));
         const status = p.status as PaymentStatus;
         return (
           <section key={p.id} className="mb-3 rounded-md border border-line bg-white p-4">
@@ -148,10 +156,10 @@ export async function Payments({
       <h2>Payments</h2>
       <h3>To Suppliers</h3>
       {block("supplier")}
-      <AddPaymentForm tripId={tripId} side="supplier" suppliers={suppliers} accounts={[...agency, ...clients.filter((a) => a.kind === "card")].map(option)} landing={landing} />
+      <AddPaymentForm tripId={tripId} quoteId={quoteId} side="supplier" targets={newTargets("supplier")} suppliers={suppliers} accounts={[...agency, ...clients.filter((a) => a.kind === "card")].map(option)} landing={landing} />
       <h3>From the Client</h3>
       {block("client")}
-      <AddPaymentForm tripId={tripId} side="client" suppliers={[]} accounts={clients.map(option)} landing={landing} />
+      <AddPaymentForm tripId={tripId} quoteId={quoteId} side="client" targets={newTargets("client")} suppliers={[]} accounts={clients.map(option)} landing={landing} />
     </>
   );
 }

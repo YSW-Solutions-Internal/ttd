@@ -17,12 +17,27 @@ const failed = (e: unknown): PaymentFormState => ({
 // The Trip's accounts page, the Accounts queues and statements all show Payments.
 const done = () => revalidatePath("/", "layout");
 
-export async function addPayment(tripId: string, side: Side, _prev: PaymentFormState, fd: FormData): Promise<PaymentFormState> {
+/** A link's target: a booked Item or Change ("entityId" or "entityId|changeId") on the Supplier side, a Client invoice's id on the Client side. */
+function linkTarget(target: string, side: Side, quoteId: string) {
+  const [entityId, changeId] = target.split("|");
+  return side === "client" ? { invoice_id: target } : { quote_id: quoteId, entity_id: entityId, change_id: changeId || null };
+}
+
+/** Records a Payment and, when the form says what it is for, links all of it there; a refused link records nothing. */
+export async function addPayment(tripId: string, quoteId: string, side: Side, _prev: PaymentFormState, fd: FormData): Promise<PaymentFormState> {
   try {
     const v = parsePayment(fd, side);
+    const target = String(fd.get("target") ?? "");
     const supabase = await createClient();
-    const { error } = await supabase.from("payments").insert({ ...v, trip_id: tripId, side });
+    const { data, error } = await supabase.from("payments").insert({ ...v, trip_id: tripId, side }).select("id").single();
     if (error) return { error: error.message };
+    if (target) {
+      const { error: linkError } = await supabase.from("payment_links").insert({ payment_id: data.id, amount: v.amount, ...linkTarget(target, side, quoteId) });
+      if (linkError) {
+        await supabase.from("payments").delete().eq("id", data.id);
+        return { error: `Not recorded: ${linkError.message} Choose "Link later" to record it unlinked.` };
+      }
+    }
   } catch (e) {
     return failed(e);
   }
@@ -60,10 +75,8 @@ export async function addPaymentLink(paymentId: string, quoteId: string, side: S
     const target = String(fd.get("target") ?? "");
     if (!target) return { error: "Choose what this Payment is for." };
     const amount = parseLinkAmount(String(fd.get("amount") ?? ""), false);
-    const [entityId, changeId] = target.split("|");
-    const row = side === "client" ? { invoice_id: target } : { quote_id: quoteId, entity_id: entityId, change_id: changeId || null };
     const supabase = await createClient();
-    const { error } = await supabase.from("payment_links").insert({ payment_id: paymentId, amount, ...row });
+    const { error } = await supabase.from("payment_links").insert({ payment_id: paymentId, amount, ...linkTarget(target, side, quoteId) });
     if (error) return { error: error.code === "23505" ? "This Payment is already linked to that; unlink it to change the amount." : error.message };
   } catch (e) {
     return failed(e);
