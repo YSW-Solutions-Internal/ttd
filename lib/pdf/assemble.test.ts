@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { assembleQuote, day, problems, type AssembleInput } from "./assemble.ts";
+import { totalText } from "./money.ts";
 
-const empty = { flight_options: [], flights: [], accommodation_options: [], transfers: [], rail_journeys: [], car_rentals: [], excursions: [] };
+const empty = { flight_options: [], flights: [], accommodation_options: [], transfers: [], rail_journeys: [], car_rentals: [], excursions: [], packages: [], visas: [], insurance_policies: [], extras: [] };
 
 function input(items: Partial<AssembleInput["items"]> = {}): AssembleInput {
   return {
@@ -17,6 +18,8 @@ function input(items: Partial<AssembleInput["items"]> = {}): AssembleInput {
     ],
     items: { ...empty, ...items },
     airlines: new Map([["EK", "Emirates"]]),
+    travellers: new Map([["t1", "Ron Wolovitz"], ["t2", "Amy Wolovitz"]]),
+    checks: {},
   };
 }
 
@@ -85,4 +88,48 @@ test("problems: unplaced Accommodation and priced Items without a Transaction fe
     }),
     ["Artemide is not placed in a Stay.", "Shuttle Co has a price but no Transaction fee."],
   );
+});
+
+test("a Package prints its deposit and balance date", () => {
+  const { quote, items } = assembleQuote(
+    input({ packages: [{ entity_id: "p1", name: "Bali week", price: 20000, deposit: 5000, balance_due_on: "2027-03-12" }] }),
+  );
+  assert.equal(quote.packages![0].deposit_line, "Deposit R 5 000.00 now, balance by 12 Mar 2027");
+  assert.deepEqual(items, [{ entity_id: "p1", kind: "package", option_no: 1 }]);
+});
+
+test("one Visa entry per Visa, each with its Traveller's name", () => {
+  const { quote } = assembleQuote(
+    input({
+      visas: [
+        { entity_id: "v1", country: "France", traveller_id: "t1" },
+        { entity_id: "v2", country: "France", traveller_id: "t2" },
+      ],
+    }),
+  );
+  assert.deepEqual(quote.visas!.map((v) => v.traveller), ["Ron Wolovitz", "Amy Wolovitz"]);
+});
+
+test("a Conference Extra counts its Transaction fee per person", () => {
+  const { quote } = assembleQuote(
+    input({ extras: [{ entity_id: "x1", extra_type: "conference", people: 12, price: 0, transaction_fee: 230 }] }),
+  );
+  const x = quote.extras![0];
+  assert.equal(x.units, 12);
+  assert.equal(totalText(x, x.units), "R 2 760.00");
+});
+
+test("checklist notes print as the travel information; Online saving never does", () => {
+  const { quote } = assembleQuote({
+    ...input({ flight_options: [{ entity_id: "e1", price: 1000, transaction_fee: 950, online_price: 800 }] }),
+    checks: { visa: "Schengen needed" },
+  });
+  assert.equal(quote.visa_info, "Schengen needed");
+  assert.ok(!JSON.stringify(quote).includes("online_price"));
+});
+
+test("problems: a priced Package without a Transaction fee", () => {
+  assert.deepEqual(problems({ ...empty, packages: [{ price: 100, transaction_fee: null }] }), [
+    "A Package has a price but no Transaction fee.",
+  ]);
 });
