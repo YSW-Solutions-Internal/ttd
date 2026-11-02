@@ -47,7 +47,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     everyRow((from, to) =>
       supabase
         .from("quotes")
-        .select("id, trips(id, reference, title), item_bookings!inner(entity_id), flight_options(*), accommodation_options(*), excursions(*), transfers(*), rail_journeys(*), car_rentals(*)")
+        .select("id, trips(id, reference, title), item_bookings!inner(entity_id), flight_options(*), accommodation_options(*), excursions(*), transfers(*), rail_journeys(*), car_rentals(*), packages(*), visas(*), insurance_policies(*), extras(*)")
         .order("id")
         .range(from, to),
     ),

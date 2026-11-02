@@ -6,9 +6,10 @@ import { ConfirmButton } from "@/app/confirm-button";
 import { FileLink } from "@/app/file-viewer";
 import { Button } from "@/app/ui";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
-import { rateFor, tenPercent, type FeeRate } from "@/lib/fees";
+import { FLAT_KINDS, rateFor, tenPercent, type FeeRate } from "@/lib/fees";
 import { addItem, deleteItem, saveItem } from "./item-actions";
 import {
+  EXTRA_FIELDS,
   FEE_LABELS,
   FLIGHT_FIELDS,
   ITEM_FIELDS,
@@ -20,6 +21,7 @@ import {
 } from "./item-fields";
 
 type Row = Record<string, unknown>;
+/** A choice in a picker: a Stay, a Traveller or a Flight option (by entity_id). */
 export type StayOption = { id: string; label: string };
 /** The Source image an Item was read from; none for a Manual Capture. */
 export type ItemSource = { filename: string; url?: string } | null;
@@ -51,6 +53,29 @@ function Input({ field, value, id }: { field: Field; value: unknown; id: string 
     );
   }
   return <input id={id} type={inputType(field, v)} name={field.name} defaultValue={v} step={field.type === "money" ? "0.01" : field.type === "number" ? "any" : undefined} />;
+}
+
+/** Several Travellers as checkboxes; they save together as one comma-joined field. */
+function TravellerChecks({ id, value, options, onChange }: { id: string; value: unknown; options: StayOption[]; onChange: (ids: string) => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const chosen = Array.isArray(value) ? value.map(String) : [];
+  if (options.length === 0) return <p id={id} className="text-muted">No Travellers on this Trip yet.</p>;
+  return (
+    <div id={id} ref={box} role="group">
+      {options.map((o) => (
+        <label key={o.id} className="flex items-center gap-2 font-normal">
+          <input
+            type="checkbox"
+            value={o.id}
+            defaultChecked={chosen.includes(o.id)}
+            data-autosave="off"
+            onChange={() => onChange([...box.current!.querySelectorAll("input:checked")].map((el) => (el as HTMLInputElement).value).join(","))}
+          />
+          {o.label}
+        </label>
+      ))}
+    </div>
+  );
 }
 
 /** One line per flight, e.g. "SA 343  JNB → CPT  2026-03-12, 22:15–06:40, arrives next day". */
@@ -235,6 +260,8 @@ export function ItemForm({
   source,
   flights,
   stays,
+  travellers = [],
+  flightOptions = [],
   rates,
   lastOfImage = false,
   booked = false,
@@ -247,6 +274,10 @@ export function ItemForm({
   source: ItemSource;
   flights?: Row[];
   stays: StayOption[];
+  /** The Trip's Travellers, for Visas and Insurance. */
+  travellers?: StayOption[];
+  /** The Quote's Flight options by entity_id, for Extras. */
+  flightOptions?: StayOption[];
   rates: FeeRate[];
   /** The only Item left from its image, so deleting it removes the image too. */
   lastOfImage?: boolean;
@@ -268,7 +299,15 @@ export function ItemForm({
     save: (fd) => saveItem(quoteId, table, id, fd),
   });
 
-  const rate = rateFor(rates, kind, row.fee_region, row.variant);
+  const rate = rateFor(rates, kind, row.fee_region, kind === "extra" ? row.extra_type : row.variant);
+  const flat = FLAT_KINDS.has(kind);
+  // An Extra shows only its type's fields; the type picked here switches them before the save comes back.
+  const [extraType, setExtraType] = useState(str(row.extra_type));
+  const pick = (list: StayOption[]): [string, string][] => [["", "Not chosen"], ...list.map((o): [string, string] => [o.id, o.label])];
+  const asSelect = (f: Field): Field =>
+    f.type === "traveller" ? { ...f, type: "select", options: pick(travellers) } : f.type === "flight" ? { ...f, type: "select", options: pick(flightOptions) } : f;
+  const shown = (f: Field) => table !== "extras" || f.name === "extra_type" || (EXTRA_FIELDS[extraType] ?? []).includes(f.name);
+  const online = typeof row.online_price === "number" && typeof row.price === "number" ? row.online_price - row.price : null;
   const suggestion = kind === "car_rental" && row.prepaid ? tenPercent(row.price, rate?.prepayment_fee) : null;
 
   // Placing a booked option is not a price change, so it stays open when the rest is locked (migration 0025).
@@ -286,9 +325,23 @@ export function ItemForm({
     <>
       <div className={GRID}>
         {ITEM_FIELDS[table].map((f) => (
-          <div className={f.type === "textarea" ? "col-span-full mb-3" : "mb-3"} key={f.name}>
-            <label htmlFor={`${formId}-${f.name}`}>{f.label}</label>
-            <Input field={f} value={row[f.name]} id={`${formId}-${f.name}`} />
+          <div
+            className={`${f.type === "textarea" ? "col-span-full mb-3" : "mb-3"} ${shown(f) ? "" : "hidden"}`}
+            key={f.name}
+            onChange={f.name === "extra_type" ? (e) => { const el: EventTarget = e.target; if (el instanceof HTMLSelectElement) setExtraType(el.value); } : undefined}
+          >
+            <label htmlFor={`${formId}-${f.name}`}>
+              {f.label}
+              {f.name === "description" && extraType === "meet_greet" && table === "extras" ? " (who is met)" : ""}
+            </label>
+            {f.type === "travellers" ? (
+              <TravellerChecks id={`${formId}-${f.name}`} value={row[f.name]} options={travellers} onChange={(ids) => autosave.change(f.name, ids)} />
+            ) : (
+              <Input field={asSelect(f)} value={row[f.name]} id={`${formId}-${f.name}`} />
+            )}
+            {f.name === "online_price" && online !== null && (
+              <small className={HINT}>{online < 0 ? `Online is cheaper by ${money(-online)}` : `Online saving: ${money(online)}`}</small>
+            )}
             <FieldError autosave={autosave} name={f.name} />
           </div>
         ))}
@@ -304,6 +357,7 @@ export function ItemForm({
             <FieldError autosave={autosave} name={f.name} />
           </div>
         ))}
+        {!flat && (
         <div className="mb-3">
           <label htmlFor={`${formId}-region`}>Fee region</label>
           <select id={`${formId}-region`} name="fee_region" defaultValue={str(row.fee_region)}>
@@ -312,6 +366,7 @@ export function ItemForm({
             ))}
           </select>
         </div>
+        )}
         {kind === "flight" && (
           <div className="mb-3">
             <label htmlFor={`${formId}-variant`}>Fare type</label>
@@ -328,6 +383,13 @@ export function ItemForm({
             <FieldError autosave={autosave} name={name} />
           </div>
         ))}
+        {row.card_surcharge != null && (
+          <div className="mb-3">
+            <label htmlFor={`${formId}-card_surcharge`}>Card surcharge (R)</label>
+            {/* Read-only: worked out on save, which puts the new amount here. */}
+            <input id={`${formId}-card_surcharge`} type="number" name="card_surcharge" readOnly defaultValue={str(row.card_surcharge)} data-autosave="off" />
+          </div>
+        )}
         {kind === "car_rental" && (
           <div className="mb-3">
             <label className="flex items-center gap-2">
