@@ -13,9 +13,6 @@ export type TripValues = {
   nights: number | null;
   adults: number;
   children: number;
-  visa_info: string | null;
-  health_info: string | null;
-  insurance_info: string | null;
   custom_notes: string | null;
   ta_number: string | null;
   cost_centre: string | null;
@@ -90,20 +87,6 @@ export function TripForm({ trip, company }: { trip: TripValues; company: boolean
           </div>
         </div>
       )}
-      <div className="grid grid-cols-3 gap-x-4 max-[900px]:grid-cols-1">
-      <div className="mb-3">
-        <label htmlFor="visa_info">Visa info</label>
-        <textarea id="visa_info" name="visa_info" rows={2} defaultValue={trip.visa_info ?? ""} />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="health_info">Health info</label>
-        <textarea id="health_info" name="health_info" rows={2} defaultValue={trip.health_info ?? ""} />
-      </div>
-      <div className="mb-3">
-        <label htmlFor="insurance_info">Insurance info</label>
-        <textarea id="insurance_info" name="insurance_info" rows={2} defaultValue={trip.insurance_info ?? ""} />
-      </div>
-      </div>
       <div className="mb-3">
         <label>Terms profile</label>
         {/* shortcut: only one profile exists, so it is shown, not chosen; add a select with the second profile's wording. */}
