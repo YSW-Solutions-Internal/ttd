@@ -93,7 +93,7 @@ export default async function TripAccountsPage({ params }: { params: Promise<{ i
             label: label(`${r.entity_id}|${r.change_id}`),
             left: r.refund_status === "declined" ? 0 : Math.round((Number(r.approved) - Number(r.received)) * 100) / 100,
           }))}
-          commissions={(commissions ?? []).map((c) => ({ key: c.entity_id, supplierId: c.supplier_id, label: label(c.entity_id), left: commissionOwed({ commission: Number(c.commission), commission_deducted: c.commission_deducted, received: Number(c.received) }) }))}
+          commissions={(commissions ?? []).map((c) => ({ key: c.entity_id, supplierId: c.supplier_id, currency: c.currency, label: label(c.entity_id), left: commissionOwed({ commission: Number(c.commission), commission_deducted: c.commission_deducted, received: Number(c.received) }) }))}
           accounts={accounts}
         />
       )}

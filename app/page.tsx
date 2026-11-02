@@ -6,6 +6,7 @@ import { one } from "@/lib/relations";
 import { isTripStatus, OPEN_STATUSES } from "@/lib/trip-status";
 import { Badge, BUTTON, Msg, TripStatusBadge } from "./ui";
 import { openRefundTrips } from "@/lib/refunds";
+import { everyRow } from "@/lib/relations";
 import { TripFilters } from "./trip-filters";
 
 export const dynamic = "force-dynamic";
@@ -56,9 +57,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   else if (status !== "all") query = query.eq("status", status);
   if (client) query = query.eq("client_id", client);
   if (consultant) query = query.eq("clients.consultant_id", consultant);
-  // shortcut: every Refund row, not just this page's Trips; filter by trip ids once there are thousands of Cancellations.
-  const [{ data: trips, error }, { data: refunds }] = await Promise.all([query, supabase.from("refund_totals").select("trip_id, refund_status, issued, approved, agency_fee, received, paid_back")]);
-  const refundOpen = openRefundTrips(refunds ?? []);
+  // Every Refund row, paged (PostgREST stops at 1000), rather than a long list of this page's trip ids.
+  const [{ data: trips, error }, refunds] = await Promise.all([
+    query,
+    everyRow((from, to) => supabase.from("refund_totals").select("change_id, trip_id, refund_status, issued, approved, agency_fee, received, paid_back").order("change_id").range(from, to)),
+  ]);
+  const refundOpen = openRefundTrips(refunds);
 
   const consultantName = (t: NonNullable<typeof trips>[number]) => {
     const p = one(one(t.clients)?.profiles);

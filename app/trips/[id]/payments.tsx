@@ -35,7 +35,7 @@ export async function Payments({
   invoices: { id: string; number: string; outstanding: number }[];
   creditNotes: { id: string; number: string; outstanding: number }[];
   refunds: { key: string; supplierId: string; label: string; left: number }[]; // key: "entityId|changeId"
-  commissions: { key: string; supplierId: string; label: string; left: number }[]; // key: entityId
+  commissions: { key: string; supplierId: string; currency: string; label: string; left: number }[]; // key: entityId
   accounts: boolean; // Accountants and Administrators
 }) {
   const supabase = await createClient();
@@ -71,7 +71,7 @@ export async function Payments({
       refund_in: () =>
         refunds.filter((r) => r.supplierId === supplierId && r.left > 0).map((r) => ({ id: r.key, label: `${r.label} (R ${r.left.toFixed(2)} still to come)` })),
       commission_in: () =>
-        commissions.filter((c) => c.supplierId === supplierId && c.left > 0).map((c) => ({ id: c.key, label: `${c.label} (${c.left.toFixed(2)} owed)` })),
+        commissions.filter((c) => c.supplierId === supplierId && c.left > 0).map((c) => ({ id: c.key, label: `${c.label} (${amount(c.currency, c.left)} owed)` })),
       received: () => invoices.filter((i) => i.outstanding > 0).map((i) => ({ id: i.id, label: `Invoice ${i.number} (R ${i.outstanding.toFixed(2)} outstanding)` })),
       refund_out: () => creditNotes.filter((i) => i.outstanding > 0).map((i) => ({ id: i.id, label: `Credit note ${i.number} (R ${i.outstanding.toFixed(2)} to pay back)` })),
     })[kind]();

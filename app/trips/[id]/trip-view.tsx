@@ -33,10 +33,9 @@ export async function TripView({ id }: { id: string }) {
     .eq("id", id)
     .maybeSingle();
   if (!trip) notFound();
-  const { data: refunds } = await supabase.from("refund_totals").select("trip_id, refund_status, issued, approved, agency_fee, received, paid_back").eq("trip_id", id);
   const client = one(trip.clients);
 
-  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }] = await Promise.all([
+  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }, { data: refunds }] = await Promise.all([
     supabase
       .from("quotes")
       .select("id, quote_versions(id, version_no, pdf_path, created_at)")
@@ -53,6 +52,7 @@ export async function TripView({ id }: { id: string }) {
     supabase.from("travellers").select("id, first_name, last_name, date_of_birth").eq("client_id", client?.id).order("last_name").order("first_name"),
     supabase.from("trip_travellers").select("traveller_id").eq("trip_id", id).order("created_at"),
     supabase.rpc("traveller_flags", { p_client_id: client?.id }),
+    supabase.from("refund_totals").select("trip_id, refund_status, issued, approved, agency_fee, received, paid_back").eq("trip_id", id),
   ]);
   const flags = rawFlags as { traveller_id: string; identified: boolean }[] | null;
   const going = new Set((onTrip ?? []).map((r) => r.traveller_id));

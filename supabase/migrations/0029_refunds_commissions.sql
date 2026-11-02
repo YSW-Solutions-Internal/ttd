@@ -20,9 +20,9 @@
 
 -- ------------------------------------------------------------------ kinds
 alter table public.payments add column kind text;
-alter table public.payments disable trigger payments_history;
+alter table public.payments disable trigger payments_history, disable trigger payments_updated_at;
 update public.payments set kind = case side when 'supplier' then 'paid' else 'received' end;
-alter table public.payments enable trigger payments_history;
+alter table public.payments enable trigger payments_history, enable trigger payments_updated_at;
 alter table public.payments
   alter column kind set not null,
   add constraint payments_kind check (

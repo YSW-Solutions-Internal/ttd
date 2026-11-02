@@ -7,6 +7,7 @@ import { commissionOwed, refundState, type RefundStatus } from "@/lib/refunds";
 type Trip = { id: string; reference: string; title: string | null };
 
 /** Trips and Suppliers by id: PostgREST can't embed them through a view. */
+// shortcut: one .in() of open items' ids; split it into chunks if open Refunds ever number in the hundreds.
 async function names(tripIds: string[], supplierIds: string[]) {
   const supabase = await createClient();
   const [{ data: trips }, { data: suppliers }] = await Promise.all([

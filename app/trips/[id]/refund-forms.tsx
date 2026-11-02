@@ -52,13 +52,11 @@ export function CommissionForm({
           <input id={box} type="checkbox" name="deducted" checked={deducted} onChange={(e) => setDeducted(e.target.checked)} />
           <label htmlFor={box} className="m-0">Deducted from the Supplier payment</label>
         </p>
-        {!deducted && (
-          <div className="flex flex-wrap items-end gap-x-3">
-            <Field label="Claimed on" name="claimed_on" type="date" defaultValue={current?.claimedOn} />
-            <Field label="Claim reference" name="reference" defaultValue={current?.reference} />
-            <Field label="Due on" name="due_on" type="date" defaultValue={current?.dueOn} />
-          </div>
-        )}
+        <div className={deducted ? "hidden" : "flex flex-wrap items-end gap-x-3"}>
+          <Field label="Claimed on" name="claimed_on" type="date" defaultValue={current?.claimedOn} />
+          <Field label="Claim reference" name="reference" defaultValue={current?.reference} />
+          <Field label="Due on" name="due_on" type="date" defaultValue={current?.dueOn} />
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           <button type="submit" disabled={pending}>Save Commission</button>
           <Message state={state} />
