@@ -34,7 +34,7 @@ export async function TripView({ id }: { id: string }) {
   if (!trip) notFound();
   const client = one(trip.clients);
 
-  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: flags }] = await Promise.all([
+  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }] = await Promise.all([
     supabase
       .from("quotes")
       .select("id, quote_versions(id, version_no, pdf_path, created_at)")
@@ -50,8 +50,9 @@ export async function TripView({ id }: { id: string }) {
     supabase.from("destinations").select("code, name, country").order("name"),
     supabase.from("travellers").select("id, first_name, last_name, date_of_birth").eq("client_id", client?.id).order("last_name").order("first_name"),
     supabase.from("trip_travellers").select("traveller_id").eq("trip_id", id).order("created_at"),
-    supabase.from("traveller_flags").select("traveller_id, identified").eq("client_id", client?.id),
+    supabase.rpc("traveller_flags", { p_client_id: client?.id }),
   ]);
+  const flags = rawFlags as { traveller_id: string; identified: boolean }[] | null;
   const going = new Set((onTrip ?? []).map((r) => r.traveller_id));
   const unidentified = new Set((flags ?? []).filter((f) => !f.identified).map((f) => f.traveller_id));
   const tripTravellers = (travellers ?? []).filter((t) => going.has(t.id));
