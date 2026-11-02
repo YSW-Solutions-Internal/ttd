@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { itemTotal, money, num, totalText } from "./money.ts";
+import { cardSurcharge, feeUnits, itemTotal, money, num, totalText } from "./money.ts";
 
 test("num reads numbers from JSON", () => {
   assert.equal(num("3 980.40"), 3980.4);
@@ -33,4 +33,15 @@ test("a missing price is On request, never R 0.00 plus fees", () => {
   assert.equal(itemTotal({ price: null, transaction_fee: 150 }), null);
   assert.equal(totalText({ transaction_fee: 150 }), "On request");
   assert.equal(totalText({ price: 0 }), "R 0.00");
+});
+
+test("feeUnits and Card surcharge", () => {
+  assert.equal(feeUnits("extra", { extra_type: "conference", people: 12 }), 12);
+  assert.equal(feeUnits("extra", { extra_type: "preseat", people: 12 }), 1);
+  assert.equal(feeUnits("hotel", { rooms: 2 }), 2);
+  assert.equal(feeUnits("hotel", { rooms: 0 }), 1);
+  assert.equal(itemTotal({ price: 0, transaction_fee: 230, markup: 0 }, 12), 2760);
+  assert.equal(cardSurcharge({ price: 1000, transaction_fee: 300, markup: 100, card_paid: true }, 3, 0.0275), 55);
+  assert.equal(cardSurcharge({ price: 1000, card_paid: false }, 1, 0.0275), null);
+  assert.equal(itemTotal({ price: 1000, transaction_fee: 0, markup: 0, card_paid: true, card_surcharge: 27.5 }), 1027.5);
 });

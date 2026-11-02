@@ -14,6 +14,8 @@ export type Priced = {
   transaction_fee?: Amount;
   prepayment_fee?: Amount;
   prepaid?: boolean;
+  card_paid?: boolean | null;
+  card_surcharge?: Amount;
   change_fee?: Amount;
   refund_fee?: Amount;
 };

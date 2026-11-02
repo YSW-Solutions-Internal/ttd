@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
 import { everyRow, one } from "@/lib/relations";
 import { awaitingQueue, STAGE_LABEL } from "@/lib/invoicing";
+import { TABLE_KIND } from "@/lib/extraction/tables";
 import { TABS } from "@/app/quotes/[id]/edit-section";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { loadBillables, type Billable } from "@/app/trips/[id]/invoicing-data";
@@ -81,8 +82,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       quotes.map(async (q) => {
         const items = new Map(
           TABS.flatMap(([t]) =>
-            ((q[t] ?? []) as Record<string, unknown>[]).map(
-              (row) => [String(row.entity_id), { row, label: [ITEM_LABEL[t], row.label ?? row.name].filter(Boolean).join(": ") }] as const,
+            (((q as Record<string, unknown>)[t] ?? []) as Record<string, unknown>[]).map(
+              (row) => [String(row.entity_id), { row, kind: TABLE_KIND[t], label: [ITEM_LABEL[t], row.label ?? row.name].filter(Boolean).join(": ") }] as const,
             ),
           ),
         );

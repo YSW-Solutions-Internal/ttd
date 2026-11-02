@@ -1,5 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
-import { itemTotal } from "@/lib/pdf/money";
+import { feeUnits, itemTotal } from "@/lib/pdf/money";
 import { one } from "@/lib/relations";
 import { supplierCharges } from "@/lib/booking";
 import { changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, itemExpectsInvoice, type InvoiceStatus, type Side, type Stage } from "@/lib/invoicing";
@@ -44,7 +44,7 @@ export type Billable = {
 export async function loadBillables(
   supabase: Supabase,
   quoteId: string,
-  items: Map<string, { row: Row; label: string }>,
+  items: Map<string, { row: Row; label: string; kind: string }>,
   sign = true, // signed PDF links; /accounts shows none
 ): Promise<Billable[]> {
   const [{ data: bookings }, { data: changes }, { data: links }] = await Promise.all([
@@ -112,7 +112,7 @@ export async function loadBillables(
     const item = items.get(b.entity_id);
     const head = `${item?.label ?? "Item"} · ${one(b.suppliers)?.name ?? ""} ${b.booking_reference}`;
     const mine = (changes ?? []).filter((c) => c.entity_id === b.entity_id);
-    const total = item ? itemTotal(item.row, Number(item.row.rooms ?? 1)) ?? 0 : 0;
+    const total = item ? itemTotal(item.row, feeUnits(item.kind, item.row)) ?? 0 : 0;
     const state = { issued: b.issued_at != null, cancelled: mine.some((c) => c.kind === "cancellation") };
     // A deducted Commission is what the Supplier is not paid.
     const due = Number(b.amount) - (b.commission_deducted ? Number(b.commission) : 0);

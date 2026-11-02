@@ -87,7 +87,7 @@ export async function EditSection({
   const billables = await loadBillables(
     supabase,
     quoteId,
-    new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table] }])),
+    new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table], kind: TABLE_KIND[table] }])),
   );
 
   const imageById = new Map(images.map((img, i) => [img.id, { ...img, order: i }]));

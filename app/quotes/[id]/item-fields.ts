@@ -14,6 +14,10 @@ export const ITEM_LABEL: Record<ItemTable, string> = {
   transfers: "Transfer",
   rail_journeys: "Rail journey",
   excursions: "Experience",
+  packages: "Package",
+  visas: "Visa",
+  insurance_policies: "Insurance",
+  extras: "Extra",
 };
 
 export const ITEM_FIELDS: Record<ItemTable, Field[]> = {
@@ -75,6 +79,11 @@ export const ITEM_FIELDS: Record<ItemTable, Field[]> = {
     t("end_date", "End date", "date"),
     t("end_time", "End time", "time"),
   ],
+  // Fields for the new kinds come with the forms (later task).
+  packages: [],
+  visas: [],
+  insurance_policies: [],
+  extras: [],
 };
 
 /** Every Item has these (migration 0009). Fee region, variant and the fees are drawn separately. */

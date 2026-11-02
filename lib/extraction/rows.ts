@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { applyFees, autoRegion, fillYear, type FeeRate, type Stay } from "../fees.ts";
-import { TABLE_KIND, type ItemTable } from "./tables.ts";
+import { EXTRACTED_KIND, type ItemTable } from "./tables.ts";
 import { fillFlightNames, type Place } from "../codes.ts";
 import type { ExtractedItem } from "./types";
 
@@ -25,7 +25,7 @@ export type ItemRows = Record<
 export function priceRows(rows: ItemRows, stays: Stay[], rates: FeeRate[], places: Map<string, Place>): ItemRows {
   for (const f of rows.flights) fillFlightNames(f, places);
   const airports = new Map([...places].map(([code, p]) => [code, p.country]));
-  for (const [table, kind] of Object.entries(TABLE_KIND) as [ItemTable, string][]) {
+  for (const [table, kind] of Object.entries(EXTRACTED_KIND) as [keyof typeof EXTRACTED_KIND, string][]) {
     for (const row of rows[table]) {
       const flights = kind === "flight" ? rows.flights.filter((f) => f.flight_option_id === row.id) : [];
       applyFees(kind, row, null, autoRegion(kind, row, flights, stays, airports), rates);
