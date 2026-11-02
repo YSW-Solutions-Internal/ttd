@@ -346,7 +346,7 @@ end $$;
 -- One row per Refund: approved, received and paid back, all in Rand.
 -- Paid back: each credit note's refund-out money, shared by what it credits for this Cancellation.
 create view public.refund_totals with (security_invoker = true) as
-select q.trip_id, c.quote_id, c.entity_id, c.id as change_id, b.supplier_id, c.happened_on,
+select q.trip_id, c.quote_id, c.entity_id, c.id as change_id, b.supplier_id, b.booking_reference, c.happened_on,
        c.refund_status, c.refund_requested_on, c.refund_reference, c.expected_refund,
        coalesce(c.refund_approved, c.expected_refund) as approved, c.agency_fee,
        public.refund_received(c.id) as received,
@@ -363,7 +363,7 @@ select q.trip_id, c.quote_id, c.entity_id, c.id as change_id, b.supplier_id, c.h
 
 -- One row per Commission, received in the booked currency.
 create view public.commission_totals with (security_invoker = true) as
-select q.trip_id, b.quote_id, b.entity_id, b.supplier_id, b.currency, b.commission, b.commission_note,
+select q.trip_id, b.quote_id, b.entity_id, b.supplier_id, b.booking_reference, b.currency, b.commission, b.commission_note,
        b.commission_deducted, b.commission_claimed_on, b.commission_claim_reference, b.commission_due_on,
        public.item_linked(b.quote_id, b.entity_id, 'commission_in') as received
   from public.item_bookings b
