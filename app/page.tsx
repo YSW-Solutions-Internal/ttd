@@ -57,7 +57,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   if (client) query = query.eq("client_id", client);
   if (consultant) query = query.eq("clients.consultant_id", consultant);
   // shortcut: every Refund row, not just this page's Trips; filter by trip ids once there are thousands of Cancellations.
-  const [{ data: trips, error }, { data: refunds }] = await Promise.all([query, supabase.from("refund_totals").select("trip_id, refund_status, approved, agency_fee, received, paid_back")]);
+  const [{ data: trips, error }, { data: refunds }] = await Promise.all([query, supabase.from("refund_totals").select("trip_id, refund_status, issued, approved, agency_fee, received, paid_back")]);
   const refundOpen = openRefundTrips(refunds ?? []);
 
   const consultantName = (t: NonNullable<typeof trips>[number]) => {

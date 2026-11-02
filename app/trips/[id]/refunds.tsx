@@ -20,7 +20,7 @@ export function RefundsAndCommissions({ quoteId, billables, refunds, commissions
       {refunds.length > 0 && <h2>Refunds</h2>}
       {refunds.map((r) => {
         const status = (r.refund_status ?? "requested") as RefundStatus;
-        const s = refundState({ refund_status: status, approved: num(r.approved), agency_fee: num(r.agency_fee), received: num(r.received), paid_back: num(r.paid_back) });
+        const s = refundState({ refund_status: status, issued: r.issued === true, approved: num(r.approved), agency_fee: num(r.agency_fee), received: num(r.received), paid_back: num(r.paid_back) });
         return (
           <section key={str(r.change_id)} className="mb-3 rounded-md border border-line bg-white p-4">
             <div className="mb-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -30,8 +30,14 @@ export function RefundsAndCommissions({ quoteId, billables, refunds, commissions
               {s.outOfPocket && <Badge tone="danger">Out of pocket</Badge>}
             </div>
             <p className="tabular-nums text-[13px]">
-              Expected {rand(num(r.expected_refund))} · Approved {rand(num(r.approved))} · Received {rand(num(r.received))} · Fee {rand(num(r.agency_fee))} · Due back to the Client{" "}
-              {rand(s.dueBack)} · Paid back {rand(num(r.paid_back))}
+              Expected {rand(num(r.expected_refund))} · Approved {rand(num(r.approved))} · Received {rand(num(r.received))} · Fee {rand(num(r.agency_fee))} ·{" "}
+              {r.issued ? (
+                <>
+                  Due back to the Client {rand(s.dueBack)} · Paid back {rand(num(r.paid_back))}
+                </>
+              ) : (
+                "Cancelled before issue: the Client gets their money back on a credit note for the Item"
+              )}
             </p>
             <RefundForm
               // Remount after a save: a reset form would otherwise show (and resend) the values it opened with.

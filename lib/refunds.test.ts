@@ -9,7 +9,7 @@ const form = (o: Record<string, string>) => {
 };
 
 test("a Refund closes once received and paid back are complete, or once Declined", () => {
-  const r = { refund_status: "approved" as const, approved: 5000, agency_fee: 350, received: 5000, paid_back: 4650 };
+  const r = { refund_status: "approved" as const, issued: true, approved: 5000, agency_fee: 350, received: 5000, paid_back: 4650 };
   assert.deepEqual(refundState(r), { open: false, outOfPocket: false, dueBack: 4650 });
   assert.equal(refundState({ ...r, paid_back: 4000 }).open, true);
   assert.equal(refundState({ ...r, received: 4999.996 }).open, false); // rounding
@@ -18,7 +18,17 @@ test("a Refund closes once received and paid back are complete, or once Declined
 });
 
 test("paying the Client back before the Supplier refunds is out of pocket", () => {
-  assert.equal(refundState({ refund_status: null, approved: 5000, agency_fee: 350, received: 0, paid_back: 4650 }).outOfPocket, true);
+  assert.equal(refundState({ refund_status: null, issued: true, approved: 5000, agency_fee: 350, received: 0, paid_back: 4650 }).outOfPocket, true);
+});
+
+test("before issue nothing is due back through the Refund; it closes once the Supplier has paid", () => {
+  const r = { refund_status: "approved" as const, issued: false, approved: 5000, agency_fee: 350, received: 5000, paid_back: 0 };
+  assert.deepEqual(refundState(r), { open: false, outOfPocket: false, dueBack: 0 });
+  assert.equal(refundState({ ...r, received: 0 }).open, true);
+});
+
+test("an approved amount below the fee leaves nothing due back", () => {
+  assert.equal(refundState({ refund_status: "approved", issued: true, approved: 200, agency_fee: 350, received: 0, paid_back: 0 }).dueBack, 0);
 });
 
 test("a deducted Commission is never owed; a claimed one is owed until received", () => {
@@ -44,7 +54,7 @@ test("parseRefund needs a known status and a non-negative approved amount", () =
 });
 
 test("a Trip has an open Refund while any of its Refunds is open", () => {
-  const row = { trip_id: "t1", refund_status: null, approved: 100, agency_fee: 0, received: 0, paid_back: 0 };
+  const row = { trip_id: "t1", refund_status: null, issued: true, approved: 100, agency_fee: 0, received: 0, paid_back: 0 };
   const closed = { ...row, trip_id: "t2", received: 100, paid_back: 100 };
   assert.deepEqual([...openRefundTrips([row, closed, { ...closed, trip_id: "t3", refund_status: "declined" }])], ["t1"]);
 });

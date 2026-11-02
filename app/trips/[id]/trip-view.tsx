@@ -33,7 +33,7 @@ export async function TripView({ id }: { id: string }) {
     .eq("id", id)
     .maybeSingle();
   if (!trip) notFound();
-  const { data: refunds } = await supabase.from("refund_totals").select("trip_id, refund_status, approved, agency_fee, received, paid_back").eq("trip_id", id);
+  const { data: refunds } = await supabase.from("refund_totals").select("trip_id, refund_status, issued, approved, agency_fee, received, paid_back").eq("trip_id", id);
   const client = one(trip.clients);
 
   const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }] = await Promise.all([

@@ -12,23 +12,26 @@ const text = (fd: FormData, name: string) => String(fd.get(name) ?? "").trim();
 const date = (fd: FormData, name: string) => (/^\d{4}-\d{2}-\d{2}$/.test(text(fd, name)) ? text(fd, name) : null);
 
 /**
- * Where a Refund stands, all in Rand. The Client gets back the approved amount less the
- * agency's fee; open until that is paid back and the Supplier has refunded, or Declined.
+ * Where a Refund stands, all in Rand. Cancelled after issue, the Client gets back the approved
+ * amount less the agency's fee (never below nothing); before issue, the Item's credit note gives
+ * the Client their money back, so nothing is due back here. Open until the Supplier has refunded
+ * and what is due back is paid back, or Declined.
  */
-export function refundState(r: { refund_status: RefundStatus | null; approved: number; agency_fee: number; received: number; paid_back: number }) {
-  const dueBack = round(r.approved - r.agency_fee);
+export function refundState(r: { refund_status: RefundStatus | null; issued: boolean; approved: number; agency_fee: number; received: number; paid_back: number }) {
+  const dueBack = r.issued ? Math.max(0, round(r.approved - r.agency_fee)) : 0;
   const open = r.refund_status !== "declined" && !(reached(r.received, r.approved) && reached(r.paid_back, dueBack));
   return { open, outOfPocket: r.paid_back > r.received + 0.005, dueBack };
 }
 
 /** The Trips with an open Refund, from refund_totals rows (numbers may arrive as strings). */
-export function openRefundTrips(rows: { trip_id: string; refund_status: string | null; approved: unknown; agency_fee: unknown; received: unknown; paid_back: unknown }[]) {
+export function openRefundTrips(rows: { trip_id: string; refund_status: string | null; issued: boolean; approved: unknown; agency_fee: unknown; received: unknown; paid_back: unknown }[]) {
   return new Set(
     rows
       .filter(
         (r) =>
           refundState({
             refund_status: r.refund_status as RefundStatus | null,
+            issued: r.issued,
             approved: Number(r.approved),
             agency_fee: Number(r.agency_fee),
             received: Number(r.received),

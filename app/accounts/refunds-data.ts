@@ -27,7 +27,7 @@ export async function loadRefundQueue() {
     .map((r) => {
       const status = (r.refund_status ?? "requested") as RefundStatus;
       const money = { approved: Number(r.approved), agency_fee: Number(r.agency_fee), received: Number(r.received), paid_back: Number(r.paid_back) };
-      return { ...r, ...money, status, since: String(r.refund_requested_on ?? r.happened_on), ...refundState({ refund_status: status, ...money }) };
+      return { ...r, ...money, status, since: String(r.refund_requested_on ?? r.happened_on), ...refundState({ refund_status: status, issued: r.issued === true, ...money }) };
     })
     .filter((r) => r.open)
     .sort((a, b) => Number(b.outOfPocket) - Number(a.outOfPocket) || a.since.localeCompare(b.since));

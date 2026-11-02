@@ -122,7 +122,7 @@ export async function loadBillables(
         b,
         c.id,
         `${head} · ${c.kind === "cancellation" ? "Cancellation" : "Change"} ${c.happened_on}${c.description ? `: ${c.description}` : ""}`,
-        changeCharge(c),
+        changeCharge(c, state.issued),
         c.no_supplier_invoice,
         expectsSupplierInvoice(c),
         c.expected_invoice_on,

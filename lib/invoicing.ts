@@ -56,14 +56,19 @@ export function parseLinkAmount(raw: string, credit: boolean): number {
 
 type ChangeRow = Pick<ChangeValues, "kind" | "extra_fare" | "extra_taxes" | "supplier_penalty" | "rate" | "agency_fee" | "markup" | "expected_refund"> & {
   refund_status?: string | null;
+  refund_approved?: number | null;
 };
 
 /**
- * What a Change costs the Client in Rand. A Cancellation with a refund expected is not
- * invoiced: its fee comes off the Refund instead, unless the Supplier declines it.
+ * What a Change costs the Client in Rand. Cancelled after issue with a Refund (not Declined),
+ * the Cancellation credits the Client the approved amount less the agency's fee (negative: a
+ * credit note due), or invoices the fee the refund does not cover. Before issue, the Item's
+ * own credit gives the Client their money back, so the Cancellation invoices its charges.
  */
-export function changeCharge(c: ChangeRow): number {
-  if (c.kind === "cancellation" && Number(c.expected_refund) > 0 && c.refund_status !== "declined") return 0;
+export function changeCharge(c: ChangeRow, issued: boolean): number {
+  if (issued && c.kind === "cancellation" && Number(c.expected_refund) > 0 && c.refund_status !== "declined") {
+    return round(Number(c.agency_fee) - Number(c.refund_approved ?? c.expected_refund));
+  }
   return changeTotal(c);
 }
 

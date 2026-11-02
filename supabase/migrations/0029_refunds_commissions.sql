@@ -343,10 +343,11 @@ begin
 end $$;
 
 -- ------------------------------------------------------------------ totals
--- One row per Refund: approved, received and paid back, all in Rand.
+-- One row per Refund: approved, received and paid back, all in Rand. Before issue nothing is
+-- paid back through it: the Item's own credit note gives the Client their money back.
 -- Paid back: each credit note's refund-out money, shared by what it credits for this Cancellation.
 create view public.refund_totals with (security_invoker = true) as
-select q.trip_id, c.quote_id, c.entity_id, c.id as change_id, b.supplier_id, b.booking_reference, c.happened_on,
+select q.trip_id, c.quote_id, c.entity_id, c.id as change_id, b.supplier_id, b.booking_reference, b.issued_at is not null as issued, c.happened_on,
        c.refund_status, c.refund_requested_on, c.refund_reference, c.expected_refund,
        c.refund_approved, coalesce(c.refund_approved, c.expected_refund) as approved, c.agency_fee,
        public.refund_received(c.id) as received,
