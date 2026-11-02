@@ -51,17 +51,37 @@ export function AddPaymentForm({ tripId, side, suppliers, accounts, landing }: {
   const supplier = side === "supplier";
   const [chosen, setChosen] = useState(accounts[0]?.id ?? "");
   const lands = accounts.find((a) => a.id === chosen)?.lands ?? false;
+  const [currency, setCurrency] = useState("ZAR");
+  const uid = useId();
   if (supplier && suppliers.length === 0) return null;
   return (
     <details className="mt-3 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
       <summary className="cursor-pointer font-semibold text-teal-deep">{supplier ? "Record a Payment to or from a Supplier" : "Record a Payment from or to the Client"}</summary>
-      <form {...kept} onReset={() => setChosen(accounts[0]?.id ?? "")} className="mt-3">
+      <form
+        {...kept}
+        onReset={() => {
+          setChosen(accounts[0]?.id ?? "");
+          setCurrency("ZAR");
+        }}
+        className="mt-3"
+      >
         <div className="flex flex-wrap items-end gap-x-3">
           <Select label="What" name="kind" options={KINDS[side].map((k) => ({ id: k, label: PAYMENT_KIND_LABEL[k] }))} required />
           {supplier && <Select label="Supplier" name="supplier_id" options={suppliers} required />}
           <Field label="Date" name="paid_on" type="date" defaultValue={today()} required />
-          {supplier && <Field label="Currency" name="currency" defaultValue="ZAR" required />}
-          {supplier && <Field label="Rate to Rand (not for Rand)" name="rate" type="number" />}
+          {supplier && (
+            <div className="mb-3 min-w-[90px] flex-none">
+              <label htmlFor={`${uid}-cur`}>Currency</label>
+              <input id={`${uid}-cur`} name="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} maxLength={3} size={4} required />
+            </div>
+          )}
+          {/* Like booking: the rate is asked for only when the money is not in Rand. */}
+          {supplier && currency.trim().toUpperCase() !== "ZAR" && (
+            <div className="mb-3 min-w-[150px] flex-1">
+              <label htmlFor={`${uid}-rate`}>Rate to Rand</label>
+              <input id={`${uid}-rate`} name="rate" type="number" step="any" min="0" required />
+            </div>
+          )}
           <Field label={supplier ? "Amount" : "Amount (R)"} name="amount" type="number" required />
           <Select label={supplier ? "Paid with" : "Paid by"} name="account_id" options={accounts} required onChange={setChosen} />
           {lands && landing.length > 0 && <Select label="Into" name="landed_account_id" options={landing} required />}
