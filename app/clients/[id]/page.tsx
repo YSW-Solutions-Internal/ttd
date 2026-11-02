@@ -10,6 +10,7 @@ import type { IdentityValues } from "@/lib/identity";
 import { FileLink } from "@/app/file-viewer";
 import { isImage } from "@/lib/files";
 import { BUTTON, TripStatusBadge } from "@/app/ui";
+import { AccountList } from "@/app/admin/payment-accounts/account-list";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   if (!client) notFound();
   const consultant = one(client.profiles);
 
-  const [{ data: documents }, { data: trips }, { data: profiles }, { data: travellers }, { data: flags }, { data: identities }] = await Promise.all([
+  const [{ data: documents }, { data: trips }, { data: profiles }, { data: travellers }, { data: rawFlags }, { data: identities }] = await Promise.all([
     supabase
       .from("client_documents")
       .select("id, filename, created_at, profiles(full_name, email)")
@@ -49,13 +50,14 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       .eq("client_id", id)
       .order("last_name")
       .order("first_name"),
-    supabase.from("traveller_flags").select("traveller_id, identified").eq("client_id", id),
+    supabase.rpc("traveller_flags", { p_client_id: id }),
     // RLS returns these only to the Consultant and admins.
     supabase
       .from("identity_documents")
       .select("id, traveller_id, kind, number, nationality, issued_on, expires_on, name_as_printed, image_path, travellers!inner(client_id)")
       .eq("travellers.client_id", id),
   ]);
+  const flags = rawFlags as { traveller_id: string; identified: boolean }[] | null;
   // RLS keeps documents to the Consultant and Administrators (ADR 0010); this only hides the empty section.
   const seesDocuments = me.role === "admin" || client.consultant_id === me.id;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }); // YYYY-MM-DD
@@ -127,6 +129,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           </tbody>
         </table>
       )}
+
+      <h2>Payment accounts</h2>
+      <p className="mb-3 text-muted">How this Client pays, by nickname only. EFT is there from the start; Administrators add cards and Cash.</p>
+      <AccountList clientId={client.id} admin={me.role === "admin"} />
 
       <div className="mt-8 mb-2.5 flex flex-wrap items-end justify-between gap-3">
         <h2 className="m-0">Trips</h2>

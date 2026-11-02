@@ -11,8 +11,6 @@ import { StayRow } from "./stays-form";
 import { TripForm } from "./trip-form";
 import { AddTravellerForm } from "@/app/clients/travellers";
 import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
-import { Invoices } from "./invoices";
-import { loadBillables } from "./invoicing-data";
 import { FileLink } from "@/app/file-viewer";
 import { Badge, BUTTON, Button, Msg, TripStatusBadge } from "@/app/ui";
 import { StaysArc } from "./stays-arc";
@@ -36,7 +34,7 @@ export async function TripView({ id }: { id: string }) {
   if (!trip) notFound();
   const client = one(trip.clients);
 
-  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: flags }] = await Promise.all([
+  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }] = await Promise.all([
     supabase
       .from("quotes")
       .select("id, quote_versions(id, version_no, pdf_path, created_at)")
@@ -52,8 +50,9 @@ export async function TripView({ id }: { id: string }) {
     supabase.from("destinations").select("code, name, country").order("name"),
     supabase.from("travellers").select("id, first_name, last_name, date_of_birth").eq("client_id", client?.id).order("last_name").order("first_name"),
     supabase.from("trip_travellers").select("traveller_id").eq("trip_id", id).order("created_at"),
-    supabase.from("traveller_flags").select("traveller_id, identified").eq("client_id", client?.id),
+    supabase.rpc("traveller_flags", { p_client_id: client?.id }),
   ]);
+  const flags = rawFlags as { traveller_id: string; identified: boolean }[] | null;
   const going = new Set((onTrip ?? []).map((r) => r.traveller_id));
   const unidentified = new Set((flags ?? []).filter((f) => !f.identified).map((f) => f.traveller_id));
   const tripTravellers = (travellers ?? []).filter((t) => going.has(t.id));
@@ -78,12 +77,6 @@ export async function TripView({ id }: { id: string }) {
   });
   const blockers = quote ? problems({ ...items, flights: [] }) : [];
 
-  const itemsById = new Map(
-    TABS.flatMap(([t]) => items[t].map((row) => [String(row.entity_id), { row, label: [ITEM_LABEL[t], row.label ?? row.name].filter(Boolean).join(": ") }] as const)),
-  );
-  const billables = quote ? await loadBillables(supabase, quote.id, itemsById) : [];
-  const admin = me?.role === "admin";
-  const canAddInvoice = admin || ["booked", "travelled", "cancelled"].includes(trip.status) || client?.consultant_id === me?.id;
 
   // Private bucket: a short-lived signed link for the latest Version's PDF (the editor lists them all).
   const pdfUrls = new Map<string, string>();
@@ -221,16 +214,10 @@ export async function TripView({ id }: { id: string }) {
 
       {quote && <QuoteEditor quoteId={quote.id} trip={trip} />}
 
-      {quote && (
-        <Invoices
-          tripId={trip.id}
-          quoteId={quote.id}
-          billables={billables}
-          canAdd={canAddInvoice}
-          accounts={admin || me?.role === "accountant"}
-          admin={admin}
-        />
-      )}
+      <h2>Accounts</h2>
+      <p className="mb-3">
+        Supplier and Client invoices and Payments are on the <Link href={`/trips/${trip.id}/accounts`}>Trip&apos;s accounts page</Link>.
+      </p>
 
       <History tripId={trip.id} />
     </>

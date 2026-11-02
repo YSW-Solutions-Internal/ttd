@@ -64,6 +64,7 @@ export function NavShell({
       ? [
           { href: "/admin/users", label: "Users", active: path.startsWith("/admin/users") },
           { href: "/admin/suppliers", label: "Suppliers", active: path.startsWith("/admin/suppliers") },
+          { href: "/admin/payment-accounts", label: "Payment accounts", active: path.startsWith("/admin/payment-accounts") },
         ]
       : []),
   ];

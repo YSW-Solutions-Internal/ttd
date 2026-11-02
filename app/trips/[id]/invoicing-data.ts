@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { itemTotal } from "@/lib/pdf/money";
 import { one } from "@/lib/relations";
+import { supplierCharges } from "@/lib/booking";
 import { changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, itemExpectsInvoice, type InvoiceStatus, type Side, type Stage } from "@/lib/invoicing";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -30,6 +31,8 @@ export type Billable = {
   noneExpectedFlag: boolean;
   expectsInvoice: boolean; // a Supplier invoice is due: not flagged, and has Supplier charges
   expectedOn: string | null; // when the Supplier invoice is expected
+  currency: string; // the Supplier's, as booked
+  supplierDue: number; // what the Supplier charges for it, in that currency
   links: LinkedInvoice[];
 };
 
@@ -45,7 +48,7 @@ export async function loadBillables(
   sign = true, // signed PDF links; /accounts shows none
 ): Promise<Billable[]> {
   const [{ data: bookings }, { data: changes }, { data: links }] = await Promise.all([
-    supabase.from("item_bookings").select("entity_id, supplier_id, booking_reference, no_supplier_invoice, expected_invoice_on, issued_at, suppliers(name)").eq("quote_id", quoteId),
+    supabase.from("item_bookings").select("entity_id, supplier_id, booking_reference, no_supplier_invoice, expected_invoice_on, issued_at, currency, amount, suppliers(name)").eq("quote_id", quoteId),
     supabase.from("item_changes").select("*").eq("quote_id", quoteId).order("happened_on").order("created_at"),
     supabase
       .from("invoice_links")
@@ -71,7 +74,17 @@ export async function loadBillables(
         return [{ linkId: l.id, invoiceId: i.id, side: i.side, number: i.number, amount: Number(l.amount), currency: i.currency, status: i.status, url: urls.get(i.file_path) }];
       });
 
-  const billable = (b: NonNullable<typeof bookings>[number], changeId: string | null, label: string, charge: number, flag: boolean, expects: boolean, expectedOn: string | null): Billable => {
+  const billable = (
+    b: NonNullable<typeof bookings>[number],
+    changeId: string | null,
+    label: string,
+    charge: number,
+    flag: boolean,
+    expects: boolean,
+    expectedOn: string | null,
+    currency: string,
+    supplierDue: number,
+  ): Billable => {
     const ls = linked(b.entity_id, changeId);
     return {
       key: changeId ? `${b.entity_id}|${changeId}` : b.entity_id,
@@ -83,6 +96,8 @@ export async function loadBillables(
       noneExpectedFlag: flag,
       expectsInvoice: expects && !flag,
       expectedOn,
+      currency,
+      supplierDue,
       links: ls,
       ...invoicingStage({
         charge,
@@ -99,7 +114,7 @@ export async function loadBillables(
     const mine = (changes ?? []).filter((c) => c.entity_id === b.entity_id);
     const total = item ? itemTotal(item.row, Number(item.row.rooms ?? 1)) ?? 0 : 0;
     const state = { issued: b.issued_at != null, cancelled: mine.some((c) => c.kind === "cancellation") };
-    const own = billable(b, null, head, itemCharge(total, state), b.no_supplier_invoice, itemExpectsInvoice(state), b.expected_invoice_on);
+    const own = billable(b, null, head, itemCharge(total, state), b.no_supplier_invoice, itemExpectsInvoice(state), b.expected_invoice_on, b.currency, Number(b.amount));
     const ofItem = mine.map((c) =>
       billable(
         b,
@@ -109,6 +124,8 @@ export async function loadBillables(
         c.no_supplier_invoice,
         expectsSupplierInvoice(c),
         c.expected_invoice_on,
+        c.currency,
+        supplierCharges(c),
       ),
     );
     return [own, ...ofItem];
