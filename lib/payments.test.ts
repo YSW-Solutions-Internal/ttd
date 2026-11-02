@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { csvLine, parsePayment, statementMonth } from "./payments.ts";
+import { csvLine, moneyIn, parsePayment, statementMonth } from "./payments.ts";
 
 const form = (o: Record<string, string>) => {
   const fd = new FormData();
@@ -14,6 +14,17 @@ test("a Client Payment is in Rand whatever was typed; a Supplier one needs its S
   assert.throws(() => parsePayment(form({ paid_on: "2026-10-30", amount: "10", account_id: "a" }), "supplier"), /Supplier/);
   assert.throws(() => parsePayment(form({ paid_on: "2026-10-30", amount: "10", account_id: "a", supplier_id: "s", currency: "USD" }), "supplier"), /Rate/);
   assert.throws(() => parsePayment(form({ paid_on: "2026-10-30", amount: "-10", account_id: "a" }), "client"), /above 0/);
+});
+
+test("a Payment's kind defaults by side and must belong to it; money in or out follows the kind", () => {
+  const base = { paid_on: "2026-11-02", amount: "10", account_id: "a", supplier_id: "s" };
+  assert.equal(parsePayment(form(base), "supplier").kind, "paid");
+  assert.equal(parsePayment(form(base), "client").kind, "received");
+  assert.equal(parsePayment(form({ ...base, kind: "commission_in" }), "supplier").kind, "commission_in");
+  assert.throws(() => parsePayment(form({ ...base, kind: "refund_out" }), "supplier"), /kind/i);
+  assert.equal(moneyIn("refund_in"), true);
+  assert.equal(moneyIn("refund_out"), false);
+  assert.equal(moneyIn("paid"), false);
 });
 
 test("statement months run to the first of the next month, December included", () => {

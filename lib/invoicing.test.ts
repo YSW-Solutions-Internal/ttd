@@ -21,6 +21,7 @@ test("a Cancellation with a refund is not invoiced; without one, its penalty and
   const c = { kind: "cancellation" as const, extra_fare: 0, extra_taxes: 0, supplier_penalty: 10, rate: 18, agency_fee: 300, markup: 0, expected_refund: 4000 };
   assert.equal(changeCharge(c), 0);
   assert.equal(changeCharge({ ...c, expected_refund: 0 }), 480);
+  assert.equal(changeCharge({ ...c, refund_status: "declined" }), 480); // nothing for the fee to come off
   assert.equal(expectsSupplierInvoice({ ...c, supplier_penalty: 0 }), false);
 });
 

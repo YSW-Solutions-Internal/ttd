@@ -54,14 +54,16 @@ export function parseLinkAmount(raw: string, credit: boolean): number {
   return credit ? -Math.abs(n) : Math.abs(n);
 }
 
-type ChangeRow = Pick<ChangeValues, "kind" | "extra_fare" | "extra_taxes" | "supplier_penalty" | "rate" | "agency_fee" | "markup" | "expected_refund">;
+type ChangeRow = Pick<ChangeValues, "kind" | "extra_fare" | "extra_taxes" | "supplier_penalty" | "rate" | "agency_fee" | "markup" | "expected_refund"> & {
+  refund_status?: string | null;
+};
 
 /**
  * What a Change costs the Client in Rand. A Cancellation with a refund expected is not
- * invoiced: its fee comes off the Refund instead.
+ * invoiced: its fee comes off the Refund instead, unless the Supplier declines it.
  */
 export function changeCharge(c: ChangeRow): number {
-  if (c.kind === "cancellation" && Number(c.expected_refund) > 0) return 0;
+  if (c.kind === "cancellation" && Number(c.expected_refund) > 0 && c.refund_status !== "declined") return 0;
   return changeTotal(c);
 }
 
