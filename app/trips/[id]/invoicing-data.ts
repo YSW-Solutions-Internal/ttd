@@ -110,7 +110,7 @@ export async function loadBillables(
 
   return (bookings ?? []).flatMap((b) => {
     const item = items.get(b.entity_id);
-    const head = `${item?.label ?? "Item"} · ${one(b.suppliers)?.name ?? ""} ${b.booking_reference}`;
+    const head = [item?.label ?? "Item", one(b.suppliers)?.name, b.booking_reference].filter(Boolean).join(" · ");
     const mine = (changes ?? []).filter((c) => c.entity_id === b.entity_id);
     const total = item ? itemTotal(item.row, feeUnits(item.kind, item.row)) ?? 0 : 0;
     const state = { issued: b.issued_at != null, cancelled: mine.some((c) => c.kind === "cancellation") };

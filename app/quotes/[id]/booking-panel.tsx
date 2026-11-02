@@ -5,7 +5,7 @@ import { ConfirmButton } from "@/app/confirm-button";
 import { cancellationFee, changeTotal } from "@/lib/booking";
 import { STAGE_LABEL, STATUS_LABEL } from "@/lib/invoicing";
 import type { Billable } from "@/app/trips/[id]/invoicing-data";
-import { addChange, bookItem, correctBooking, markIssued, unbookItem, type BookingFormState } from "./booking-actions";
+import { addChange, bookItem, bookOwnExtra, correctBooking, markIssued, unbookItem, type BookingFormState } from "./booking-actions";
 import { useKeptForm } from "@/app/kept-form";
 import { FileLink } from "@/app/file-viewer";
 import { Badge, Msg } from "@/app/ui";
@@ -156,6 +156,7 @@ export function BookingPanel({
 }) {
   const flight = kind === "flight";
   const [bookState, book, bookPending] = useActionState(bookItem.bind(null, quoteId, entityId, kind), {});
+  const [ownState, bookOwn, ownPending] = useActionState(bookOwnExtra.bind(null, quoteId, entityId), {});
   const [fixState, fix, fixing] = useActionState(correctBooking.bind(null, quoteId, entityId), {});
   const [issueState, issue, issuing] = useActionState(markIssued.bind(null, quoteId, entityId, kind), {});
   const [unbookState, unbook] = useActionState(unbookItem.bind(null, quoteId, entityId), {});
@@ -166,6 +167,13 @@ export function BookingPanel({
   if (!booking) {
     if (readOnly) return null;
     if (item.price == null || item.price === "") return <p className="mt-2 text-[13px] text-muted">Give it a price to book it.</p>;
+    if (kind === "extra" && Number(item.price) === 0)
+      return (
+        <form action={bookOwn} className="mt-2 flex flex-wrap items-center gap-3">
+          <button type="submit" disabled={ownPending}>Book (no supplier)</button>
+          <Message state={ownState} />
+        </form>
+      );
     return (
       <details className="mt-2 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
         <summary className="cursor-pointer font-semibold text-teal-deep">Book this Item</summary>
@@ -191,13 +199,15 @@ export function BookingPanel({
   return (
     <section className="mt-2 flex flex-col gap-3 rounded-md border border-teal/50 bg-white p-4">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <b>Booked with {booking.supplier}</b>
-        <span>Ref {str(booking.booking_reference)}</span>
-        <span className="font-semibold tabular-nums">
-          {str(booking.currency)} {amount.toFixed(2)}
-          {booking.currency !== "ZAR" && ` at ${rate} = ${rand(amount * rate)}`}
-        </span>
-        <span className="text-muted">Supplier invoice expected {str(booking.expected_invoice_on)}</span>
+        <b>{booking.supplier ? `Booked with ${booking.supplier}` : "Booked, no supplier"}</b>
+        {booking.booking_reference != null && <span>Ref {str(booking.booking_reference)}</span>}
+        {booking.supplier && (
+          <span className="font-semibold tabular-nums">
+            {str(booking.currency)} {amount.toFixed(2)}
+            {booking.currency !== "ZAR" && ` at ${rate} = ${rand(amount * rate)}`}
+          </span>
+        )}
+        {booking.expected_invoice_on != null && <span className="text-muted">Supplier invoice expected {str(booking.expected_invoice_on)}</span>}
         {issued && <Badge tone="tealSolid">Issued</Badge>}
         {cancelled && <Badge tone="danger">Cancelled</Badge>}
       </div>
@@ -248,7 +258,7 @@ export function BookingPanel({
 
       {!readOnly && (
         <>
-          <details className="rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
+          {booking.supplier && <details className="rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
             <summary className="cursor-pointer font-semibold text-teal-deep">Correct booking details</summary>
             <form {...keptFix} className="mt-3">
               <BookingFields booking={booking} suppliers={suppliers} flight={flight} />
@@ -257,7 +267,7 @@ export function BookingPanel({
                 <Message state={fixState} />
               </div>
             </form>
-          </details>
+          </details>}
           {!issued && !cancelled && (
             <form {...keptIssue} className="flex flex-wrap items-center gap-2">
               {flight && <input className="w-72" type="text" name="ticket_numbers" aria-label="Ticket numbers" placeholder="Ticket numbers, comma separated" defaultValue={(booking.ticket_numbers as string[]).join(", ")} />}

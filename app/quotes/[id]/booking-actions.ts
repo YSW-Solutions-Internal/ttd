@@ -62,6 +62,17 @@ export async function bookItem(
   return { notice: "Booked." };
 }
 
+/** An Extra with no supplier price: booked with one click, nothing to invoice from a Supplier. */
+export async function bookOwnExtra(quoteId: string, entityId: string, _prev: BookingFormState, _fd: FormData): Promise<BookingFormState> {
+  const supabase = await createClient();
+  const { data: item } = await supabase.from("extras").select("price").eq("quote_id", quoteId).eq("entity_id", entityId).maybeSingle();
+  if (Number(item?.price) !== 0 || item?.price == null) return { error: "Give it a supplier price of 0, or book it with its Supplier." };
+  const { error } = await supabase.from("item_bookings").insert({ quote_id: quoteId, entity_id: entityId, kind: "extra", amount: 0, currency: "ZAR", no_supplier_invoice: true });
+  if (error) return { error: error.code === "23505" ? "This Item is already booked." : `Could not book: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { notice: "Booked." };
+}
+
 /** A Correction: fixes booking details typed wrong. History keeps what they were. */
 export async function correctBooking(
   quoteId: string,
