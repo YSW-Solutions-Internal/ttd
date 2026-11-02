@@ -8,15 +8,15 @@ import { KINDS, PAYMENT_KIND_LABEL, type PaymentStatus } from "@/lib/payments";
 import { Button, Msg } from "@/app/ui";
 import { addPayment, addPaymentLink, deletePayment, removePaymentLink, reversePayment, setPaymentStatus, type PaymentFormState } from "./payment-actions";
 
-type Option = { id: string; label: string; lands?: boolean }; // lands: a Client's EFT or Cash, which lands in an agency account
+export type Option = { id: string; label: string; lands?: boolean }; // lands: a Client's EFT or Cash, which lands in an agency account
 
-function Message({ state }: { state: PaymentFormState }) {
+export function Message({ state }: { state: PaymentFormState }) {
   if (state.error) return <Msg tone="error">{state.error}</Msg>;
   if (state.notice) return <Msg>{state.notice}</Msg>;
   return null;
 }
 
-function Field({ label, name, type = "text", required, defaultValue }: { label: string; name: string; type?: string; required?: boolean; defaultValue?: string }) {
+export function Field({ label, name, type = "text", required, defaultValue }: { label: string; name: string; type?: string; required?: boolean; defaultValue?: string }) {
   const id = useId();
   return (
     <div className="mb-3 min-w-[150px] flex-1">
@@ -26,12 +26,12 @@ function Field({ label, name, type = "text", required, defaultValue }: { label: 
   );
 }
 
-function Select({ label, name, options, required, empty, onChange }: { label: string; name: string; options: Option[]; required?: boolean; empty?: string; onChange?: (id: string) => void }) {
+export function Select({ label, name, options, required, empty, defaultValue, onChange }: { label: string; name: string; options: Option[]; required?: boolean; empty?: string; defaultValue?: string; onChange?: (id: string) => void }) {
   const id = useId();
   return (
     <div className="mb-3 min-w-[200px] flex-1">
       <label htmlFor={id}>{label}</label>
-      <select id={id} name={name} required={required} onChange={onChange && ((e) => onChange(e.target.value))}>
+      <select id={id} name={name} required={required} defaultValue={defaultValue} onChange={onChange && ((e) => onChange(e.target.value))}>
         {empty !== undefined && <option value="">{empty}</option>}
         {options.map((o) => (
           <option key={o.id} value={o.id}>

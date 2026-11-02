@@ -8,6 +8,7 @@ import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { loadBillables } from "../invoicing-data";
 import { Invoices } from "../invoices";
 import { Payments } from "../payments";
+import { RefundsAndCommissions } from "../refunds";
 import { TripStatusBadge } from "@/app/ui";
 import { commissionOwed } from "@/lib/refunds";
 
@@ -76,6 +77,7 @@ export default async function TripAccountsPage({ params }: { params: Promise<{ i
       {quote && (
         <Invoices tripId={id} quoteId={quote.id} billables={billables} canAdd={canAddInvoice} accounts={accounts} admin={admin} paid={paid} settled={settled} />
       )}
+      {quote && <RefundsAndCommissions quoteId={quote.id} billables={billables} refunds={refunds ?? []} commissions={commissions ?? []} />}
       {quote && client && (
         <Payments
           tripId={id}
