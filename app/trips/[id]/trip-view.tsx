@@ -13,6 +13,7 @@ import { AddTravellerForm } from "@/app/clients/travellers";
 import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
 import { FileLink } from "@/app/file-viewer";
 import { Badge, BUTTON, Button, Msg, TripStatusBadge } from "@/app/ui";
+import { openRefundTrips } from "@/lib/refunds";
 import { StaysArc } from "./stays-arc";
 import { QuoteEditor } from "@/app/quotes/[id]/quote-view";
 
@@ -32,6 +33,7 @@ export async function TripView({ id }: { id: string }) {
     .eq("id", id)
     .maybeSingle();
   if (!trip) notFound();
+  const { data: refunds } = await supabase.from("refund_totals").select("trip_id, refund_status, approved, agency_fee, received, paid_back").eq("trip_id", id);
   const client = one(trip.clients);
 
   const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }] = await Promise.all([
@@ -109,6 +111,7 @@ export async function TripView({ id }: { id: string }) {
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold text-muted tabular-nums">{trip.reference}</span>
           <TripStatusBadge status={trip.status} />
+          {openRefundTrips(refunds ?? []).size > 0 && <Badge tone="amber">Refund open</Badge>}
         </div>
         <h1 className="mt-1">{trip.title ?? "Untitled trip"}</h1>
         <p className="text-muted">

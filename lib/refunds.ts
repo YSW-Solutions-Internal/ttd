@@ -21,6 +21,24 @@ export function refundState(r: { refund_status: RefundStatus | null; approved: n
   return { open, outOfPocket: r.paid_back > r.received + 0.005, dueBack };
 }
 
+/** The Trips with an open Refund, from refund_totals rows (numbers may arrive as strings). */
+export function openRefundTrips(rows: { trip_id: string; refund_status: string | null; approved: unknown; agency_fee: unknown; received: unknown; paid_back: unknown }[]) {
+  return new Set(
+    rows
+      .filter(
+        (r) =>
+          refundState({
+            refund_status: r.refund_status as RefundStatus | null,
+            approved: Number(r.approved),
+            agency_fee: Number(r.agency_fee),
+            received: Number(r.received),
+            paid_back: Number(r.paid_back),
+          }).open,
+      )
+      .map((r) => r.trip_id),
+  );
+}
+
 /** What a Supplier still owes on a Commission, in its currency. A deducted one is settled by the Supplier Payment. */
 export const commissionOwed = (c: { commission: number; commission_deducted: boolean; received: number }) =>
   c.commission_deducted ? 0 : round(c.commission - c.received);

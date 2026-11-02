@@ -9,8 +9,8 @@ import { loadBillables } from "../invoicing-data";
 import { Invoices } from "../invoices";
 import { Payments } from "../payments";
 import { RefundsAndCommissions } from "../refunds";
-import { TripStatusBadge } from "@/app/ui";
-import { commissionOwed } from "@/lib/refunds";
+import { Badge, TripStatusBadge } from "@/app/ui";
+import { commissionOwed, openRefundTrips } from "@/lib/refunds";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +68,7 @@ export default async function TripAccountsPage({ params }: { params: Promise<{ i
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold text-muted tabular-nums">{trip.reference}</span>
           <TripStatusBadge status={trip.status} />
+          {openRefundTrips(refunds ?? []).size > 0 && <Badge tone="amber">Refund open</Badge>}
         </div>
         <h1 className="mt-1">Accounts: {trip.title ?? "Untitled trip"}</h1>
         <p className="text-muted">

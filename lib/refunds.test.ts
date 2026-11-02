@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { commissionOwed, parseCommission, parseRefund, refundState } from "./refunds.ts";
+import { commissionOwed, openRefundTrips, parseCommission, parseRefund, refundState } from "./refunds.ts";
 
 const form = (o: Record<string, string>) => {
   const fd = new FormData();
@@ -41,4 +41,10 @@ test("parseRefund needs a known status and a non-negative approved amount", () =
   assert.equal(parseRefund(form({ status: "requested", requested_on: "", reference: "", approved: "" })).approved, null);
   assert.throws(() => parseRefund(form({ status: "lost" })), { field: "status" });
   assert.throws(() => parseRefund(form({ status: "approved", approved: "-1" })), { field: "approved" });
+});
+
+test("a Trip has an open Refund while any of its Refunds is open", () => {
+  const row = { trip_id: "t1", refund_status: null, approved: 100, agency_fee: 0, received: 0, paid_back: 0 };
+  const closed = { ...row, trip_id: "t2", received: 100, paid_back: 100 };
+  assert.deepEqual([...openRefundTrips([row, closed, { ...closed, trip_id: "t3", refund_status: "declined" }])], ["t1"]);
 });
