@@ -130,8 +130,8 @@ export async function TripView({ id }: { id: string }) {
             <p className="font-semibold">{counts.length > 0 ? counts.join(", ") : "No Items yet"}</p>
             {blockers.length > 0 && (
               <ul className="mt-1 list-none text-danger">
-                {blockers.map((b) => (
-                  <li key={b}>{b}</li>
+                {blockers.map((b, i) => (
+                  <li key={i}>{b}</li>
                 ))}
               </ul>
             )}
