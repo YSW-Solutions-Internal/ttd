@@ -8,15 +8,15 @@ type Trip = { id: string; reference: string; title: string | null };
 
 /** Trips and Suppliers by id: PostgREST can't embed them through a view. */
 // shortcut: one .in() of open items' ids; split it into chunks if open Refunds ever number in the hundreds.
-async function names(tripIds: string[], supplierIds: string[]) {
+async function names(tripIds: string[], supplierIds: (string | null)[]) {
   const supabase = await createClient();
   const [{ data: trips }, { data: suppliers }] = await Promise.all([
     supabase.from("trips").select("id, reference, title").in("id", [...new Set(tripIds)]),
-    supabase.from("suppliers").select("id, name").in("id", [...new Set(supplierIds)]),
+    supabase.from("suppliers").select("id, name").in("id", [...new Set(supplierIds.filter((id): id is string => id != null))]),
   ]);
   return {
     trip: (id: string): Trip => trips?.find((t) => t.id === id) ?? { id, reference: "", title: null },
-    supplier: (id: string) => suppliers?.find((s) => s.id === id)?.name ?? "",
+    supplier: (id: string | null) => suppliers?.find((s) => s.id === id)?.name ?? "",
   };
 }
 
