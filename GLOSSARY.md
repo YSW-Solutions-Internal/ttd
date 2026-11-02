@@ -55,7 +55,7 @@ What Claude read off one image attached to a Quote: the Items it found, copied e
 _Avoid_: AI scan, parse
 
 **Item**:
-One bookable service found on an image or entered by hand, such as one flight option, one Accommodation option, one car rental, one Package, one Visa or one Insurance policy.
+One bookable service found on an image or entered by hand, such as one flight option, one Accommodation option, one car rental, one Package, one Visa, one Insurance policy or one Extra.
 _Avoid_: Line, entry
 
 **Flight option**:
@@ -89,6 +89,10 @@ _Avoid_: Visa info
 **Insurance**:
 A travel insurance policy issued through the agency (TIC, Hollard, Chubb or another insurer), booked as an Item. A Client declining or using their own cover is recorded on the Trip checklist, not as an Item.
 _Avoid_: Cover, policy (alone)
+
+**Extra**:
+A charge on a Trip that is not a travel service of its own, booked as an Item: Pre-seating, Additional baggage, After hours emergency service, Airport meet and greet, Conference (per person), MIS report or Ad hoc report (with the period it covers; the ad hoc fee is a minimum). It carries the agency's fee for its type and, when a supplier also charges (an airline for seats or bags), that supplier's price. One with no supplier price has no Supplier and counts as booked once added. It may be added at any time, even after travel, and is then on no Version. A report covering a period goes on a Trip of staff's choosing, or one opened for it.
+_Avoid_: Add-on, service, sundry
 
 **Trip checklist**:
 The checks and advice a Consultant records for a Trip, each with who ticked it and when: visa and entry requirements, health advice, insurance decision, Traveller details checked with the supplier, seats and meals requested, documents sent.
@@ -195,11 +199,11 @@ An invoice or credit note issued to a Client in Quicktrav, never created here. I
 _Avoid_: Quicktrav invoice, sales invoice
 
 **Card surcharge**:
-A percentage (2.75% today) added to an Item paid with an international credit card, set in the Fee schedule and shown as its own line, never folded into the supplier's price.
+A percentage (2.75% today) of the whole Item price (supplier's price, Transaction fee, Markup and any Pre-payment fee), added to an Item paid with an international credit card, set in the Fee schedule and shown as its own line, never folded into the supplier's price.
 _Avoid_: Card fee, credit card levy
 
 **Online saving**:
-How much less the Client pays than a comparable fare found online, worked out from an optional comparable price on a Flight option. Flagged when above a threshold Administrators set.
+How much less the supplier's fare (taxes included) is than a comparable fare found online, both before the agency's fees, worked out from an optional comparable price on a Flight option. Shown to staff only, never to the Client. Flagged when above a threshold Administrators set.
 _Avoid_: Savings, discount
 
 **Cancellation**:
