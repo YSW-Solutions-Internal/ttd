@@ -99,6 +99,9 @@ export function NavShell({
               className="sticky top-0 flex w-[184px] shrink-0 flex-col py-5 max-[700px]:fixed max-[700px]:inset-y-0 max-[700px]:left-0 max-[700px]:z-50 max-[700px]:w-60 max-[700px]:bg-white max-[700px]:shadow-xl"
               aria-label="Main"
             >
+              <form action="/search" role="search" className="mb-3 px-4" onSubmit={closeOnPhone}>
+                <input type="search" name="q" placeholder="Search" aria-label="Search" minLength={2} required className="w-full" />
+              </form>
               {items.map((i) => (
                 <Link
                   key={i.href}

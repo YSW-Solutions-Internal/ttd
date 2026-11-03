@@ -8,6 +8,7 @@ import { Badge, BUTTON, Msg, TripStatusBadge } from "./ui";
 import { openRefundTrips } from "@/lib/refunds";
 import { everyRow } from "@/lib/relations";
 import { TripFilters } from "./trip-filters";
+import { Departures } from "./departures";
 
 export const dynamic = "force-dynamic";
 // Extraction keeps reading after the response (after() in extract-actions.ts); 800 s is the Vercel Pro limit.
@@ -30,7 +31,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const me = await getProfile();
   if (!me) redirect("/login");
-  const status = params.status === "all" || isTripStatus(params.status) ? params.status : "open";
+  const status = params.status === "all" || params.status === "open" || isTripStatus(params.status) ? params.status : "current";
   // Standard users start on their own Clients' Trips; "all" is everyone's.
   const consultant = (params.consultant ?? (me.role === "user" ? me.id : "all")).replace(/^all$/, "");
   const sort = COLUMNS.some((c) => c.key === params.sort && !("unsortable" in c)) ? params.sort! : "created_at";
@@ -53,7 +54,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     .select(
       "id, reference, title, status, starts_on, created_at, clients!inner(client_code, full_name, consultant_id, profiles!clients_consultant_id_fkey(full_name, email))",
     );
-  if (status === "open") query = query.in("status", OPEN_STATUSES);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }); // YYYY-MM-DD
+  // Current: open, plus Travelled or Cancelled ending (else starting, else created) in the last 90 days.
+  const cut = new Date(Date.parse(today) - 90 * 864e5).toISOString().slice(0, 10);
+  if (status === "current")
+    query = query.or(
+      `status.in.(${OPEN_STATUSES}),ends_on.gte.${cut},and(ends_on.is.null,starts_on.gte.${cut}),and(ends_on.is.null,starts_on.is.null,created_at.gte.${cut})`,
+    );
+  else if (status === "open") query = query.in("status", OPEN_STATUSES);
   else if (status !== "all") query = query.eq("status", status);
   if (client) query = query.eq("client_id", client);
   if (consultant) query = query.eq("clients.consultant_id", consultant);
@@ -99,6 +107,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </Link>
         )}
       </div>
+
+      <Departures today={today} consultant={consultant} />
 
       <TripFilters
         clients={clients ?? []}

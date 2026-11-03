@@ -2,7 +2,7 @@
 export const TRIP_STATUSES = ["enquiry", "quoted", "booked", "travelled", "cancelled"] as const;
 export type TripStatus = (typeof TRIP_STATUSES)[number];
 
-/** The Trips list's default: everything not yet travelled or cancelled. */
+/** Everything not yet travelled or cancelled: the Trips list's Open filter, and the base of Current. */
 export const OPEN_STATUSES: TripStatus[] = ["enquiry", "quoted", "booked"];
 
 export function isTripStatus(v: unknown): v is TripStatus {
