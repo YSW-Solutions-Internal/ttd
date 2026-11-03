@@ -6,9 +6,10 @@ import { createClient } from "@/lib/supabase/server";
  * Where invite and password reset emails land. Exchanges the one-time token
  * for a session cookie, then sends the user to choose a password.
  *
- * The Supabase email templates must point here:
- *   Invite user:     {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite
- *   Reset password:  {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery
+ * The Supabase email templates must point here. RedirectTo is this route on
+ * the deployment that sent the email, with ?type= already on it:
+ *   Invite user:     {{ .RedirectTo }}&token_hash={{ .TokenHash }}
+ *   Reset password:  {{ .RedirectTo }}&token_hash={{ .TokenHash }}
  *
  * With the default Reset password template (needs no custom SMTP), Supabase
  * redirects here with ?code= instead. That code only works in the browser

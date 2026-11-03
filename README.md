@@ -38,17 +38,13 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
    ```
 
    From then on, invite staff at `/admin/users`.
-5. Authentication -> Emails -> Templates. In **Invite user**, replace `{{ .ConfirmationURL }}` with
+5. Authentication -> Emails -> Templates. In both **Invite user** and **Reset password**, replace `{{ .ConfirmationURL }}` with
 
    ```
-   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite
+   {{ .RedirectTo }}&token_hash={{ .TokenHash }}
    ```
 
-   and in **Reset password** with
-
-   ```
-   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery
-   ```
+   `RedirectTo` is `/auth/confirm?type=...` on whichever deployment sent the email, so staging links go to staging and production links to production. Each deployment's address must be in Redirect URLs (below), or Supabase uses Site URL and the link breaks.
 
    With the default invite link, people land on Sign in instead of choosing a password. Supabase only lets you edit templates once custom SMTP is set up; until then the default reset link still works if you add `<app address>/**` (e.g. `http://localhost:3000/**`) to Authentication -> URL Configuration -> Redirect URLs, and the person opens it in the browser they requested it from. Then set Authentication -> URL Configuration -> Site URL to the app's address, and the minimum password length to 8 (Authentication -> Policies) to match the form. Invite and reset emails need SMTP configured.
 6. Set these environment variables locally and in Vercel (Project Settings -> Environment Variables). The Supabase values are under Project Settings -> API; the Anthropic key comes from console.anthropic.com:
