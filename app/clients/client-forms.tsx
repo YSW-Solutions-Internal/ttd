@@ -253,7 +253,7 @@ export function DocumentUploadForm({ clientId }: { clientId: string }) {
 
   return (
     <form {...kept} className="rounded-md border border-line bg-white p-5">
-      <label htmlFor="file">Add a document (PDF, JPG or PNG, up to 10 MB). ID and passport images go with the Traveller.</label>
+      <label htmlFor="file">Add a document (PDF, JPG or PNG, up to 4 MB). ID and passport images go with the Traveller.</label>
       <div className="flex flex-wrap items-center gap-3">
         <FileDrop id="file" name="file" accept="application/pdf,image/jpeg,image/png" required />
         <button type="submit" disabled={pending}>

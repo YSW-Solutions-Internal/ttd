@@ -1,6 +1,6 @@
 // Refunds and Commissions (GLOSSARY, migration 0029).
 // No path aliases, so this file also runs under plain `node` for refunds.test.ts.
-import { FieldParseError, parseAmount } from "./form-values.ts";
+import { FieldParseError, parseAmount, text } from "./form-values.ts";
 
 export type RefundStatus = "requested" | "approved" | "declined";
 
@@ -8,7 +8,6 @@ export const REFUND_STATUS_LABEL: Record<RefundStatus, string> = { requested: "R
 
 const round = (n: number) => Math.round(n * 100) / 100;
 const reached = (n: number, target: number) => n >= target - 0.005;
-const text = (fd: FormData, name: string) => String(fd.get(name) ?? "").trim();
 const date = (fd: FormData, name: string) => (/^\d{4}-\d{2}-\d{2}$/.test(text(fd, name)) ? text(fd, name) : null);
 
 /**

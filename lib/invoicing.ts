@@ -1,6 +1,6 @@
 // Supplier invoices, Client invoices and the Invoicing stage (GLOSSARY, ADR 0012).
 // No path aliases, so this file also runs under plain `node` for invoicing.test.ts.
-import { FieldParseError, parseAmount } from "./form-values.ts";
+import { FieldParseError, parseAmount, text } from "./form-values.ts";
 import { changeTotal, supplierCharges, type ChangeValues } from "./booking.ts";
 
 export type Side = "supplier" | "client";
@@ -19,7 +19,6 @@ export const STATUS_LABEL: Record<InvoiceStatus, string> = { received: "Received
 
 export type InvoiceValues = { number: string; issued_on: string; amount: number; currency: string };
 
-const text = (fd: FormData, name: string) => String(fd.get(name) ?? "").trim();
 const round = (n: number) => Math.round(n * 100) / 100;
 
 /** The add-invoice form. A credit note is the same record with a negative amount; Client invoices are in Rand. */

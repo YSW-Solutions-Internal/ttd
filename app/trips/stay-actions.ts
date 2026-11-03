@@ -2,10 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { SaveResult } from "@/lib/form-values";
+import { text, type SaveResult } from "@/lib/form-values";
 import { countryIn } from "@/lib/fees";
 
-const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 /**

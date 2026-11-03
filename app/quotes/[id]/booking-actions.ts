@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { FieldParseError } from "@/lib/form-values";
+import { failed } from "@/lib/form-values";
 import { parseBooking, parseChange, ticketNumbers, type BookingValues } from "@/lib/booking";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 
@@ -10,9 +10,6 @@ export type BookingFormState = { error?: string; notice?: string };
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-const failed = (e: unknown): BookingFormState => ({
-  error: e instanceof FieldParseError || e instanceof Error ? e.message : "Could not read the form.",
-});
 
 /** The Supplier named, from the shared list; a name not on it is added (any User may add one). */
 async function supplierId(supabase: Supabase, name: string): Promise<string> {

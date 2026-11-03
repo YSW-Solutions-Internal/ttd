@@ -5,24 +5,14 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
+import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { assembleQuote, problems, type AssembleInput } from "@/lib/pdf/assemble";
 import { renderQuotePdf } from "@/lib/pdf/render";
 import type { QuoteJson } from "@/lib/pdf/types";
 
 export type PdfState = { error?: string; problems?: string[] };
 
-const ITEM_TABLES = [
-  "flight_options",
-  "accommodation_options",
-  "transfers",
-  "rail_journeys",
-  "car_rentals",
-  "excursions",
-  "packages",
-  "visas",
-  "insurance_policies",
-  "extras",
-] as const;
+const ITEM_TABLES = Object.keys(TABLE_KIND) as ItemTable[];
 
 /** Renders the frozen JSON, uploads the PDF and records its path. Throws on failure. */
 async function storePdf(supabase: SupabaseClient, quoteId: string, versionId: string, versionNo: number, quote: QuoteJson) {

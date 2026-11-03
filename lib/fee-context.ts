@@ -39,7 +39,8 @@ export async function loadFeeContext(supabase: SupabaseClient, quoteId: string):
     : { data: [] };
 
   return {
-    createdOn: String(quote.created_at).slice(0, 10),
+    // The day in South Africa: created_at is UTC, so a Quote made just after midnight would get the day before.
+    createdOn: new Date(quote.created_at).toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }),
     stays: (stops ?? []).map((s) => ({
       id: s.id,
       starts_on: s.starts_on,

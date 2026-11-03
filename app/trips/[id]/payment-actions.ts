@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { FieldParseError } from "@/lib/form-values";
+import { failed } from "@/lib/form-values";
 import { parseLinkAmount, type Side } from "@/lib/invoicing";
 import { parsePayment, type PaymentStatus } from "@/lib/payments";
 
@@ -10,9 +10,6 @@ import { parsePayment, type PaymentStatus } from "@/lib/payments";
 
 export type PaymentFormState = { error?: string; notice?: string };
 
-const failed = (e: unknown): PaymentFormState => ({
-  error: e instanceof FieldParseError || e instanceof Error ? e.message : "Could not read the form.",
-});
 
 // The Trip's accounts page, the Accounts queues and statements all show Payments.
 const done = () => revalidatePath("/", "layout");

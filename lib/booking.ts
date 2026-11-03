@@ -1,6 +1,6 @@
 // Booking an Item, its Changes and Cancellations (GLOSSARY: Booked, Change, Cancellation).
 // No path aliases, so this file also runs under plain `node` for booking.test.ts.
-import { FieldParseError, parseAmount } from "./form-values.ts";
+import { FieldParseError, parseAmount, text } from "./form-values.ts";
 
 export type BookingValues = {
   supplier: string;
@@ -28,7 +28,6 @@ export type ChangeValues = {
   expected_invoice_on: string | null;
 };
 
-const text = (fd: FormData, name: string) => String(fd.get(name) ?? "").trim();
 
 function required(fd: FormData, name: string, label: string): string {
   const s = text(fd, name);

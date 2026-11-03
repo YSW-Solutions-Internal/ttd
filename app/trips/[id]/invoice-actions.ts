@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { FieldParseError } from "@/lib/form-values";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_TEXT } from "@/lib/files";
+import { failed } from "@/lib/form-values";
 import { parseInvoice, parseLinkAmount, type InvoiceStatus, type Side } from "@/lib/invoicing";
 
 // Who may do what is decided by the database (migration 0024): the Trip's status and
@@ -10,11 +11,6 @@ import { parseInvoice, parseLinkAmount, type InvoiceStatus, type Side } from "@/
 
 export type InvoiceFormState = { error?: string; notice?: string };
 
-const MAX_PDF_BYTES = 10 * 1024 * 1024;
-
-const failed = (e: unknown): InvoiceFormState => ({
-  error: e instanceof FieldParseError || e instanceof Error ? e.message : "Could not read the form.",
-});
 
 /** A PDF no invoice points at any more (storage allows only that, migration 0026). Row first: a file left behind only costs storage. */
 async function removePdf(supabase: Awaited<ReturnType<typeof createClient>>, path: string) {
@@ -34,7 +30,7 @@ export async function addInvoice(tripId: string, side: Side, _prev: InvoiceFormS
     const file = fd.get("file");
     if (!(file instanceof File) || file.size === 0) return { error: "Attach the invoice PDF." };
     if (file.type !== "application/pdf") return { error: "Only PDF files." };
-    if (file.size > MAX_PDF_BYTES) return { error: "The PDF is over 10 MB." };
+    if (file.size > MAX_UPLOAD_BYTES) return { error: `The PDF is over ${MAX_UPLOAD_TEXT}.` };
 
     const path = `${tripId}/${crypto.randomUUID()}.pdf`;
     const { error: upErr } = await supabase.storage.from("invoice-files").upload(path, file, { contentType: file.type, upsert: false });
