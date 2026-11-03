@@ -3,6 +3,7 @@
 import { useActionState, useId } from "react";
 import { useKeptForm } from "@/app/kept-form";
 import { ConfirmButton } from "@/app/confirm-button";
+import { sizeProblem } from "@/lib/files";
 import type { Side } from "@/lib/invoicing";
 import { Button, Msg } from "@/app/ui";
 import { addInvoice, addLink, deleteInvoice, removeLink, setInvoiceStatus, type InvoiceFormState } from "./invoice-actions";
@@ -54,7 +55,7 @@ export function AddInvoiceForm({ tripId, side, suppliers }: { tripId: string; si
           <Field label={supplier ? "Amount" : "Amount (R)"} name="amount" type="number" required />
           <div className="mb-3 min-w-[200px] flex-1">
             <label htmlFor={`${id}-f`}>PDF</label>
-            <input id={`${id}-f`} name="file" type="file" accept="application/pdf" required />
+            <input id={`${id}-f`} name="file" type="file" accept="application/pdf" required onChange={(e) => e.currentTarget.setCustomValidity(sizeProblem(e.currentTarget.files))} />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-4">

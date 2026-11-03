@@ -3,12 +3,12 @@ import { one } from "@/lib/relations";
 import type { FeeRate, Stay } from "@/lib/fees";
 import { placeCodes, placesFrom, type AirportRow, type Place } from "@/lib/codes";
 
-export type FeeContext = { createdOn: string; stays: Stay[]; rates: FeeRate[] };
+export type FeeContext = { createdOn: string; stays: Stay[]; rates: FeeRate[]; cardRate: number };
 
 /**
  * What lib/fees.ts needs for one Quote: the day it was created (for filling in
  * years), its Trip's Stays with their countries, and the fee grid of the Client's
- * own Fee schedule, or the standard one when the Client has none.
+ * own Fee schedule (and its Card surcharge rate), or the standard one when the Client has none.
  */
 export async function loadFeeContext(supabase: SupabaseClient, quoteId: string): Promise<FeeContext> {
   const { data: quote, error } = await supabase
@@ -27,7 +27,7 @@ export async function loadFeeContext(supabase: SupabaseClient, quoteId: string):
       .order("position"),
     supabase
       .from("fee_schedules")
-      .select("id, client_id")
+      .select("id, client_id, card_surcharge_rate")
       .or(`client_id.is.null,client_id.eq.${trip?.client_id ?? "00000000-0000-0000-0000-000000000000"}`),
   ]);
   const schedule = schedules?.find((s) => s.client_id) ?? schedules?.find((s) => !s.client_id);
@@ -39,7 +39,8 @@ export async function loadFeeContext(supabase: SupabaseClient, quoteId: string):
     : { data: [] };
 
   return {
-    createdOn: String(quote.created_at).slice(0, 10),
+    // The day in South Africa: created_at is UTC, so a Quote made just after midnight would get the day before.
+    createdOn: new Date(quote.created_at).toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }),
     stays: (stops ?? []).map((s) => ({
       id: s.id,
       starts_on: s.starts_on,
@@ -47,6 +48,7 @@ export async function loadFeeContext(supabase: SupabaseClient, quoteId: string):
       country_code: (one(s.destinations) as { country_code: string } | null)?.country_code ?? null,
     })),
     rates: (rates ?? []) as FeeRate[],
+    cardRate: schedule ? Number(schedule.card_surcharge_rate) : 0.0275,
   };
 }
 

@@ -2,15 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { FieldParseError } from "@/lib/form-values";
+import { failed } from "@/lib/form-values";
 import { parseCommission, parseRefund } from "@/lib/refunds";
 import type { PaymentFormState } from "./payment-actions";
 
 // Any User, Accountants included; the rules are in the database (migration 0029).
 
-const failed = (e: unknown): PaymentFormState => ({
-  error: e instanceof FieldParseError || e instanceof Error ? e.message : "Could not read the form.",
-});
 
 export async function setRefund(changeId: string, _prev: PaymentFormState, fd: FormData): Promise<PaymentFormState> {
   try {

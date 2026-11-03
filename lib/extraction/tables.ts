@@ -1,7 +1,7 @@
 // No imports, so both the browser (edit screen) and plain `node` (tests) can use it.
 
 /** Item table -> the kind stored in entity_id, item_refs and fee_rates. */
-export const TABLE_KIND = {
+export const EXTRACTED_KIND = {
   flight_options: "flight",
   accommodation_options: "hotel",
   car_rentals: "car_rental",
@@ -9,4 +9,33 @@ export const TABLE_KIND = {
   rail_journeys: "rail",
   excursions: "excursion",
 } as const;
+export const TABLE_KIND = {
+  ...EXTRACTED_KIND,
+  packages: "package",
+  visas: "visa",
+  insurance_policies: "insurance",
+  extras: "extra",
+} as const;
 export type ItemTable = keyof typeof TABLE_KIND;
+
+/** Extra types in display order: [value, label]. */
+export const EXTRA_TYPES: [string, string][] = [
+  ["preseat", "Pre-seating"],
+  ["baggage", "Additional baggage"],
+  ["after_hours", "After hours emergency service"],
+  ["meet_greet", "Airport meet and greet"],
+  ["conference", "Conference (per person)"],
+  ["report_mis", "MIS report"],
+  ["report_adhoc", "Ad hoc report"],
+];
+
+/** The fields each Extra type shows (besides its type); the rest stay in the form, hidden. */
+export const EXTRA_FIELDS: Record<string, string[]> = {
+  preseat: ["flight_entity_id", "seats"],
+  baggage: ["flight_entity_id", "bags"],
+  after_hours: ["date", "time", "description"],
+  meet_greet: ["airport", "date", "time", "description"],
+  conference: ["description", "people"],
+  report_mis: ["period", "description"],
+  report_adhoc: ["period", "description"],
+};

@@ -1,6 +1,6 @@
 // Payments and Payment accounts (GLOSSARY, ADR 0013).
 // No path aliases, so this file also runs under plain `node` for payments.test.ts.
-import { FieldParseError, parseAmount } from "./form-values.ts";
+import { FieldParseError, parseAmount, text } from "./form-values.ts";
 import { currencyAndRate } from "./booking.ts";
 import type { Side } from "./invoicing.ts";
 
@@ -38,7 +38,6 @@ export type PaymentValues = {
   notes: string | null;
 };
 
-const text = (fd: FormData, name: string) => String(fd.get(name) ?? "").trim();
 
 /** The add-payment form. Client Payments are in Rand; the database checks the accounts fit (migration 0027). */
 export function parsePayment(fd: FormData, side: Side): PaymentValues {

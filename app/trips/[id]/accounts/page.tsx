@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
 import { one } from "@/lib/relations";
+import { TABLE_KIND } from "@/lib/extraction/tables";
 import { TABS } from "@/app/quotes/[id]/edit-section";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { loadBillables } from "../invoicing-data";
@@ -37,7 +38,7 @@ export default async function TripAccountsPage({ params }: { params: Promise<{ i
   ]);
   const items = new Map(
     TABS.flatMap(([t], i) =>
-      (tables[i]?.data ?? []).map((row) => [String(row.entity_id), { row, label: [ITEM_LABEL[t], row.label ?? row.name].filter(Boolean).join(": ") }] as const),
+      (tables[i]?.data ?? []).map((row) => [String(row.entity_id), { row, kind: TABLE_KIND[t], label: [ITEM_LABEL[t], row.label ?? row.name].filter(Boolean).join(": ") }] as const),
     ),
   );
   const billables = quote ? await loadBillables(supabase, quote.id, items) : [];

@@ -5,9 +5,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
-import { applyFees, autoRegion, FEE_FIELDS, FEE_REGIONS, VARIANTS } from "@/lib/fees";
+import { applyFees, autoRegion, FEE_FIELDS, FEE_REGIONS, rateFor, VARIANTS } from "@/lib/fees";
 import { countriesOf, loadFeeContext, loadPlaces } from "@/lib/fee-context";
 import { fillFlightNames } from "@/lib/codes";
+import { cardSurcharge, feeUnits, money } from "@/lib/pdf/money";
 import { FieldParseError, parseChanged, type SaveResult } from "@/lib/form-values";
 import { FEE_LABELS, FLIGHT_FIELDS, ITEM_FIELDS, PRICE_FIELDS, type Field } from "./item-fields";
 
@@ -73,6 +74,16 @@ export async function saveItem(quoteId: string, table: string, id: string, formD
     return { error: "Could not read the form." };
   }
 
+  if (changed.people != null && (!Number.isInteger(changed.people) || (changed.people as number) < 1)) {
+    return { error: "People must be a whole number, 1 or more.", field: "people" };
+  }
+  if (typeof changed.online_price === "number" && changed.online_price < 0) {
+    return { error: "The comparable online price cannot be negative.", field: "online_price" };
+  }
+  if (table === "packages" && typeof changed.deposit === "number" && changed.deposit < 0) {
+    return { error: "The deposit cannot be negative.", field: "deposit" };
+  }
+
   if (formData.has("fee_region")) {
     const region = String(formData.get("fee_region"));
     changed.fee_region = (FEE_REGIONS as readonly string[]).includes(region) ? region : null;
@@ -90,6 +101,11 @@ export async function saveItem(quoteId: string, table: string, id: string, formD
     if (formData.has("rooms")) changed.rooms ??= 1;
     if (formData.has("stay_id")) changed.stay_id = String(formData.get("stay_id")) || null;
   }
+  if (formData.has("traveller_ids")) {
+    // The form sends the ticked Travellers comma-joined; the database refuses one not on the Trip.
+    changed.traveller_ids = String(formData.get("traveller_ids")).split(",").filter((s) => /^[0-9a-f-]{36}$/i.test(s));
+  }
+  if (table === "extras" && formData.has("price")) changed.price ??= 0;
   if (table === "car_rentals" && formData.has("ten_percent_fee")) changed.ten_percent_fee = formData.get("ten_percent_fee") === "on";
 
   // The region is worked out from the flights, so unsent flights come from the database.
@@ -104,8 +120,15 @@ export async function saveItem(quoteId: string, table: string, id: string, formD
   const places = await loadPlaces(supabase, routeFlights.flatMap((f) => [f.from_code, f.to_code]));
   if (flights) for (const f of flights) fillFlightNames(f, places);
   applyFees(kind, merged, prev, autoRegion(kind, merged, routeFlights, ctx.stays, countriesOf(places)), ctx.rates);
+  if (kind === "extra" && merged.extra_type === "report_adhoc") {
+    const min = rateFor(ctx.rates, kind, null, "report_adhoc")?.transaction_fee;
+    if (min != null && typeof merged.transaction_fee === "number" && merged.transaction_fee < min) {
+      return { error: `An Ad hoc report's fee is at least ${money(min)}.`, field: "transaction_fee" };
+    }
+  }
+  merged.card_surcharge = cardSurcharge(merged, feeUnits(kind, merged), ctx.cardRate);
 
-  const computed = ["fee_region", "variant", "fee_region_auto", ...FEE_FIELDS];
+  const computed = ["fee_region", "variant", "fee_region_auto", ...FEE_FIELDS, "card_surcharge"];
   const row = Object.fromEntries([...Object.keys(changed), ...computed].map((k) => [k, merged[k]]));
   const { data, error } = await supabase.from(table).update(row).eq("id", id).select("id");
   if (error) return { error: `Could not save: ${error.message}` };

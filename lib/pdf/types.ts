@@ -14,6 +14,8 @@ export type Priced = {
   transaction_fee?: Amount;
   prepayment_fee?: Amount;
   prepaid?: boolean;
+  card_paid?: boolean | null;
+  card_surcharge?: Amount;
   change_fee?: Amount;
   refund_fee?: Amount;
 };
@@ -106,6 +108,37 @@ export type Experience =
       description?: string | null;
     });
 
+/** The new kinds carry their fee units (people for a Conference Extra, else 1) for totalText(x, x.units). */
+export type Package = Priced & {
+  units?: number;
+  name?: string | null;
+  operator?: string | null;
+  destination?: string | null;
+  dates?: string;
+  /** "Deposit R 5 000.00 now, balance by 12 Mar 2027"; null without a deposit. */
+  deposit_line?: string | null;
+};
+
+/** One per Visa, so one per Traveller. */
+export type Visa = Priced & { units?: number; country?: string | null; visa_type?: string | null; traveller?: string | null };
+
+export type Insurance = Priced & {
+  units?: number;
+  insurer?: string | null;
+  policy_type?: string | null;
+  dates?: string;
+  travellers?: string;
+};
+
+export type Extra = Priced & {
+  units?: number;
+  /** The Extra type's label, frozen as shown. */
+  type?: string | null;
+  description?: string | null;
+  /** Date, time, airport, seats, bags, people or period, whichever apply. */
+  detail?: string;
+};
+
 export type ItineraryStop = { dates?: string; destination?: string; nights?: Amount; highlight?: string | null };
 
 export type QuoteJson = {
@@ -132,6 +165,11 @@ export type QuoteJson = {
   rail?: Rail[] | null;
   car_rentals?: CarRental[] | null;
   experiences?: Experience[] | null;
+  packages?: Package[] | null;
+  visas?: Visa[] | null;
+  insurance?: Insurance[] | null;
+  extras?: Extra[] | null;
+  /** From the Trip checklist notes (visa, health, insurance) since 0030; names kept for old Versions. */
   visa_info?: string | null;
   health_info?: string | null;
   insurance_info?: string | null;

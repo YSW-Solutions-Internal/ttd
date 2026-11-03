@@ -17,19 +17,38 @@ export function money(amount: Amount): string {
   return `R ${sign}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, " ")}.${cents}`;
 }
 
-/**
- * The Item total: price + Transaction fee (per room for Accommodation) + Markup,
- * + Pre-payment fee when prepaid. Refund and Change fees are shown, never added.
- * Null when the price is missing, which can only mean "On request".
- */
-export function itemTotal(item: Priced, rooms = 1): number | null {
+/** Fee units: rooms for Accommodation, people for a Conference Extra, else 1 (never below 1). */
+export function feeUnits(kind: string, row: Record<string, unknown>): number {
+  const n = kind === "hotel" ? row.rooms : kind === "extra" && row.extra_type === "conference" ? row.people : 1;
+  return Math.max(1, Math.trunc(num(n, 1)));
+}
+
+/** The Item total before any Card surcharge; null when the price is missing. */
+function baseTotal(item: Priced, units: number): number | null {
   if (item.price === null || item.price === undefined || item.price === "") return null;
   return (
     num(item.price) +
-    num(item.transaction_fee) * Math.max(1, Math.trunc(num(rooms, 1))) +
+    num(item.transaction_fee) * Math.max(1, Math.trunc(num(units, 1))) +
     num(item.markup) +
     (item.prepaid ? num(item.prepayment_fee) : 0)
   );
+}
+
+/**
+ * The Item total: price + Transaction fee (per room, or per person for a Conference)
+ * + Markup, + Pre-payment fee when prepaid, + Card surcharge when card paid.
+ * Refund and Change fees are shown, never added.
+ * Null when the price is missing, which can only mean "On request".
+ */
+export function itemTotal(item: Priced, units = 1): number | null {
+  const base = baseTotal(item, units);
+  return base === null ? null : base + (item.card_paid ? num(item.card_surcharge) : 0);
+}
+
+/** The Card surcharge: rate x the Item total before it; null unless card paid with a price. */
+export function cardSurcharge(item: Priced, units: number, rate: number): number | null {
+  const base = item.card_paid ? baseTotal(item, units) : null;
+  return base === null ? null : Math.round(base * rate * 100) / 100;
 }
 
 /** An Item total as printed. */

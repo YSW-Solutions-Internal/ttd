@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { Button } from "@/app/ui";
+import { sizeProblem } from "@/lib/files";
 
 const same = (a: File, b: File) => a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
 
@@ -22,6 +23,7 @@ export function FileDrop(props: Omit<ComponentProps<"input">, "type">) {
     const dt = new DataTransfer();
     files.forEach((f) => dt.items.add(f));
     el.files = dt.files;
+    el.setCustomValidity(sizeProblem(el.files));
     setChosen(files);
   }
 
@@ -51,7 +53,10 @@ export function FileDrop(props: Omit<ComponentProps<"input">, "type">) {
   // The form clears the input after a submit; clear the list with it.
   useEffect(() => {
     const form = input.current?.form;
-    const clear = () => setChosen([]);
+    const clear = () => {
+      input.current?.setCustomValidity("");
+      setChosen([]);
+    };
     form?.addEventListener("reset", clear);
     return () => form?.removeEventListener("reset", clear);
   }, []);

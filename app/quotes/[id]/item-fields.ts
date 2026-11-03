@@ -1,8 +1,9 @@
 // The editable fields of each Item table: what the edit screen shows and the only
 // columns saveItem will write. Shared by the form (client) and the action (server).
-import type { ItemTable } from "@/lib/extraction/tables";
+import { EXTRA_FIELDS, EXTRA_TYPES, type ItemTable } from "@/lib/extraction/tables";
 
-export type FieldType = "text" | "textarea" | "number" | "money" | "date" | "time" | "checkbox" | "select";
+// traveller: one of the Trip's Travellers; travellers: several (checkboxes); flight: one of the Quote's Flight options by entity_id.
+export type FieldType = "text" | "textarea" | "number" | "money" | "date" | "time" | "checkbox" | "select" | "traveller" | "travellers" | "flight";
 export type Field = { name: string; label: string; type: FieldType; options?: [string, string][] };
 
 const t = (name: string, label: string, type: FieldType = "text"): Field => ({ name, label, type });
@@ -14,10 +15,19 @@ export const ITEM_LABEL: Record<ItemTable, string> = {
   transfers: "Transfer",
   rail_journeys: "Rail journey",
   excursions: "Experience",
+  packages: "Package",
+  visas: "Visa",
+  insurance_policies: "Insurance",
+  extras: "Extra",
 };
 
 export const ITEM_FIELDS: Record<ItemTable, Field[]> = {
-  flight_options: [t("label", "Label"), t("fare_rules", "Fare rules", "textarea"), t("seating", "Seating")],
+  flight_options: [
+    t("label", "Label"),
+    t("fare_rules", "Fare rules", "textarea"),
+    t("seating", "Seating"),
+    t("online_price", "Comparable online price (R)", "money"),
+  ],
   accommodation_options: [
     t("hotel_name", "Hotel"),
     t("location_name", "Location"),
@@ -75,13 +85,46 @@ export const ITEM_FIELDS: Record<ItemTable, Field[]> = {
     t("end_date", "End date", "date"),
     t("end_time", "End time", "time"),
   ],
+  packages: [
+    t("operator", "Operator"),
+    t("name", "Name"),
+    t("destination", "Destination"),
+    t("start_date", "Start date", "date"),
+    t("end_date", "End date", "date"),
+    t("deposit", "Deposit (R)", "money"),
+    t("balance_due_on", "Balance due", "date"),
+  ],
+  // Country first: the first field names the Item in autosave messages.
+  visas: [t("country", "Country"), t("visa_type", "Visa type"), t("traveller_id", "Traveller", "traveller")],
+  insurance_policies: [
+    t("insurer", "Insurer"),
+    t("policy_type", "Policy type"),
+    t("start_date", "Start date", "date"),
+    t("end_date", "End date", "date"),
+    t("traveller_ids", "Travellers", "travellers"),
+  ],
+  extras: [
+    { name: "extra_type", label: "Type", type: "select", options: [["", "Choose a type"], ...EXTRA_TYPES] },
+    t("description", "Description", "textarea"),
+    t("flight_entity_id", "Flight", "flight"),
+    t("seats", "Seats"),
+    t("bags", "Bags"),
+    t("airport", "Airport"),
+    t("date", "Date", "date"),
+    t("time", "Time", "time"),
+    t("people", "People", "number"),
+    t("period", "Period"),
+  ],
 };
+
+export { EXTRA_FIELDS };
 
 /** Every Item has these (migration 0009). Fee region, variant and the fees are drawn separately. */
 export const PRICE_FIELDS: Field[] = [
   t("price", "Price (R)", "money"),
   t("markup", "Markup (R)", "money"),
   t("prepaid", "Prepaid", "checkbox"),
+  t("card_paid", "Paid by international card", "checkbox"),
   t("notes", "Notes", "textarea"),
 ];
 

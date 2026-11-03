@@ -21,6 +21,10 @@ export const TABS: [ItemTable, string, string][] = [
   ["transfers", "transfers", "Transfers"],
   ["rail_journeys", "rail-journeys", "Rail journeys"],
   ["car_rentals", "car-rentals", "Car rentals"],
+  ["packages", "packages", "Packages"],
+  ["visas", "visas", "Visas"],
+  ["insurance_policies", "insurance", "Insurance"],
+  ["extras", "extras", "Extras"],
 ];
 
 /**
@@ -44,9 +48,10 @@ export async function EditSection({
   const supabase = await createClient();
   const tables = Object.keys(TABLE_KIND) as ItemTable[];
 
-  const [ctx, { data: stops }, { data: bookingRows }, { data: changeRows }, { data: supplierRows }, ...results] = await Promise.all([
+  const [ctx, { data: stops }, { data: travellerRows }, { data: bookingRows }, { data: changeRows }, { data: supplierRows }, ...results] = await Promise.all([
     loadFeeContext(supabase, quoteId),
     supabase.from("trip_stops").select("id, position, destination, starts_on, ends_on").eq("trip_id", tripId).order("position"),
+    supabase.from("trip_travellers").select("traveller_id, travellers(first_name, last_name)").eq("trip_id", tripId),
     supabase.from("item_bookings").select("*, suppliers(name)").eq("quote_id", quoteId),
     supabase.from("item_changes").select("*").eq("quote_id", quoteId).order("happened_on").order("created_at"),
     supabase.from("suppliers").select("name").order("name"),
@@ -80,6 +85,14 @@ export async function EditSection({
     label: [s.destination, s.starts_on && s.ends_on ? `${s.starts_on} to ${s.ends_on}` : null].filter(Boolean).join(", "),
   }));
 
+  const travellers: StayOption[] = (travellerRows ?? []).map((t) => {
+    const p = one(t.travellers) as { first_name: string | null; last_name: string | null } | null;
+    return { id: t.traveller_id as string, label: [p?.first_name, p?.last_name].filter(Boolean).join(" ") || "Unnamed traveller" };
+  });
+  const flightOptions: StayOption[] = rows
+    .filter((r) => r.table === "flight_options")
+    .map(({ row }, i) => ({ id: String(row.entity_id), label: String(row.label ?? "") || `Flight option ${i + 1}` }));
+
   const bookings = new Map(
     (bookingRows ?? []).map((b) => [b.entity_id as string, { ...b, supplier: one(b.suppliers)?.name ?? "" } as Booking]),
   );
@@ -87,7 +100,7 @@ export async function EditSection({
   const billables = await loadBillables(
     supabase,
     quoteId,
-    new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table] }])),
+    new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table], kind: TABLE_KIND[table] }])),
   );
 
   const imageById = new Map(images.map((img, i) => [img.id, { ...img, order: i }]));
@@ -109,6 +122,8 @@ export async function EditSection({
           readOnly={readOnly}
           flights={table === "flight_options" ? ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id) : undefined}
           stays={stays}
+          travellers={travellers}
+          flightOptions={flightOptions}
           rates={ctx.rates}
           lastOfImage={row.image_id != null && rows.filter((r) => r.row.image_id === row.image_id).length === 1}
           booked={!!booking}

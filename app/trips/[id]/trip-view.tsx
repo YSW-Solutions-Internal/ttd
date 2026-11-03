@@ -9,6 +9,7 @@ import { TABS } from "@/app/quotes/[id]/edit-section";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { StayRow } from "./stays-form";
 import { TripForm } from "./trip-form";
+import { Checklist } from "./checklist";
 import { AddTravellerForm } from "@/app/clients/travellers";
 import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
 import { FileLink } from "@/app/file-viewer";
@@ -28,14 +29,14 @@ export async function TripView({ id }: { id: string }) {
   const { data: trip } = await supabase
     .from("trips")
     .select(
-      "id, reference, title, status, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, custom_notes, ta_number, cost_centre, authorising_person, clients(id, client_code, full_name, kind, consultant_id)",
+      "id, reference, title, status, starts_on, ends_on, nights, adults, children, custom_notes, ta_number, cost_centre, authorising_person, clients(id, client_code, full_name, kind, consultant_id)",
     )
     .eq("id", id)
     .maybeSingle();
   if (!trip) notFound();
   const client = one(trip.clients);
 
-  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }, { data: refunds }] = await Promise.all([
+  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }, { data: refunds }, { data: checks }] = await Promise.all([
     supabase
       .from("quotes")
       .select("id, quote_versions(id, version_no, pdf_path, created_at)")
@@ -53,7 +54,11 @@ export async function TripView({ id }: { id: string }) {
     supabase.from("trip_travellers").select("traveller_id").eq("trip_id", id).order("created_at"),
     supabase.rpc("traveller_flags", { p_client_id: client?.id }),
     supabase.from("refund_totals").select("trip_id, refund_status, issued, approved, agency_fee, received, paid_back").eq("trip_id", id),
+    supabase.from("trip_checks").select("check_key, done_at, done_by, note").eq("trip_id", id),
   ]);
+  const doneBy = [...new Set((checks ?? []).flatMap((c) => (c.done_by ? [c.done_by] : [])))];
+  const { data: people } = doneBy.length > 0 ? await supabase.from("profiles").select("id, full_name").in("id", doneBy) : { data: [] };
+  const names = Object.fromEntries((people ?? []).map((p) => [p.id, p.full_name ?? ""]));
   const flags = rawFlags as { traveller_id: string; identified: boolean }[] | null;
   const going = new Set((onTrip ?? []).map((r) => r.traveller_id));
   const unidentified = new Set((flags ?? []).filter((f) => !f.identified).map((f) => f.traveller_id));
@@ -146,6 +151,9 @@ export async function TripView({ id }: { id: string }) {
       {/* Accountants see the Trip but cannot change it (ADR 0010). */}
       <fieldset className="min-w-0" disabled={!editable}>
       <TripForm trip={trip} company={client?.kind === "company"} />
+
+      <h2>Checklist</h2>
+      <Checklist tripId={trip.id} rows={checks ?? []} names={names} readOnly={!editable} />
 
       <h2 id="stays" className="scroll-mt-4">Stays</h2>
       <p className="mb-3 text-muted">The Trip's itinerary. Accommodation options are placed in these.</p>

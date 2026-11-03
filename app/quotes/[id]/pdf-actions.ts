@@ -5,20 +5,14 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
+import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { assembleQuote, problems, type AssembleInput } from "@/lib/pdf/assemble";
 import { renderQuotePdf } from "@/lib/pdf/render";
 import type { QuoteJson } from "@/lib/pdf/types";
 
 export type PdfState = { error?: string; problems?: string[] };
 
-const ITEM_TABLES = [
-  "flight_options",
-  "accommodation_options",
-  "transfers",
-  "rail_journeys",
-  "car_rentals",
-  "excursions",
-] as const;
+const ITEM_TABLES = Object.keys(TABLE_KIND) as ItemTable[];
 
 /** Renders the frozen JSON, uploads the PDF and records its path. Throws on failure. */
 async function storePdf(supabase: SupabaseClient, quoteId: string, versionId: string, versionNo: number, quote: QuoteJson) {
@@ -85,7 +79,7 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
   const { data: quote } = await supabase
     .from("quotes")
     .select(
-      "id, trips(id, reference, title, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, terms_profile, custom_notes, clients(client_code, full_name, profiles!clients_consultant_id_fkey(full_name, email)))",
+      "id, trips(id, reference, title, starts_on, ends_on, nights, adults, children, terms_profile, custom_notes, clients(client_code, full_name, profiles!clients_consultant_id_fkey(full_name, email)))",
     )
     .eq("id", quoteId)
     .maybeSingle();
@@ -94,9 +88,11 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
   const client = one(trip.clients) as Record<string, any> | null;
   const consultant = one(client?.profiles) as { full_name: string | null; email: string } | null;
 
-  const [{ data: active }, { data: stays }, ...tables] = await Promise.all([
+  const [{ data: active }, { data: stays }, { data: checks }, { data: travellers }, ...tables] = await Promise.all([
     supabase.from("quote_items").select("entity_id").eq("quote_id", quoteId),
     supabase.from("trip_stops").select("*").eq("trip_id", trip.id).order("position"),
+    supabase.from("trip_checks").select("check_key, note").eq("trip_id", trip.id),
+    supabase.from("trip_travellers").select("traveller_id, travellers(first_name, last_name)").eq("trip_id", trip.id),
     ...ITEM_TABLES.map((t) => supabase.from(t).select("*").eq("quote_id", quoteId).order("created_at")),
   ]);
   const failed = tables.find((t) => t.error);
@@ -129,6 +125,13 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
     stays: stays ?? [],
     items: { ...items, flights: flights ?? [] },
     airlines: new Map((airlines ?? []).map((a) => [a.iata, a.name])),
+    travellers: new Map(
+      (travellers ?? []).map((t) => {
+        const p = one(t.travellers) as { first_name: string | null; last_name: string | null } | null;
+        return [t.traveller_id, [p?.first_name, p?.last_name].filter(Boolean).join(" ")];
+      }),
+    ),
+    checks: Object.fromEntries((checks ?? []).map((c) => [c.check_key, c.note])),
   });
 
   const { data: versionId, error } = await supabase.rpc("generate_version", {

@@ -13,6 +13,12 @@ export class FieldParseError extends Error {
   }
 }
 
+/** One submitted text value, trimmed; missing is "". */
+export const text = (fd: FormData, name: string) => String(fd.get(name) ?? "").trim();
+
+/** A thrown error (a FieldParseError included) as a form action's message. */
+export const failed = (e: unknown) => ({ error: e instanceof Error ? e.message : "Could not read the form." });
+
 /** A Rand amount: digits, an optional minus and at most 2 decimals ("," accepted as the point). Empty is null. */
 export function parseAmount(raw: string, label: string): number | null {
   const s = raw.trim().replace(",", ".");

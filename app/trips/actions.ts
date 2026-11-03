@@ -32,7 +32,7 @@ export async function createTrip(_prev: CreateTripState, formData: FormData): Pr
 }
 
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
-const TEXT_FIELDS = ["title", "visa_info", "health_info", "insurance_info", "custom_notes", "ta_number", "cost_centre", "authorising_person"];
+const TEXT_FIELDS = ["title", "custom_notes", "ta_number", "cost_centre", "authorising_person"];
 
 /**
  * Saves the Trip details that changed (autosave sends only those) and sends back Nights.

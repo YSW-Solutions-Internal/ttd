@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { FieldParseError } from "@/lib/form-values";
+import { failed } from "@/lib/form-values";
 import { parseBooking, parseChange, ticketNumbers, type BookingValues } from "@/lib/booking";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 
@@ -10,9 +10,6 @@ export type BookingFormState = { error?: string; notice?: string };
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-const failed = (e: unknown): BookingFormState => ({
-  error: e instanceof FieldParseError || e instanceof Error ? e.message : "Could not read the form.",
-});
 
 /** The Supplier named, from the shared list; a name not on it is added (any User may add one). */
 async function supplierId(supabase: Supabase, name: string): Promise<string> {
@@ -58,6 +55,18 @@ export async function bookItem(
   } catch (e) {
     return failed(e);
   }
+  revalidatePath("/", "layout");
+  return { notice: "Booked." };
+}
+
+/** An Extra with no supplier price: booked with one click, nothing to invoice from a Supplier. */
+export async function bookOwnExtra(quoteId: string, entityId: string, _prev: BookingFormState, _fd: FormData): Promise<BookingFormState> {
+  const supabase = await createClient();
+  const { data: item } = await supabase.from("extras").select("price, extra_type, transaction_fee").eq("quote_id", quoteId).eq("entity_id", entityId).maybeSingle();
+  if (!item?.extra_type || item.transaction_fee == null) return { error: "Pick the Extra's type before booking it." };
+  if (Number(item?.price) !== 0 || item?.price == null) return { error: "Give it a supplier price of 0, or book it with its Supplier." };
+  const { error } = await supabase.from("item_bookings").insert({ quote_id: quoteId, entity_id: entityId, kind: "extra", amount: 0, currency: "ZAR", no_supplier_invoice: true });
+  if (error) return { error: error.code === "23505" ? "This Item is already booked." : `Could not book: ${error.message}` };
   revalidatePath("/", "layout");
   return { notice: "Booked." };
 }

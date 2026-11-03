@@ -6,7 +6,7 @@ import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { isExpired, orderIdentities, type IdentityValues } from "@/lib/identity";
 import { FileLink } from "@/app/file-viewer";
-import { isImage } from "@/lib/files";
+import { isImage, sizeProblem } from "@/lib/files";
 import {
   addIdentity,
   addTraveller,
@@ -159,7 +159,7 @@ function IdentityRow({ clientId, doc, today, admin }: { clientId: string; doc: I
         ) : (
           <form {...kept} className="flex flex-wrap items-center gap-2">
             <span className="text-muted">No image yet</span>
-            <input type="file" name="image" accept="application/pdf,image/jpeg,image/png" required aria-label={`${label} image`} />
+            <input type="file" name="image" accept="application/pdf,image/jpeg,image/png" onChange={(e) => e.currentTarget.setCustomValidity(sizeProblem(e.currentTarget.files))} required aria-label={`${label} image`} />
             <button type="submit" disabled={pending}>
               {pending ? "Uploading…" : "Add image"}
             </button>
@@ -201,7 +201,7 @@ function AddIdentityForm({ clientId, travellerId, hasId }: { clientId: string; t
         <Field label="Name as printed, if different" name="name_as_printed" value={null} />
         <div className="mb-3">
           <label>Image (optional)</label>
-          <input type="file" name="image" accept="application/pdf,image/jpeg,image/png" />
+          <input type="file" name="image" accept="application/pdf,image/jpeg,image/png" onChange={(e) => e.currentTarget.setCustomValidity(sizeProblem(e.currentTarget.files))} />
         </div>
         <button type="submit" disabled={pending} className="mb-3">
           {pending ? "Saving…" : "Add"}
