@@ -2,7 +2,7 @@
 // Pure, with .ts / type-only imports, so assemble.test.ts runs under plain `node`.
 import type { AccommodationStay, FlightOption, Priced, QuoteJson } from "./types";
 import { feeUnits, money } from "./money.ts";
-import { EXTRA_TYPES } from "../extraction/tables.ts";
+import { EXTRA_FIELDS, EXTRA_TYPES } from "../extraction/tables.ts";
 
 type Row = Record<string, any>;
 
@@ -100,6 +100,9 @@ export function problems(items: AssembleInput["items"]): string[] {
       // A missing fee would print as R 0 and undercharge; a missing price prints "On request".
       if (r.price != null && r.transaction_fee == null) out.push(`${r[field] || fallback} has a price but no Transaction fee.`);
     }
+  }
+  for (const x of items.extras) {
+    if (x.extra_type === "conference" && x.people == null) out.push("A Conference has no number of people.");
   }
   return out;
 }
@@ -255,22 +258,26 @@ export function assembleQuote(input: AssembleInput): { quote: QuoteJson; items: 
   number(items.insurance_policies, "insurance");
 
   const extraLabels = new Map(EXTRA_TYPES);
-  const extras = items.extras.map((x) => ({
+  const extras = items.extras.map((x) => {
+    const mine = (f: string) => (EXTRA_FIELDS[x.extra_type] ?? []).includes(f);
+    return {
     ...priced(x),
     units: feeUnits("extra", x),
     type: extraLabels.get(x.extra_type) ?? x.extra_type,
     description: x.description,
+    // The edit screen hides other types' fields without clearing them, so print only this type's.
     detail: [
-      at(x.date, x.time),
-      x.airport,
-      x.seats && `Seats ${x.seats}`,
-      x.bags && `Bags ${x.bags}`,
-      x.people && plural(Number(x.people), "person", "people"),
-      x.period,
+      mine("date") && at(x.date, x.time),
+      mine("airport") && x.airport,
+      mine("seats") && x.seats && `Seats ${x.seats}`,
+      mine("bags") && x.bags && `Bags ${x.bags}`,
+      mine("people") && x.people && plural(Number(x.people), "person", "people"),
+      mine("period") && x.period,
     ]
       .filter(Boolean)
       .join(" · "),
-  }));
+  };
+  });
   number(items.extras, "extra");
 
   const adults = Number(trip.adults ?? 0);

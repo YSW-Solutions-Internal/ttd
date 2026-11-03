@@ -1,6 +1,6 @@
 // The editable fields of each Item table: what the edit screen shows and the only
 // columns saveItem will write. Shared by the form (client) and the action (server).
-import { EXTRA_TYPES, type ItemTable } from "@/lib/extraction/tables";
+import { EXTRA_FIELDS, EXTRA_TYPES, type ItemTable } from "@/lib/extraction/tables";
 
 // traveller: one of the Trip's Travellers; travellers: several (checkboxes); flight: one of the Quote's Flight options by entity_id.
 export type FieldType = "text" | "textarea" | "number" | "money" | "date" | "time" | "checkbox" | "select" | "traveller" | "travellers" | "flight";
@@ -117,16 +117,7 @@ export const ITEM_FIELDS: Record<ItemTable, Field[]> = {
   ],
 };
 
-/** The fields each Extra type shows (besides its type); the rest stay in the form, hidden. */
-export const EXTRA_FIELDS: Record<string, string[]> = {
-  preseat: ["flight_entity_id", "seats"],
-  baggage: ["flight_entity_id", "bags"],
-  after_hours: ["date", "time", "description"],
-  meet_greet: ["airport", "date", "time", "description"],
-  conference: ["description", "people"],
-  report_mis: ["period", "description"],
-  report_adhoc: ["period", "description"],
-};
+export { EXTRA_FIELDS };
 
 /** Every Item has these (migration 0009). Fee region, variant and the fees are drawn separately. */
 export const PRICE_FIELDS: Field[] = [

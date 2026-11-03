@@ -74,6 +74,16 @@ export async function saveItem(quoteId: string, table: string, id: string, formD
     return { error: "Could not read the form." };
   }
 
+  if (changed.people != null && (!Number.isInteger(changed.people) || (changed.people as number) < 1)) {
+    return { error: "People must be a whole number, 1 or more.", field: "people" };
+  }
+  if (typeof changed.online_price === "number" && changed.online_price < 0) {
+    return { error: "The comparable online price cannot be negative.", field: "online_price" };
+  }
+  if (table === "packages" && typeof changed.deposit === "number" && changed.deposit < 0) {
+    return { error: "The deposit cannot be negative.", field: "deposit" };
+  }
+
   if (formData.has("fee_region")) {
     const region = String(formData.get("fee_region"));
     changed.fee_region = (FEE_REGIONS as readonly string[]).includes(region) ? region : null;

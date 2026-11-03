@@ -45,7 +45,7 @@ export function Checklist({ tripId, rows, names, readOnly }: { tripId: string; r
       {CHECKS.map(([key, label]) => {
         const row = rows.find((r) => r.check_key === key);
         // Remount when the saved tick changes so "Ticked by" and the box stay in step.
-        return <Check key={`${key}-${row?.done_at ?? ""}`} tripId={tripId} checkKey={key} label={label} row={row} who={row?.done_by ? (names[row.done_by] ?? null) : null} readOnly={readOnly} />;
+        return <Check key={`${key}-${row?.done_at ?? ""}`} tripId={tripId} checkKey={key} label={label} row={row} who={row?.done_by ? (names[row.done_by] || null) : null} readOnly={readOnly} />;
       })}
     </section>
   );

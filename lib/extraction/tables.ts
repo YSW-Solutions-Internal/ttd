@@ -28,3 +28,14 @@ export const EXTRA_TYPES: [string, string][] = [
   ["report_mis", "MIS report"],
   ["report_adhoc", "Ad hoc report"],
 ];
+
+/** The fields each Extra type shows (besides its type); the rest stay in the form, hidden. */
+export const EXTRA_FIELDS: Record<string, string[]> = {
+  preseat: ["flight_entity_id", "seats"],
+  baggage: ["flight_entity_id", "bags"],
+  after_hours: ["date", "time", "description"],
+  meet_greet: ["airport", "date", "time", "description"],
+  conference: ["description", "people"],
+  report_mis: ["period", "description"],
+  report_adhoc: ["period", "description"],
+};

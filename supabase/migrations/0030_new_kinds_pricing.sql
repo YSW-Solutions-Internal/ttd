@@ -159,9 +159,9 @@ begin
   end if;
   return new;
 end $$;
-create trigger visas_travellers before insert or update on public.visas
+create trigger visas_travellers before insert or update of traveller_id on public.visas
   for each row execute function public.guard_item_travellers();
-create trigger insurance_policies_travellers before insert or update on public.insurance_policies
+create trigger insurance_policies_travellers before insert or update of traveller_ids on public.insurance_policies
   for each row execute function public.guard_item_travellers();
 
 -- -------------------------------------------- Card surcharge, Online saving

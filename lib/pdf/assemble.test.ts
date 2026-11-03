@@ -133,3 +133,17 @@ test("problems: a priced Package without a Transaction fee", () => {
     "A Package has a price but no Transaction fee.",
   ]);
 });
+
+test("an Extra switched to another type does not print the old type's fields", () => {
+  const { quote } = assembleQuote(
+    input({ extras: [{ entity_id: "x1", extra_type: "report_mis", seats: "12A", bags: 2, airport: "JNB", people: 3, period: "Q1" }] }),
+  );
+  assert.equal(quote.extras![0].detail, "Q1");
+});
+
+test("problems: a Conference with no number of people", () => {
+  assert.deepEqual(
+    problems({ ...empty, extras: [{ description: "AGM", extra_type: "conference", people: null, price: null }] }),
+    ["A Conference has no number of people."],
+  );
+});
