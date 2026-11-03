@@ -160,25 +160,23 @@ export async function addItem(quoteId: string, formData: FormData): Promise<void
   revalidatePath("/", "layout");
 }
 
-export async function deleteItem(quoteId: string, table: string, id: string): Promise<void> {
+/** Items are archived, never deleted (migration 0033); its image stays until staff remove it. */
+export async function archiveItem(table: string, id: string): Promise<void> {
+  await setArchived(table, id, new Date().toISOString());
+}
+
+/** Back exactly as it was: same fees and Markup; unplaced if its Stay has gone. */
+export async function restoreItem(table: string, id: string): Promise<void> {
+  await setArchived(table, id, null);
+}
+
+async function setArchived(table: string, id: string, archivedAt: string | null): Promise<void> {
   if (!isTable(table)) return;
   const supabase = await createClient();
-  // Flights go with their option (on delete cascade). The AI's reading stays in ai_calls.
-  const { data: gone, error } = await supabase.from(table).delete().eq("id", id).select("image_id");
-  if (error) throw new Error(`Could not delete the Item: ${error.message}`);
-
-  // The image's last Item takes the image with it (removed like the Remove button, purged later).
-  const imageId = gone?.[0]?.image_id as string | null | undefined;
-  if (imageId) {
-    const { data: left } = await supabase.from("quote_items").select("entity_id").eq("image_id", imageId).limit(1);
-    if (left && left.length === 0) {
-      await supabase
-        .from("images")
-        .update({ removed_at: new Date().toISOString() })
-        .eq("id", imageId)
-        .eq("quote_id", quoteId);
-    }
-  }
+  // archived_by is set by the database from the signed-in user.
+  const { data, error } = await supabase.from(table).update({ archived_at: archivedAt }).eq("id", id).select("id");
+  if (error) throw new Error(`Could not ${archivedAt ? "archive" : "restore"} the Item: ${error.message}`);
+  if (!data?.length) throw new Error("Item not found.");
   revalidatePath("/", "layout");
 }
 

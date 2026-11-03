@@ -98,7 +98,7 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
   const failed = tables.find((t) => t.error);
   if (failed) return { error: `Could not load the Items: ${failed.error!.message}` };
 
-  // quote_items leaves out Items whose image was removed.
+  // quote_items leaves out archived Items (migration 0033).
   const keep = new Set((active ?? []).map((r) => r.entity_id));
   const items = Object.fromEntries(
     ITEM_TABLES.map((t, i) => [t, (tables[i].data ?? []).filter((r) => keep.has(r.entity_id))]),

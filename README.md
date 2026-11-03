@@ -25,6 +25,7 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 - **New kinds and pricing** (migration 0030): Package, Visa, Insurance and Extra Items are entered by hand on their own tabs of the Quote edit screen; an Extra with no Supplier price books with one click. The Trip checklist replaces the visa, health and insurance info on the Trip. A Card surcharge switch on each Item (rate on the Fee schedule) prints as its own line on the PDF. Flight options have an Online saving, shown to staff only
 
 - **Search and departures** (migrations 0031, 0032): the search box at the top of the side menu finds Trips, Clients, Travellers, Booking references (PNRs), ticket numbers, Refund and Commission claim references and invoice numbers (`/search`). The home page lists Booked Trips departing and returning in the next 7 days, and the Trips list defaults to Current: open Trips plus Travelled or Cancelled ones from the last 90 days. Quotes, Trips, Versions, images and Changes can no longer be deleted, and an Item with a Commission entered cannot be unbooked until the Commission is cleared
+- **Archived Items** (migration 0033): an Item is archived, never deleted, and comes back exactly as it was with Restore in Archived Items under the Quote's tabs. Removing an image archives its Items; uploading it again restores them. A booked Item must be unbooked before it is archived, and the image purge keeps the Items
 
 ## Setup
 
@@ -114,7 +115,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Next milestones
 
-Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021) · 8. Company Clients, Travellers with IDs and Passports, new Trip statuses (migration 0022) · 9. Booking, Corrections, Changes and Cancellations (migration 0023) · 10. Invoices (migration 0024) and the Accounts queues · 11. Payments and Payment accounts, each Trip's accounts page, statements and their month-end CSV (migration 0027) · 12. Refunds and Commissions: Payment kinds, Refunds on Cancellations, Commissions on bookings, their queues and CSV exports (migration 0029) · 13. Packages, Visas, Insurance and Extras, the Trip checklist, Card surcharge and Online saving (migration 0030) · 14. Search and departures, nothing with money on it deleted (migrations 0031, 0032).
+Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021) · 8. Company Clients, Travellers with IDs and Passports, new Trip statuses (migration 0022) · 9. Booking, Corrections, Changes and Cancellations (migration 0023) · 10. Invoices (migration 0024) and the Accounts queues · 11. Payments and Payment accounts, each Trip's accounts page, statements and their month-end CSV (migration 0027) · 12. Refunds and Commissions: Payment kinds, Refunds on Cancellations, Commissions on bookings, their queues and CSV exports (migration 0029) · 13. Packages, Visas, Insurance and Extras, the Trip checklist, Card surcharge and Online saving (migration 0030) · 14. Search and departures, nothing with money on it deleted (migrations 0031, 0032) · 17. Archiving Items instead of deleting them (migration 0033).
 
 ### Bookings and accounts (Lisa's brief, phase 1)
 
@@ -133,7 +134,6 @@ The app takes over what Lisa's SharePoint pilot and developer brief describe: fr
 
 15. Review the Trips list for pagination once there are a few hundred trips
 16. Finalising a Quote: decide when a Version gets a total for the whole Trip
-17. Archiving Items instead of deleting them, so a deleted Item can be restored
 18. A developer view of what the AI read from each image (raw `ai_calls` answers)
 19. A page for Administrators to correct or remove Destinations
 

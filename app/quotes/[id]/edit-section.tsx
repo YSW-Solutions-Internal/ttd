@@ -3,7 +3,8 @@ import { loadFeeContext } from "@/lib/fee-context";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { problems } from "@/lib/pdf/assemble";
 import { AddItemForm, ItemForm, type ItemSource, type StayOption } from "./item-form";
-import { confirmAirline } from "./item-actions";
+import { confirmAirline, restoreItem } from "./item-actions";
+import { BUTTON } from "@/app/ui";
 import { EditTabs, type EditTab } from "./edit-tabs";
 import { BookingPanel, type Booking } from "./booking-panel";
 import { one } from "@/lib/relations";
@@ -57,7 +58,17 @@ export async function EditSection({
     supabase.from("suppliers").select("name").order("name"),
     ...tables.map((t) => supabase.from(t).select("*").eq("quote_id", quoteId).order("created_at")),
   ]);
-  const rows = tables.flatMap((table, i) => ((results[i].data ?? []) as Row[]).map((row) => ({ table, row })));
+  const all = tables.flatMap((table, i) => ((results[i].data ?? []) as Row[]).map((row) => ({ table, row })));
+  // Archived Items leave the Working content, as Generate version leaves them out (migration 0033).
+  const rows = all.filter((r) => r.row.archived_at == null);
+  const archived = all
+    .filter((r) => r.row.archived_at != null)
+    .sort((a, b) => String(b.row.archived_at).localeCompare(String(a.row.archived_at)));
+  const archivers = [...new Set(archived.flatMap((r) => (r.row.archived_by ? [String(r.row.archived_by)] : [])))];
+  const { data: people } = archivers.length
+    ? await supabase.from("profiles").select("id, full_name, email").in("id", archivers)
+    : { data: [] };
+  const who = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
 
   const optionIds = rows.filter((r) => r.table === "flight_options").map((r) => String(r.row.id));
   const { data: flights } = optionIds.length
@@ -125,7 +136,6 @@ export async function EditSection({
           travellers={travellers}
           flightOptions={flightOptions}
           rates={ctx.rates}
-          lastOfImage={row.image_id != null && rows.filter((r) => r.row.image_id === row.image_id).length === 1}
           booked={!!booking}
           locked={!!booking && !admin}
         />
@@ -146,10 +156,6 @@ export async function EditSection({
       </div>
     );
   };
-
-  const shown = new Set(images.map((i) => i.id));
-  // Items from removed images are left out here, as Generate version leaves them out.
-  const visible = rows.filter((r) => r.row.image_id == null || shown.has(String(r.row.image_id)));
 
   const airlines = toConfirm.length > 0 && (
     <section className="rounded-md border border-amber bg-white p-4">
@@ -180,7 +186,7 @@ export async function EditSection({
   const tabs: EditTab[] = TABS.map(([table, id, label]) => {
     // Items from images in upload order, then those entered by hand; each group in the order added.
     const rank = (r: { row: Row }) => (r.row.image_id == null ? images.length : (imageById.get(String(r.row.image_id))?.order ?? images.length));
-    const ofKind = visible.filter((r) => r.table === table).sort((a, b) => rank(a) - rank(b));
+    const ofKind = rows.filter((r) => r.table === table).sort((a, b) => rank(a) - rank(b));
     const onlyThis = Object.fromEntries(tables.map((t) => [t, t === table ? ofKind.map((r) => r.row) : []]));
     return {
       id,
@@ -202,8 +208,39 @@ export async function EditSection({
   return (
     <>
       <EditTabs tabs={tabs} />
-      {rows.length > visible.length && (
-        <p className="mt-3 text-muted">Items from removed images are left out. Uploading the same image again within 90 days brings them back.</p>
+      {archived.length > 0 && (
+        <details className="mt-4">
+          <summary className="cursor-pointer font-semibold text-teal-deep">Archived Items ({archived.length})</summary>
+          <p className="mt-1 text-muted">
+            Removing an image archives its Items; uploading the same image again within 90 days restores them.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Archived</th>
+                <th>By</th>
+                {!readOnly && <th />}
+              </tr>
+            </thead>
+            <tbody>
+              {archived.map(({ table, row }) => (
+                <tr key={String(row.id)}>
+                  <td>{[ITEM_LABEL[table], row.label ?? row.name].filter(Boolean).join(": ")}</td>
+                  <td>{new Date(String(row.archived_at)).toLocaleString("en-ZA")}</td>
+                  <td>{row.archived_by ? (who.get(String(row.archived_by)) ?? "Former user") : "System"}</td>
+                  {!readOnly && (
+                    <td>
+                      <form action={restoreItem.bind(null, table, String(row.id))}>
+                        <button type="submit" className={BUTTON.quiet}>Restore</button>
+                      </form>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
       )}
     </>
   );

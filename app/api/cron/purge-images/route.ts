@@ -6,8 +6,9 @@ export const dynamic = "force-dynamic";
 const KEEP_DAYS = 90;
 
 /**
- * Daily (vercel.json): deletes images removed more than KEEP_DAYS ago, for good. Their Items,
- * flights, extraction and AI log go with them (on delete cascade); then the file goes from storage.
+ * Daily (vercel.json): deletes images removed more than KEEP_DAYS ago, for good. Their Items stay
+ * archived, without the image (migration 0033); their extraction and AI log go with them
+ * (on delete cascade); then the file goes from storage.
  */
 export async function GET(request: Request) {
   if (!process.env.CRON_SECRET || request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
