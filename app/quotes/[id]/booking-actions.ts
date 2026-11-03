@@ -118,7 +118,7 @@ export async function markIssued(
   return { notice: "Issued." };
 }
 
-/** Undoes a booking made by mistake; refused once it has Changes or invoices. */
+/** Undoes a booking made by mistake; refused once it has Changes, invoices, Payments or a Commission (0032). */
 export async function unbookItem(quoteId: string, entityId: string, _prev: BookingFormState): Promise<BookingFormState> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("item_bookings").delete().eq("quote_id", quoteId).eq("entity_id", entityId).select("entity_id");

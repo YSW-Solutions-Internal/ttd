@@ -24,6 +24,8 @@ Staff-only web app for building travel quotes: upload supplier screenshots, extr
 
 - **New kinds and pricing** (migration 0030): Package, Visa, Insurance and Extra Items are entered by hand on their own tabs of the Quote edit screen; an Extra with no Supplier price books with one click. The Trip checklist replaces the visa, health and insurance info on the Trip. A Card surcharge switch on each Item (rate on the Fee schedule) prints as its own line on the PDF. Flight options have an Online saving, shown to staff only
 
+- **Search and departures** (migrations 0031, 0032): the search box at the top of the side menu finds Trips, Clients, Travellers, Booking references (PNRs), ticket numbers, Refund and Commission claim references and invoice numbers (`/search`). The home page lists Booked Trips departing and returning in the next 7 days, and the Trips list defaults to Current: open Trips plus Travelled or Cancelled ones from the last 90 days. Quotes, Trips, Versions, images and Changes can no longer be deleted, and an Item with a Commission entered cannot be unbooked until the Commission is cleared
+
 ## Setup
 
 1. Create a Supabase project. Choose the South Africa (Cape Town) region if offered.
@@ -82,6 +84,8 @@ app/                      pages and server actions
   auth/confirm/           invite and reset link landing: token -> session
   account/set-password/   invited or resetting user chooses a password
   quotes/[id]/            the Quote editor the Trip page embeds (images, Items, Versions); the URL redirects to the Trip
+  search/                 one search over references, Clients, Travellers, bookings and invoices
+  departures.tsx          the home page's departing and returning this week
   ui.tsx                  Msg, Badge, Trip status badge and Button: the repeated pieces of UI
   file-viewer.tsx         FileLink: PDFs and images open in a dialog over the page, images with zoom
   globals.css             Tailwind theme (logo teal and black, fonts) and base element styles
@@ -110,7 +114,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Next milestones
 
-Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021) · 8. Company Clients, Travellers with IDs and Passports, new Trip statuses (migration 0022) · 9. Booking, Corrections, Changes and Cancellations (migration 0023) · 10. Invoices (migration 0024) and the Accounts queues · 11. Payments and Payment accounts, each Trip's accounts page, statements and their month-end CSV (migration 0027) · 12. Refunds and Commissions: Payment kinds, Refunds on Cancellations, Commissions on bookings, their queues and CSV exports (migration 0029) · 13. Packages, Visas, Insurance and Extras, the Trip checklist, Card surcharge and Online saving (migration 0030).
+Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021) · 8. Company Clients, Travellers with IDs and Passports, new Trip statuses (migration 0022) · 9. Booking, Corrections, Changes and Cancellations (migration 0023) · 10. Invoices (migration 0024) and the Accounts queues · 11. Payments and Payment accounts, each Trip's accounts page, statements and their month-end CSV (migration 0027) · 12. Refunds and Commissions: Payment kinds, Refunds on Cancellations, Commissions on bookings, their queues and CSV exports (migration 0029) · 13. Packages, Visas, Insurance and Extras, the Trip checklist, Card surcharge and Online saving (migration 0030) · 14. Search and departures, nothing with money on it deleted (migrations 0031, 0032).
 
 ### Bookings and accounts (Lisa's brief, phase 1)
 
