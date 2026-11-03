@@ -130,6 +130,10 @@ _Avoid_: Confirmed, ticketed (for the state), issued (for a Version)
 An Item is booked once a User other than an Accountant has reserved it with the supplier, at any time and whether or not it went on a Version or the Quote is finished. It is booked with the supplier's booking reference, the supplier's actual currency and amount, the rate to Rand (1 for Rand) and the date its Supplier invoice is expected. From then on its prices are fixed, later Versions show it at its Item total, it cannot be deleted, and anything that alters it is a Change. Booking an Item never changes the Trip status, and the other options offered beside it stay as they are.
 _Avoid_: Confirmed, reserved
 
+**Booking reference**:
+The supplier's reference for a booked Item, given when it is Booked. For a flight it is the PNR.
+_Avoid_: PNR (except for a flight's), confirmation number, locator
+
 **Change**:
 A dated event against a booked Item, such as a flight reissue, with its own charges: extra fare, extra taxes and supplier penalty in the supplier's currency at that day's rate, plus the Change fee and Markup in Rand. A Change never overwrites the Item or an earlier Change. A Cancellation is one kind of Change.
 _Avoid_: Amendment, reissue (as a record), edit
