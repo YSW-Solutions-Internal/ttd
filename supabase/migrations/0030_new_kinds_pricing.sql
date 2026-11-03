@@ -94,10 +94,6 @@ begin
     execute format('create index %1$s_quote on public.%1$I (quote_id)', t);
     execute format('create trigger %1$s_updated_at before update on public.%1$I
                       for each row execute function public.set_updated_at()', t);
-    execute format('alter table public.%I enable row level security', t);
-    execute format('create policy staff_read on public.%I for select to authenticated using (true)', t);
-    execute format('create policy staff_all on public.%I for all to authenticated
-                      using (public.can_edit()) with check (public.can_edit())', t);
     execute format('create trigger %I_booked before update or delete on public.%I
                       for each row execute function public.guard_booked_item()', t, t);
     execute format('create trigger %I_history after insert or update or delete on public.%I
@@ -105,6 +101,20 @@ begin
   end loop;
 end $$;
 alter table public.extras alter column price set default 0;
+
+-- Written out per table, not in the loop, so the SQL editor sees RLS on each; same rules as the other Item tables (0021).
+alter table public.packages           enable row level security;
+alter table public.visas              enable row level security;
+alter table public.insurance_policies enable row level security;
+alter table public.extras             enable row level security;
+create policy staff_read on public.packages           for select to authenticated using (true);
+create policy staff_read on public.visas              for select to authenticated using (true);
+create policy staff_read on public.insurance_policies for select to authenticated using (true);
+create policy staff_read on public.extras             for select to authenticated using (true);
+create policy staff_all on public.packages           for all to authenticated using (public.can_edit()) with check (public.can_edit());
+create policy staff_all on public.visas              for all to authenticated using (public.can_edit()) with check (public.can_edit());
+create policy staff_all on public.insurance_policies for all to authenticated using (public.can_edit()) with check (public.can_edit());
+create policy staff_all on public.extras             for all to authenticated using (public.can_edit()) with check (public.can_edit());
 
 -- Same as 0009, plus the four new kinds.
 create or replace view public.quote_items with (security_invoker = true) as
