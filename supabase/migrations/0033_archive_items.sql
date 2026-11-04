@@ -1,4 +1,4 @@
--- Items are archived, never deleted (Afterwards #17).
+-- Items are archived, never deleted (README milestone 16).
 -- Run in the Supabase SQL editor after 0032.
 --
 --   * archived_at / archived_by on every Item table. An archived Item leaves the Working
