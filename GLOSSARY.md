@@ -58,6 +58,10 @@ _Avoid_: AI scan, parse
 One bookable service found on an image or entered by hand, such as one flight option, one Accommodation option, one car rental, one Package, one Visa, one Insurance policy or one Extra.
 _Avoid_: Line, entry
 
+**Archived**:
+An Item taken out of a Quote's Working content but kept, so it can be restored exactly as it was. Items are never deleted, only archived; removing an image archives the Items found on it. A booked Item cannot be archived until it is unbooked. Versions already generated keep their own copy and are not affected.
+_Avoid_: Deleted, removed (that is what happens to an image)
+
 **Flight option**:
 One complete way of flying the Trip, as offered by a supplier: every Direction and flight in it, with one price for the whole option. Each fare or cabin choice shown on a screen is its own Flight option.
 _Avoid_: Flight quote, fare, booking

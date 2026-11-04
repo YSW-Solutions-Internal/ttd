@@ -7,7 +7,7 @@ import { FileLink } from "@/app/file-viewer";
 import { Button } from "@/app/ui";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { FLAT_KINDS, rateFor, tenPercent, type FeeRate } from "@/lib/fees";
-import { addItem, deleteItem, saveItem } from "./item-actions";
+import { addItem, archiveItem, saveItem } from "./item-actions";
 import {
   EXTRA_FIELDS,
   FEE_LABELS,
@@ -263,7 +263,6 @@ export function ItemForm({
   travellers = [],
   flightOptions = [],
   rates,
-  lastOfImage = false,
   booked = false,
   locked = false,
   readOnly = false,
@@ -279,9 +278,7 @@ export function ItemForm({
   /** The Quote's Flight options by entity_id, for Extras. */
   flightOptions?: StayOption[];
   rates: FeeRate[];
-  /** The only Item left from its image, so deleting it removes the image too. */
-  lastOfImage?: boolean;
-  /** Booked Items are never deleted; unbook first. */
+  /** Booked Items are never archived; unbook first. */
   booked?: boolean;
   /** Booked, and the User is not an Administrator: only Corrections in the booking panel (ADR 0011). */
   locked?: boolean;
@@ -435,11 +432,8 @@ export function ItemForm({
       <div className="mt-1 flex flex-wrap items-center gap-3.5">
         {booked && <small>{locked ? "Booked: only an administrator can edit it." : "Booked: edits are Corrections."}</small>}
         {!booked && !readOnly && (
-          <ConfirmButton
-            formAction={deleteItem.bind(null, quoteId, table, id)}
-            confirmLabel={lastOfImage ? "Sure? This also removes the image" : "Sure? This cannot be undone"}
-          >
-            Delete
+          <ConfirmButton formAction={archiveItem.bind(null, table, id)} confirmLabel="Sure? You can restore it below">
+            Archive
           </ConfirmButton>
         )}
         <AutosaveStatus autosave={autosave} />

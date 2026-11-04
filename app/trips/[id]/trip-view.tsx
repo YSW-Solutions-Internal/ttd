@@ -67,7 +67,7 @@ export async function TripView({ id }: { id: string }) {
   const headCount = trip.adults + trip.children;
   const versions = quote?.quote_versions ?? [];
 
-  // The Quote's Items, as Generate version sees them: quote_items leaves out removed images' Items.
+  // The Quote's Items, as Generate version sees them: quote_items leaves out archived Items.
   const [{ data: active }, ...tables] = quote
     ? await Promise.all([
         supabase.from("quote_items").select("entity_id").eq("quote_id", quote.id),
