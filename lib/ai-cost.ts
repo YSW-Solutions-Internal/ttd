@@ -1,4 +1,4 @@
-// The AI log's cost estimate (README Afterwards #18). No imports, so the test runs under plain `node`.
+// The AI log's cost estimate (README milestone 17). No imports, so the test runs under plain `node`.
 
 /** US$ per million tokens at list price. A model not listed (a fallback) has no estimate. */
 export const PRICES: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }> = {
