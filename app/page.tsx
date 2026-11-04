@@ -49,25 +49,32 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const client = (clients ?? []).some((c) => c.id === params.client) ? params.client! : "";
 
   // A Trip's Consultant is its Client's current Consultant (GLOSSARY), not trips.consultant_id.
-  let query = supabase
-    .from("trips")
-    .select(
-      "id, reference, title, status, starts_on, created_at, clients!inner(client_code, full_name, consultant_id, profiles!clients_consultant_id_fkey(full_name, email))",
-    );
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }); // YYYY-MM-DD
   // Current: open, plus Travelled or Cancelled ending (else starting, else created) in the last 90 days.
   const cut = new Date(Date.parse(today) - 90 * 864e5).toISOString().slice(0, 10);
-  if (status === "current")
-    query = query.or(
-      `status.in.(${OPEN_STATUSES}),ends_on.gte.${cut},and(ends_on.is.null,starts_on.gte.${cut}),and(ends_on.is.null,starts_on.is.null,created_at.gte.${cut})`,
-    );
-  else if (status === "open") query = query.in("status", OPEN_STATUSES);
-  else if (status !== "all") query = query.eq("status", status);
-  if (client) query = query.eq("client_id", client);
-  if (consultant) query = query.eq("clients.consultant_id", consultant);
+  // A fresh query per page of 1000 (PostgREST's cap), so "All" never stops short.
+  const tripPage = (from: number, to: number) => {
+    let query = supabase
+      .from("trips")
+      .select(
+        "id, reference, title, status, starts_on, created_at, clients!inner(client_code, full_name, consultant_id, profiles!clients_consultant_id_fkey(full_name, email))",
+      );
+    if (status === "current")
+      query = query.or(
+        `status.in.(${OPEN_STATUSES}),ends_on.gte.${cut},and(ends_on.is.null,starts_on.gte.${cut}),and(ends_on.is.null,starts_on.is.null,created_at.gte.${cut})`,
+      );
+    else if (status === "open") query = query.in("status", OPEN_STATUSES);
+    else if (status !== "all") query = query.eq("status", status);
+    if (client) query = query.eq("client_id", client);
+    if (consultant) query = query.eq("clients.consultant_id", consultant);
+    return query.order("id").range(from, to);
+  };
   // Every Refund row, paged (PostgREST stops at 1000), rather than a long list of this page's trip ids.
-  const [{ data: trips, error }, refunds] = await Promise.all([
-    query,
+  const [{ trips, error }, refunds] = await Promise.all([
+    everyRow(tripPage).then(
+      (trips) => ({ trips, error: null }),
+      (e: Error) => ({ trips: [], error: e }),
+    ),
     everyRow((from, to) => supabase.from("refund_totals").select("change_id, trip_id, refund_status, issued, approved, agency_fee, received, paid_back").order("change_id").range(from, to)),
   ]);
   const refundOpen = openRefundTrips(refunds);

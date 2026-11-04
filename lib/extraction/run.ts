@@ -44,6 +44,8 @@ async function callAndLog(
       stop_reason: call?.stopReason ?? null,
       input_tokens: call?.inputTokens ?? null,
       output_tokens: call?.outputTokens ?? null,
+      cache_write_tokens: call?.cacheWriteTokens ?? null,
+      cache_read_tokens: call?.cacheReadTokens ?? null,
       raw_output: call?.text ?? null,
       error,
     });

@@ -14,6 +14,8 @@ export type ClaudeCall = {
   stopReason: string | null;
   inputTokens: number;
   outputTokens: number;
+  cacheWriteTokens: number;
+  cacheReadTokens: number;
 };
 
 /**
@@ -59,6 +61,8 @@ export async function extractFromImage(
     stopReason: res.stop_reason,
     inputTokens: res.usage.input_tokens,
     outputTokens: res.usage.output_tokens,
+    cacheWriteTokens: res.usage.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: res.usage.cache_read_input_tokens ?? 0,
   };
 }
 
