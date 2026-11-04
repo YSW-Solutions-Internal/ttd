@@ -63,7 +63,7 @@ An Item taken out of a Quote's Working content but kept, so it can be restored e
 _Avoid_: Deleted, removed (that is what happens to an image)
 
 **Flight option**:
-One complete way of flying the Trip, as offered by a supplier: every Direction and flight in it, with one price for the whole option. Each fare or cabin choice shown on a screen is its own Flight option.
+One way of flying all or part of the Trip, for all or some of its Travellers, as offered by a supplier: every Direction and flight in it, with one price for everyone it covers. Each fare or cabin choice shown on a screen is its own Flight option. Flight options are usually alternatives, but a Client may take more than one, such as a separate ticket home or a group flying from two cities.
 _Avoid_: Flight quote, fare, booking
 
 **Direction**:
@@ -79,7 +79,7 @@ A place a Stay can be at: a city or town, or an area with no airport such as a g
 _Avoid_: City (a Destination need not be one), stop
 
 **Stay**:
-One stop on the Trip's itinerary: one place, from an arrival date to a departure date, with an optional highlight. A Stay holds the Accommodation options offered for it. Options with no dates belong to no Stay until staff place them, and a Version cannot be generated while any are unplaced.
+One stop on the Trip's itinerary: one place, from an arrival date to a departure date, with an optional highlight. A Stay holds the Accommodation options offered for it; each option covers all or part of the Stay's dates, so a Client may take one hotel for some nights and another for the rest. Options with no dates belong to no Stay until staff place them, and a Version cannot be generated while any are unplaced.
 _Avoid_: Trip stop, leg, segment
 
 **Package**:
@@ -193,6 +193,14 @@ _Avoid_: Revision, draft
 **Working content**:
 The editable state of a Quote: its Items (read from its images or entered by hand, as corrected by staff), their placement in Stays, and fees. Editing a Quote means changing its Working content.
 _Avoid_: Draft, current version
+
+**Accepted version**:
+A Version the Consultant generates once the Client has chosen: everything on it is taken, so its PDF shows the Trip total. Before generating it, the Consultant archives the options the Client did not choose; whatever remains counts as taken, even two Flight options or two Accommodation options in one Stay. It cannot be generated while any Item is On request. Generating it never changes the Trip status. If the Client changes their mind, a later Version, accepted or not, replaces it; the newest Version is the one that counts.
+_Avoid_: Final version, confirmed, invoice
+
+**Trip total**:
+What the Client pays for the whole Trip as quoted: the sum of the Item totals of everything on an Accepted version. Refund fees, Change fees and recommended experiences are not in it. There is no Trip total while any Item on the Version is On request.
+_Avoid_: Grand total, quote total
 
 **Generate version**:
 The act of freezing a Quote's Working content into its next Version and producing that Version's PDF. Any edit not yet saved is saved first; if one cannot be saved, nothing is generated. The freeze is kept even if the PDF fails; producing the PDF is then retried from the frozen copy, never from the Working content. A Version without its PDF cannot be sent. A Version cannot be generated while an Accommodation option is not placed in a Stay, or while an Item with a price has no Transaction fee.

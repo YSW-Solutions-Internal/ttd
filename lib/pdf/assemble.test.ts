@@ -147,3 +147,17 @@ test("problems: a Conference with no number of people", () => {
     ["A Conference has no number of people."],
   );
 });
+
+test("an Accepted version has a Trip total and numbers its flights rather than offering options", () => {
+  const items = { flight_options: [{ id: "o1", entity_id: "e1", price: 1000, transaction_fee: 100 }] };
+  assert.equal(assembleQuote(input(items)).quote.trip_total, undefined);
+  const { quote } = assembleQuote({ ...input(items), accepted: true });
+  assert.equal(quote.trip_total, 1100);
+  assert.equal(quote.flight_options![0].label, "Flight 1");
+});
+
+test("problems: an Accepted version cannot have an Item On request, recommended experiences aside", () => {
+  const items = { ...empty, transfers: [{ supplier: "Shuttle Co", price: null }], excursions: [{ description: "Vatican", price: null }] };
+  assert.deepEqual(problems(items), []);
+  assert.deepEqual(problems(items, true), ["Shuttle Co is On request. Price every Item before generating an Accepted version."]);
+});

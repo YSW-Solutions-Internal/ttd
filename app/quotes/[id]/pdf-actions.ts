@@ -69,7 +69,8 @@ export async function renderVersionPdf(quoteId: string, versionId: string, _prev
  * Generate version (GLOSSARY): check, assemble the Working content in code, freeze it with its
  * Items as the next Version, then render its PDF. A failed PDF leaves the Version for Retry.
  */
-export async function generateVersion(quoteId: string, _prev: PdfState): Promise<PdfState> {
+export async function generateVersion(quoteId: string, _prev: PdfState, form: FormData): Promise<PdfState> {
+  const accepted = form.get("accepted") === "on";
   const supabase = await createClient();
   const {
     data: { user },
@@ -104,7 +105,7 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
     ITEM_TABLES.map((t, i) => [t, (tables[i].data ?? []).filter((r) => keep.has(r.entity_id))]),
   ) as Omit<AssembleInput["items"], "flights">;
 
-  const blockers = problems({ ...items, flights: [] });
+  const blockers = problems({ ...items, flights: [] }, accepted);
   if (blockers.length > 0) return { problems: blockers };
 
   const optionIds = items.flight_options.map((o) => o.id);
@@ -117,6 +118,7 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
     : { data: [] };
 
   const { quote: json, items: versionItems } = assembleQuote({
+    accepted,
     today: new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }),
     reference: trip.reference,
     consultant: { name: consultant?.full_name || consultant?.email || "", email: consultant?.email },

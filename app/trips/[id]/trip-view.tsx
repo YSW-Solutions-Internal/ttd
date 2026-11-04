@@ -140,7 +140,8 @@ export async function TripView({ id }: { id: string }) {
                 ))}
               </ul>
             )}
-            <p className="mt-1 text-muted">{versions.length > 0 ? <>Latest: {versionLine(versions[0])}</> : "No versions yet."}</p>
+            {/* A div: FileLink holds its viewer <dialog>, which a <p> cannot contain. */}
+            <div className="mt-1 text-muted">{versions.length > 0 ? <>Latest: {versionLine(versions[0])}</> : "No versions yet."}</div>
           </div>
           <a href="#quote" className={BUTTON.primary}>
             Go to the quote

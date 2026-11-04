@@ -184,6 +184,8 @@ export function QuoteTemplate({
   fontCss: string;
 }) {
   const flights = q.flight_options ?? [];
+  // An Accepted version: everything on it is taken, so nothing reads as a choice (GLOSSARY).
+  const accepted = q.trip_total != null;
   const itinerary = q.itinerary_overview ?? [];
 
   return (
@@ -269,9 +271,9 @@ export function QuoteTemplate({
                 <div className="h-major">Flights{q.flights_tag && <span className="tag">{q.flights_tag}</span>}</div>
 
                 {/* 2.1 Flight summary */}
-                <div className="eyebrow">Flight summary <span className="tag">Airlines and total per option</span></div>
+                <div className="eyebrow">Flight summary <span className="tag">Airlines and total per {accepted ? "flight" : "option"}</span></div>
                 <table className="sumtab">
-                  <thead><tr><th>Option</th><th>Airline(s)</th><th className="num">Total</th></tr></thead>
+                  <thead><tr><th>{accepted ? "Flight" : "Option"}</th><th>Airline(s)</th><th className="num">Total</th></tr></thead>
                   <tbody>
                     {flights.map((fo, i) => (
                       <tr key={i}>
@@ -355,7 +357,7 @@ export function QuoteTemplate({
             {/* 3. ACCOMMODATION, grouped by Stay */}
             {(q.accommodation ?? []).length > 0 && (
               <section className="section">
-                <div className="h-major">Accommodation <span className="tag">Options grouped by destination</span></div>
+                <div className="h-major">Accommodation {!accepted && <span className="tag">Options grouped by destination</span>}</div>
                 {q.accommodation!.map((dest, d) => {
                   const options = (dest.options ?? []).map((h) => ({ h, price: totalText(h, num(h.rooms, 1)) }));
                   return (
@@ -364,11 +366,11 @@ export function QuoteTemplate({
 
                       {/* Stay summary */}
                       <table className="sumtab" style={{ marginBottom: 6 }}>
-                        <thead><tr><th>Option</th><th>Hotel</th><th>Room</th><th className="num">Rate total</th></tr></thead>
+                        <thead><tr>{!accepted && <th>Option</th>}<th>Hotel</th><th>Room</th><th className="num">Rate total</th></tr></thead>
                         <tbody>
                           {options.map(({ h, price }, i) => (
                             <tr key={i}>
-                              <td className="lbl">Option {i + 1}</td>
+                              {!accepted && <td className="lbl">Option {i + 1}</td>}
                               <td>{h.name}{!!h.star && <> <span style={{ color: "var(--gold)" }}>{stars(h.star)}</span></>}</td>
                               <td>{h.room}</td><td className="num amt">{price}<Surcharge x={h} /></td>
                             </tr>
@@ -380,7 +382,7 @@ export function QuoteTemplate({
                       {options.map(({ h, price }, i) => (
                         <div className="opt" key={i}>
                           <div className="opt-head">
-                            <span className="opt-chip">Option {i + 1}</span>
+                            {!accepted && <span className="opt-chip">Option {i + 1}</span>}
                             <span className="opt-title">{h.name}{!!h.star && <span className="stars">{stars(h.star)}</span>}</span>
                             <span className="opt-total">Rate total<strong>{price}</strong></span>
                           </div>
@@ -576,6 +578,23 @@ export function QuoteTemplate({
               <section className="section">
                 <div className="eyebrow">Not yet included <span className="tag">To follow in a revised quote</span></div>
                 <div className="note-box pending"><ul>{q.not_yet_included!.map((item, i) => <li key={i}>{item}</li>)}</ul></div>
+              </section>
+            )}
+
+            {accepted && (
+              <section className="section">
+                <div className="h-major">Trip total</div>
+                <table className="sumtab">
+                  <tbody>
+                    <tr>
+                      <td className="lbl">
+                        Everything above, for all travellers
+                        {(q.experiences ?? []).length > 0 && <small> · recommended experiences priced separately</small>}
+                      </td>
+                      <td className="num amt">{money(q.trip_total)}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </section>
             )}
 

@@ -176,4 +176,6 @@ export type QuoteJson = {
   not_yet_included?: string[] | null;
   terms_profile?: string;
   custom_notes?: string[] | null;
+  /** The Trip total, set only on an Accepted version (GLOSSARY); its absence means the Client is still choosing. */
+  trip_total?: number | null;
 };

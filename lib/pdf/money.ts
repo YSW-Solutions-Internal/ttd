@@ -1,5 +1,5 @@
 // Item totals and money formatting for the quote PDF (GLOSSARY: Item total, Transaction fee, Markup, Pre-payment fee).
-import type { Amount, Priced } from "./types";
+import type { Amount, Priced, QuoteJson } from "./types";
 
 /** A number from JSON; null, empty or non-numeric text gives the fallback. */
 export function num(value: Amount | unknown, fallback = 0): number {
@@ -49,6 +49,17 @@ export function itemTotal(item: Priced, units = 1): number | null {
 export function cardSurcharge(item: Priced, units: number, rate: number): number | null {
   const base = item.card_paid ? baseTotal(item, units) : null;
   return base === null ? null : Math.round(base * rate * 100) / 100;
+}
+
+/** The Trip total: every Item total on the quote but recommended experiences; null if any is On request. */
+export function tripTotal(q: QuoteJson): number | null {
+  const totals = [
+    ...[...(q.flight_options ?? []), ...(q.transfers ?? []), ...(q.rail ?? []), ...(q.car_rentals ?? [])].map((x) => itemTotal(x)),
+    ...(q.accommodation ?? []).flatMap((s) => (s.options ?? []).map((h) => itemTotal(h, num(h.rooms, 1)))),
+    ...[...(q.packages ?? []), ...(q.visas ?? []), ...(q.insurance ?? []), ...(q.extras ?? [])].map((x) => itemTotal(x, x.units)),
+  ];
+  if (totals.includes(null)) return null;
+  return Math.round((totals as number[]).reduce((a, b) => a + b, 0) * 100) / 100;
 }
 
 /** An Item total as printed. */

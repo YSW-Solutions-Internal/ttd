@@ -1,7 +1,7 @@
 // The deterministic assembler (ADR 0002): a Quote's rows -> the quote JSON a Version freezes.
 // Pure, with .ts / type-only imports, so assemble.test.ts runs under plain `node`.
 import type { AccommodationStay, FlightOption, Priced, QuoteJson } from "./types";
-import { feeUnits, money } from "./money.ts";
+import { feeUnits, money, tripTotal } from "./money.ts";
 import { EXTRA_FIELDS, EXTRA_TYPES } from "../extraction/tables.ts";
 
 type Row = Record<string, any>;
@@ -9,6 +9,8 @@ type Row = Record<string, any>;
 export type AssembleInput = {
   /** YYYY-MM-DD, the day the Version is generated. */
   today: string;
+  /** An Accepted version (GLOSSARY): everything on it is taken, so it gets a Trip total. */
+  accepted?: boolean;
   /** The Trip's reference; generate_version appends " V<n>". */
   reference: string;
   consultant: { name: string; email?: string };
@@ -77,8 +79,8 @@ function priced(r: Row): Priced {
   };
 }
 
-/** What stops this Quote becoming a Version (GLOSSARY: Stay, Generate version). Empty means go ahead. */
-export function problems(items: AssembleInput["items"]): string[] {
+/** What stops this Quote becoming a Version (GLOSSARY: Stay, Generate version, Accepted version). Empty means go ahead. */
+export function problems(items: AssembleInput["items"], accepted = false): string[] {
   const out: string[] = [];
   for (const h of items.accommodation_options) {
     if (!h.stay_id) out.push(`${h.hotel_name || "An Accommodation option"} is not placed in a Stay.`);
@@ -99,6 +101,8 @@ export function problems(items: AssembleInput["items"]): string[] {
     for (const r of rows) {
       // A missing fee would print as R 0 and undercharge; a missing price prints "On request".
       if (r.price != null && r.transaction_fee == null) out.push(`${r[field] || fallback} has a price but no Transaction fee.`);
+      // Recommended experiences are priced separately, never in the Trip total.
+      if (accepted && r.price == null && rows !== items.excursions) out.push(`${r[field] || fallback} is On request. Price every Item before generating an Accepted version.`);
     }
   }
   for (const x of items.extras) {
@@ -124,7 +128,7 @@ export function assembleQuote(input: AssembleInput): { quote: QuoteJson; items: 
     const airlines = [...new Set(flights.map((f) => airline(f.airline)).filter(Boolean))].join(", ");
     return {
       ...priced(o),
-      label: `Option ${i + 1}`,
+      label: `${input.accepted ? "Flight" : "Option"} ${i + 1}`,
       headline: o.label || airlines,
       airlines,
       fare_rules: o.fare_rules,
@@ -323,5 +327,6 @@ export function assembleQuote(input: AssembleInput): { quote: QuoteJson; items: 
       .map((l) => l.trim())
       .filter(Boolean),
   };
+  if (input.accepted) quote.trip_total = tripTotal(quote);
   return { quote, items: versionItems };
 }

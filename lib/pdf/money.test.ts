@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cardSurcharge, feeUnits, itemTotal, money, num, totalText } from "./money.ts";
+import { cardSurcharge, feeUnits, itemTotal, money, num, totalText, tripTotal } from "./money.ts";
 
 test("num reads numbers from JSON", () => {
   assert.equal(num("3 980.40"), 3980.4);
@@ -44,4 +44,16 @@ test("feeUnits and Card surcharge", () => {
   assert.equal(cardSurcharge({ price: 1000, transaction_fee: 300, markup: 100, card_paid: true }, 3, 0.0275), 55);
   assert.equal(cardSurcharge({ price: 1000, card_paid: false }, 1, 0.0275), null);
   assert.equal(itemTotal({ price: 1000, transaction_fee: 0, markup: 0, card_paid: true, card_surcharge: 27.5 }), 1027.5);
+});
+
+test("Trip total adds every Item total but recommended experiences; none while one is On request", () => {
+  const q = {
+    reference: "R", date: "", valid_until: "", consultant: { name: "" }, trip: {}, client: {},
+    flight_options: [{ price: 1000, transaction_fee: 100 }, { price: 2000, transaction_fee: 100 }],
+    accommodation: [{ options: [{ price: 500, transaction_fee: 50, rooms: 2 }] }],
+    extras: [{ price: 0, transaction_fee: 40, units: 3 }],
+    experiences: [{ price: 999 }, { price: null }],
+  };
+  assert.equal(tripTotal(q), 1100 + 2100 + 600 + 120);
+  assert.equal(tripTotal({ ...q, transfers: [{ price: null }] }), null);
 });

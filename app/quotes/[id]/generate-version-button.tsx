@@ -14,15 +14,20 @@ export function GenerateVersionButton({ quoteId }: { quoteId: string }) {
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const data = new FormData(e.currentTarget);
     setSaving(true);
     const failed = await waitForSaves();
     setSaving(false);
     setUnsaved(failed);
-    if (failed.length === 0) startTransition(() => action(new FormData()));
+    if (failed.length === 0) startTransition(() => action(data));
   }
 
   return (
     <form onSubmit={submit} className="mb-3.5 flex flex-col items-start gap-2.5">
+      <label className="flex items-center gap-2">
+        <input type="checkbox" name="accepted" />
+        Everything on this Version is accepted by the Client
+      </label>
       <button type="submit" disabled={running || saving}>
         {saving ? "Saving…" : running ? "Generating…" : "Generate version"}
       </button>
