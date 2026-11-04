@@ -75,7 +75,7 @@ A place the Client stays: hotel, lodge, guesthouse, B&B and so on. "Hotel" is ac
 _Avoid_: Lodging, stay
 
 **Destination**:
-A place a Stay can be at: a city or town, or an area with no airport such as a game reserve, always with its country. Destinations are one shared list; any User can add one, and only an Administrator can correct or remove one.
+A place a Stay can be at: a city or town, or an area with no airport such as a game reserve, always with its country. Destinations are one shared list; any User can add one, and only an Administrator can correct or remove one. One no Stay uses can be removed; a duplicate is merged into the one it duplicates, which moves its Stays there.
 _Avoid_: City (a Destination need not be one), stop
 
 **Stay**:
