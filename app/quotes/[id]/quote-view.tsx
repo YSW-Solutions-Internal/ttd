@@ -10,6 +10,7 @@ import { RetryPdfButton } from "./retry-pdf-button";
 import { UploadForm } from "./upload-form";
 import { FileLink } from "@/app/file-viewer";
 import { Badge, Button } from "@/app/ui";
+import { money } from "@/lib/pdf/money";
 
 type ExtractionRow = {
   image_id: string;
@@ -48,7 +49,7 @@ export async function QuoteEditor({ quoteId: id, trip }: { quoteId: string; trip
       .order("created_at", { ascending: true }),
     supabase
       .from("quote_versions")
-      .select("id, version_no, pdf_path, created_at")
+      .select("id, version_no, pdf_path, created_at, trip_total:assembled->trip_total")
       .eq("quote_id", id)
       .order("version_no", { ascending: false }),
   ]);
@@ -191,6 +192,13 @@ export async function QuoteEditor({ quoteId: id, trip }: { quoteId: string; trip
               <tr key={v.id}>
                 <td>
                   {trip.reference} V{v.version_no}
+                  {/* Only an Accepted version's frozen JSON has a Trip total (GLOSSARY). */}
+                  {v.trip_total != null && (
+                    <>
+                      {" "}
+                      <Badge tone="teal">Accepted</Badge> <span className="tabular-nums">{money(v.trip_total as number)}</span>
+                    </>
+                  )}
                 </td>
                 <td>
                   {!v.pdf_path ? (
