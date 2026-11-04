@@ -6,7 +6,7 @@ import type { DestinationOption } from "./stays-form";
 import { Button, Msg } from "@/app/ui";
 
 /** Every country's English name, for the add form's suggestions. */
-function countryNames(): string[] {
+export function countryNames(): string[] {
   const names = new Intl.DisplayNames(["en"], { type: "region" });
   const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const out = new Set<string>();

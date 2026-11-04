@@ -115,7 +115,7 @@ supabase/migrations/      database schema, RLS, storage bucket
 
 ## Next milestones
 
-Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021) · 8. Company Clients, Travellers with IDs and Passports, new Trip statuses (migration 0022) · 9. Booking, Corrections, Changes and Cancellations (migration 0023) · 10. Invoices (migration 0024) and the Accounts queues · 11. Payments and Payment accounts, each Trip's accounts page, statements and their month-end CSV (migration 0027) · 12. Refunds and Commissions: Payment kinds, Refunds on Cancellations, Commissions on bookings, their queues and CSV exports (migration 0029) · 13. Packages, Visas, Insurance and Extras, the Trip checklist, Card surcharge and Online saving (migration 0030) · 14. Search and departures, nothing with money on it deleted (migrations 0031, 0032) · 16. Accepted versions with a Trip total · 17. Archiving Items instead of deleting them (migration 0033).
+Done: 1. airport table loader · 2. background extraction (ADR 0008) · 3. deterministic assembler (`lib/pdf/assemble.ts`) · 4. autosave on the edit screen · 5. Generate version button · 6. Trips list Consultant filter · 7. Access, Accountant and History (migration 0021) · 8. Company Clients, Travellers with IDs and Passports, new Trip statuses (migration 0022) · 9. Booking, Corrections, Changes and Cancellations (migration 0023) · 10. Invoices (migration 0024) and the Accounts queues · 11. Payments and Payment accounts, each Trip's accounts page, statements and their month-end CSV (migration 0027) · 12. Refunds and Commissions: Payment kinds, Refunds on Cancellations, Commissions on bookings, their queues and CSV exports (migration 0029) · 13. Packages, Visas, Insurance and Extras, the Trip checklist, Card surcharge and Online saving (migration 0030) · 14. Search and departures, nothing with money on it deleted (migrations 0031, 0032) · 16. Accepted versions with a Trip total · 17. Archiving Items instead of deleting them (migration 0033) · 19. Destinations page for Administrators: correct, remove and merge (migration 0034, ADR 0014).
 
 ### Bookings and accounts (Lisa's brief, phase 1)
 
@@ -134,7 +134,6 @@ The app takes over what Lisa's SharePoint pilot and developer brief describe: fr
 
 15. Review the Trips list for pagination once there are a few hundred trips
 18. A developer view of what the AI read from each image (raw `ai_calls` answers)
-19. A page for Administrators to correct or remove Destinations
 
 ### Phase 2
 
