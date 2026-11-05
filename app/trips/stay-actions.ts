@@ -59,8 +59,8 @@ export async function saveStay(tripId: string, stayId: string | null, formData: 
     if (error) return { error: `Could not add the Stay: ${error.message}` };
   }
 
-  // Quote pages use the Stays too (Stay dropdown, Fee region).
-  revalidatePath("/", "layout");
+  // Quote pages use the Stays too (Stay dropdown, Fee region). An edited Stay is refreshed by autosave instead.
+  if (!stayId) revalidatePath("/", "layout");
   return {};
 }
 

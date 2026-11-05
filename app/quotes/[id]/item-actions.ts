@@ -140,7 +140,6 @@ export async function saveItem(_quoteId: string, table: string, id: string, form
     if (flErr) return { error: `Saved the option, but not its flights: ${flErr.message}`, field: "flights" };
   }
 
-  revalidatePath("/", "layout");
   return { values: Object.fromEntries(computed.map((k) => [k, merged[k] == null ? "" : String(merged[k])])) };
 }
 

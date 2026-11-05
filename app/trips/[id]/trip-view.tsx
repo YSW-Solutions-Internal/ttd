@@ -57,7 +57,22 @@ export async function TripView({ id }: { id: string }) {
     supabase.from("trip_checks").select("check_key, done_at, done_by, note").eq("trip_id", id),
   ]);
   const doneBy = [...new Set((checks ?? []).flatMap((c) => (c.done_by ? [c.done_by] : [])))];
-  const { data: people } = doneBy.length > 0 ? await supabase.from("profiles").select("id, full_name").in("id", doneBy) : { data: [] };
+  const versions = quote?.quote_versions ?? [];
+  // Private bucket: a short-lived signed link for the latest Version's PDF (the editor lists them all).
+  const pdfPaths = versions.slice(0, 1).flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
+
+  // None of these needs another, so they load together.
+  const [{ data: people }, [{ data: active }, ...tables], { data: signed }] = await Promise.all([
+    doneBy.length > 0 ? supabase.from("profiles").select("id, full_name").in("id", doneBy) : { data: [] },
+    // The Quote's Items, as Generate version sees them: quote_items leaves out archived Items.
+    quote
+      ? Promise.all([
+          supabase.from("quote_items").select("entity_id").eq("quote_id", quote.id),
+          ...TABS.map(([t]) => supabase.from(t).select("*").eq("quote_id", quote.id).order("created_at")),
+        ])
+      : [{ data: [] }],
+    pdfPaths.length > 0 ? supabase.storage.from("quote-files").createSignedUrls(pdfPaths, 3600) : { data: [] },
+  ]);
   const names = Object.fromEntries((people ?? []).map((p) => [p.id, p.full_name ?? ""]));
   const flags = rawFlags as { traveller_id: string; identified: boolean }[] | null;
   const going = new Set((onTrip ?? []).map((r) => r.traveller_id));
@@ -65,15 +80,6 @@ export async function TripView({ id }: { id: string }) {
   const tripTravellers = (travellers ?? []).filter((t) => going.has(t.id));
   const others = (travellers ?? []).filter((t) => !going.has(t.id));
   const headCount = trip.adults + trip.children;
-  const versions = quote?.quote_versions ?? [];
-
-  // The Quote's Items, as Generate version sees them: quote_items leaves out archived Items.
-  const [{ data: active }, ...tables] = quote
-    ? await Promise.all([
-        supabase.from("quote_items").select("entity_id").eq("quote_id", quote.id),
-        ...TABS.map(([t]) => supabase.from(t).select("*").eq("quote_id", quote.id).order("created_at")),
-      ])
-    : [{ data: [] }];
   const keep = new Set((active ?? []).map((r) => r.entity_id));
   const items = Object.fromEntries(
     TABS.map(([t], i) => [t, (tables[i]?.data ?? []).filter((r) => keep.has(r.entity_id))]),
@@ -84,16 +90,10 @@ export async function TripView({ id }: { id: string }) {
   });
   const blockers = quote ? problems({ ...items, flights: [] }) : [];
 
-
-  // Private bucket: a short-lived signed link for the latest Version's PDF (the editor lists them all).
   const pdfUrls = new Map<string, string>();
-  const pdfPaths = versions.slice(0, 1).flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
-  if (pdfPaths.length > 0) {
-    const { data: signed } = await supabase.storage.from("quote-files").createSignedUrls(pdfPaths, 3600);
-    signed?.forEach((s) => {
-      if (s.path && s.signedUrl) pdfUrls.set(s.path, s.signedUrl);
-    });
-  }
+  signed?.forEach((s) => {
+    if (s.path && s.signedUrl) pdfUrls.set(s.path, s.signedUrl);
+  });
   const versionLine = (v: (typeof versions)[number]) => (
     <>
       {trip.reference} V{v.version_no}, {new Date(v.created_at).toLocaleDateString("en-ZA")}.{" "}

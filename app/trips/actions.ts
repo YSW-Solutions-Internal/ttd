@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect, RedirectType } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isTripStatus } from "@/lib/trip-status";
@@ -73,6 +72,5 @@ export async function saveTrip(tripId: string, formData: FormData): Promise<Save
   const { data, error } = await supabase.from("trips").update(row).eq("id", tripId).select("id, nights");
   if (error) return { error: `Could not save: ${error.message}` };
   if (!data || data.length === 0) return { error: "Could not save: not permitted." };
-  revalidatePath("/", "layout");
   return { values: { nights: data[0].nights == null ? "—" : String(data[0].nights) } };
 }
