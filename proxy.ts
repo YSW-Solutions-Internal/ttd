@@ -28,9 +28,9 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Checks the login token here when the project signs logins with its newer keys, and asks Supabase Auth otherwise.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims;
 
   const isLogin = request.nextUrl.pathname.startsWith("/login");
   // Invite and reset links arrive before the user has a session.

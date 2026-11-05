@@ -36,7 +36,6 @@ export async function updateClient(id: string, formData: FormData): Promise<Save
   if (error) return { error: `Could not save: ${error.message}` };
   // RLS filters rather than errors, so zero rows means the update was refused.
   if (!data || data.length === 0) return { error: "Could not save: not permitted." };
-  revalidatePath(`/clients/${id}`);
   return {};
 }
 

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { SaveResult } from "@/lib/form-values";
 
@@ -26,6 +25,5 @@ export async function saveCheck(tripId: string, key: string, fd: FormData): Prom
   const { data, error } = await supabase.from("trip_checks").upsert(row).select("done_at");
   if (error) return { error: `Could not save: ${error.message}` };
   if (!data || data.length === 0) return { error: "Could not save: not permitted." };
-  revalidatePath("/", "layout");
   return {};
 }

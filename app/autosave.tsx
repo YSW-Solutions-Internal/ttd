@@ -22,6 +22,18 @@ class Registry {
     await Promise.all([...this.entries.values()].map((e) => e.queue.idle()));
     return [...this.entries.values()].filter((e) => e.queue.state === "failed").map((e) => e.label);
   }
+
+  refresh = () => {};
+  private timer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Totals, counts and names elsewhere on screen catch up once saves pause: a refresh rebuilds the whole screen, so not one per field. */
+  refreshSoon() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(async () => {
+      await this.waitForSaves();
+      this.refresh();
+    }, 1000);
+  }
 }
 
 const AutosaveContext = createContext<Registry | null>(null);
@@ -35,6 +47,7 @@ function useRegistry(): Registry {
 export function AutosaveProvider({ children }: { children: ReactNode }) {
   const [registry] = useState(() => new Registry());
   const router = useRouter();
+  registry.refresh = router.refresh;
 
   useEffect(() => {
     const beforeUnload = (e: BeforeUnloadEvent) => {
@@ -112,6 +125,7 @@ export function useAutosave({
       new SaveQueue(async (fd) => {
         const r = await saveRef.current(fd);
         apply(r);
+        if (!r.error) registry.refreshSoon();
         return r;
       }, rerender),
   );

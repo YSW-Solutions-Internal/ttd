@@ -75,7 +75,6 @@ export async function saveTraveller(id: string, fd: FormData): Promise<SaveResul
   const { data, error } = await supabase.from("travellers").update(row).eq("id", id).select("id");
   if (error) return { error: `Could not save: ${error.message}` };
   if (!data || data.length === 0) return { error: "Could not save: not permitted." };
-  revalidatePath("/", "layout");
   return {};
 }
 
@@ -138,7 +137,6 @@ export async function saveIdentity(id: string, fd: FormData): Promise<SaveResult
   // 23514: a Passport's nationality and dates cannot be emptied.
   if (error) return { error: error.code === "23514" ? "A Passport needs its nationality, issue and expiry dates." : `Could not save: ${error.message}` };
   if (!data || data.length === 0) return { error: "Could not save: not permitted." };
-  revalidatePath("/", "layout");
   return {};
 }
 

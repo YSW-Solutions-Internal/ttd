@@ -54,59 +54,58 @@ export async function QuoteEditor({ quoteId: id, trip }: { quoteId: string; trip
       .order("version_no", { ascending: false }),
   ]);
 
+  const hasImages = !!images && images.length > 0;
+  const pdfPaths = (versions ?? []).flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
+  const none = { data: [] };
+  // Each needs only the images or Versions, so they load together.
+  const [{ data: rows }, { data: items }, { data: thumbs }, { data: pdfs }] = await Promise.all([
+    hasImages
+      ? supabase
+          .from("extractions")
+          .select("image_id, status, image_type, error")
+          .in(
+            "image_id",
+            images.map((i) => i.id),
+          )
+          .order("created_at", { ascending: true })
+      : none,
+    hasImages ? supabase.from("quote_items").select("image_id, kind").eq("quote_id", id) : none,
+    // Private bucket: short-lived signed links for thumbnails and PDFs.
+    hasImages
+      ? supabase.storage.from("quote-files").createSignedUrls(
+          images.map((i) => i.storage_path),
+          3600,
+        )
+      : none,
+    pdfPaths.length > 0 ? supabase.storage.from("quote-files").createSignedUrls(pdfPaths, 3600) : none,
+  ]);
+
   // Extractions for these images, whatever prompt version made them. A finished one wins
   // over a later failed or running attempt; otherwise the latest attempt shows.
   const extractions = new Map<string, ExtractionRow>();
-  if (images && images.length > 0) {
-    const { data: rows } = await supabase
-      .from("extractions")
-      .select("image_id, status, image_type, error")
-      .in(
-        "image_id",
-        images.map((i) => i.id),
-      )
-      .order("created_at", { ascending: true });
-    (rows as ExtractionRow[] | null)?.forEach((r) => {
-      if (extractions.get(r.image_id)?.status !== "done") extractions.set(r.image_id, r);
-    });
-  }
+  (rows as ExtractionRow[] | null)?.forEach((r) => {
+    if (extractions.get(r.image_id)?.status !== "done") extractions.set(r.image_id, r);
+  });
   const waiting = (images ?? []).filter((i) => extractions.get(i.id)?.status !== "done").length;
   const reading = (images ?? []).filter((i) => ["pending", "running"].includes(extractions.get(i.id)?.status ?? "")).length;
 
   // The Quote's Items per image. The AI's raw answers stay in ai_calls (ADR 0005), for developers only.
   const counts = new Map<string, Map<string, number>>();
-  if (images && images.length > 0) {
-    const { data: items } = await supabase.from("quote_items").select("image_id, kind").eq("quote_id", id);
-    items?.forEach((i) => {
-      if (!i.image_id) return;
-      const c = counts.get(i.image_id) ?? new Map<string, number>();
-      c.set(i.kind, (c.get(i.kind) ?? 0) + 1);
-      counts.set(i.image_id, c);
-    });
-  }
+  items?.forEach((i) => {
+    if (!i.image_id) return;
+    const c = counts.get(i.image_id) ?? new Map<string, number>();
+    c.set(i.kind, (c.get(i.kind) ?? 0) + 1);
+    counts.set(i.image_id, c);
+  });
 
-  // Private bucket: short-lived signed links for thumbnails.
   const urls = new Map<string, string>();
-  if (images && images.length > 0) {
-    const { data: signed } = await supabase.storage
-      .from("quote-files")
-      .createSignedUrls(
-        images.map((i) => i.storage_path),
-        3600,
-      );
-    signed?.forEach((s) => {
-      if (s.path && s.signedUrl) urls.set(s.path, s.signedUrl);
-    });
-  }
-
+  thumbs?.forEach((s) => {
+    if (s.path && s.signedUrl) urls.set(s.path, s.signedUrl);
+  });
   const pdfUrls = new Map<string, string>();
-  const pdfPaths = (versions ?? []).flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
-  if (pdfPaths.length > 0) {
-    const { data: signed } = await supabase.storage.from("quote-files").createSignedUrls(pdfPaths, 3600);
-    signed?.forEach((s) => {
-      if (s.path && s.signedUrl) pdfUrls.set(s.path, s.signedUrl);
-    });
-  }
+  pdfs?.forEach((s) => {
+    if (s.path && s.signedUrl) pdfUrls.set(s.path, s.signedUrl);
+  });
 
   return (
     <section id="quote" className="scroll-mt-4">

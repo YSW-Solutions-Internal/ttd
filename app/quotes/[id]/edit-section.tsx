@@ -65,28 +65,35 @@ export async function EditSection({
     .filter((r) => r.row.archived_at != null)
     .sort((a, b) => String(b.row.archived_at).localeCompare(String(a.row.archived_at)));
   const archivers = [...new Set(archived.flatMap((r) => (r.row.archived_by ? [String(r.row.archived_by)] : [])))];
-  const { data: people } = archivers.length
-    ? await supabase.from("profiles").select("id, full_name, email").in("id", archivers)
-    : { data: [] };
-  const who = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
-
   const optionIds = rows.filter((r) => r.table === "flight_options").map((r) => String(r.row.id));
-  const { data: flights } = optionIds.length
-    ? await supabase.from("flights").select("*").in("flight_option_id", optionIds).order("direction_no").order("seq")
-    : { data: [] };
-
-  // Airline codes on this Quote whose name no Consultant has confirmed yet (migration 0012).
-  const airlineCodes = [
-    ...new Set(
-      ((flights ?? []) as Row[])
-        .flatMap((f) => [f.airline, f.operated_by])
-        .filter((c): c is string => typeof c === "string" && /^[A-Za-z0-9]{2}$/.test(c.trim()))
-        .map((c) => c.trim().toUpperCase()),
+  // The archivers' names, the flights (then their airlines) and what can be billed need nothing from each other.
+  const [{ data: people }, { flights, airlineCodes, known }, billables] = await Promise.all([
+    archivers.length ? supabase.from("profiles").select("id, full_name, email").in("id", archivers) : { data: [] },
+    (async () => {
+      const { data: flights } = optionIds.length
+        ? await supabase.from("flights").select("*").in("flight_option_id", optionIds).order("direction_no").order("seq")
+        : { data: [] };
+      // Airline codes on this Quote whose name no Consultant has confirmed yet (migration 0012).
+      const airlineCodes = [
+        ...new Set(
+          ((flights ?? []) as Row[])
+            .flatMap((f) => [f.airline, f.operated_by])
+            .filter((c): c is string => typeof c === "string" && /^[A-Za-z0-9]{2}$/.test(c.trim()))
+            .map((c) => c.trim().toUpperCase()),
+        ),
+      ];
+      const { data: known } = airlineCodes.length
+        ? await supabase.from("airlines").select("iata, name, confirmed").in("iata", airlineCodes)
+        : { data: [] };
+      return { flights, airlineCodes, known };
+    })(),
+    loadBillables(
+      supabase,
+      quoteId,
+      new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table], kind: TABLE_KIND[table] }])),
     ),
-  ];
-  const { data: known } = airlineCodes.length
-    ? await supabase.from("airlines").select("iata, name, confirmed").in("iata", airlineCodes)
-    : { data: [] };
+  ]);
+  const who = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
   const toConfirm = airlineCodes
     .map((code) => ({ code, suggestion: known?.find((a) => a.iata === code) }))
     .filter((a) => !a.suggestion?.confirmed);
@@ -108,11 +115,6 @@ export async function EditSection({
     (bookingRows ?? []).map((b) => [b.entity_id as string, { ...b, supplier: one(b.suppliers)?.name ?? "" } as Booking]),
   );
   const suppliers = (supplierRows ?? []).map((s) => s.name as string);
-  const billables = await loadBillables(
-    supabase,
-    quoteId,
-    new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table], kind: TABLE_KIND[table] }])),
-  );
 
   const imageById = new Map(images.map((img, i) => [img.id, { ...img, order: i }]));
 
