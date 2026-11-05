@@ -50,7 +50,7 @@ function parseFlights(json: string): Record<string, unknown>[] {
  * Saves the fields of one Item that changed (autosave sends only those). Fee region and
  * fees are worked out from the whole Item as stored plus the changes, and sent back.
  */
-export async function saveItem(quoteId: string, table: string, id: string, formData: FormData): Promise<SaveResult> {
+export async function saveItem(_quoteId: string, table: string, id: string, formData: FormData): Promise<SaveResult> {
   if (!isTable(table)) return { error: "Unknown kind of Item." };
   const kind = TABLE_KIND[table];
   const supabase = await createClient();
@@ -116,7 +116,7 @@ export async function saveItem(quoteId: string, table: string, id: string, formD
   }
 
   const merged: Record<string, unknown> = { ...prev, ...changed };
-  const ctx = await loadFeeContext(supabase, quoteId);
+  const ctx = await loadFeeContext(supabase, prev.quote_id); // the Item's own Quote, not whatever the form says
   const places = await loadPlaces(supabase, routeFlights.flatMap((f) => [f.from_code, f.to_code]));
   if (flights) for (const f of flights) fillFlightNames(f, places);
   applyFees(kind, merged, prev, autoRegion(kind, merged, routeFlights, ctx.stays, countriesOf(places)), ctx.rates);

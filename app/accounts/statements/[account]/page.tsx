@@ -5,15 +5,11 @@ import { PAYMENT_STATUS_LABEL, type PaymentStatus } from "@/lib/payments";
 import { PaymentStatusForms } from "@/app/trips/[id]/payment-forms";
 import { loadStatement } from "./data";
 import { Badge, BUTTON } from "@/app/ui";
+import { shiftMonth } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
 const rand = (n: number) => `R ${n.toFixed(2)}`;
-const shift = (month: string, by: number) => {
-  const [y, m] = month.split("-").map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + by, 1));
-  return d.toISOString().slice(0, 7);
-};
 
 /** One account's month, to tick off against its statement: Accountants and Administrators. */
 export default async function StatementPage({ params, searchParams }: { params: Promise<{ account: string }>; searchParams: Promise<{ month?: string }> }) {
@@ -37,8 +33,8 @@ export default async function StatementPage({ params, searchParams }: { params: 
         {account.nickname}, {month}
       </h1>
       <p className="mb-4 flex flex-wrap items-center gap-4">
-        <Link href={`${base}?month=${shift(month, -1)}`}>Previous month</Link>
-        <Link href={`${base}?month=${shift(month, 1)}`}>Next month</Link>
+        <Link href={`${base}?month=${shiftMonth(month, -1)}`}>Previous month</Link>
+        <Link href={`${base}?month=${shiftMonth(month, 1)}`}>Next month</Link>
         <a className={BUTTON.primary} href={`${base}/csv?month=${month}`} download>
           Download CSV
         </a>

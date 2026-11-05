@@ -2,13 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { canEdit, getProfile } from "@/lib/auth";
-import { one } from "@/lib/relations";
 import { isTripStatus, OPEN_STATUSES } from "@/lib/trip-status";
 import { Badge, BUTTON, Msg, TripStatusBadge } from "./ui";
 import { openRefundTrips } from "@/lib/refunds";
-import { everyRow } from "@/lib/relations";
+import { everyRow, one } from "@/lib/relations";
 import { TripFilters } from "./trip-filters";
 import { Departures } from "./departures";
+import { todayInSA } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 // Extraction keeps reading after the response (after() in extract-actions.ts); 800 s is the Vercel Pro limit.
@@ -39,17 +39,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const supabase = await createClient();
   // Inactive clients included, so their older trips can still be found.
-  let clientQuery = supabase.from("clients").select("id, client_code, full_name").order("sort_name");
-  if (consultant) clientQuery = clientQuery.eq("consultant_id", consultant);
-  const [{ data: clients }, { data: consultants }] = await Promise.all([
-    clientQuery,
+  const clientPage = (from: number, to: number) => {
+    let query = supabase.from("clients").select("id, client_code, full_name").order("sort_name").order("id");
+    if (consultant) query = query.eq("consultant_id", consultant);
+    return query.range(from, to);
+  };
+  const [clients, { data: consultants }] = await Promise.all([
+    everyRow(clientPage).catch(() => []), // as before: the filter is empty rather than the page failing
     supabase.from("profiles").select("id, full_name, email").in("role", ["user", "admin"]).order("full_name"),
   ]);
   // A client that isn't the chosen Consultant's would only ever show an empty list, so drop it.
-  const client = (clients ?? []).some((c) => c.id === params.client) ? params.client! : "";
+  const client = clients.some((c) => c.id === params.client) ? params.client! : "";
 
   // A Trip's Consultant is its Client's current Consultant (GLOSSARY), not trips.consultant_id.
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }); // YYYY-MM-DD
+  const today = todayInSA();
   // Current: open, plus Travelled or Cancelled ending (else starting, else created) in the last 90 days.
   const cut = new Date(Date.parse(today) - 90 * 864e5).toISOString().slice(0, 10);
   // A fresh query per page of 1000 (PostgREST's cap), so "All" never stops short.
@@ -118,7 +121,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <Departures today={today} consultant={consultant} />
 
       <TripFilters
-        clients={clients ?? []}
+        clients={clients}
         consultants={(consultants ?? []).map((p) => ({ id: p.id, label: p.full_name ?? p.email }))}
         status={status}
         client={client}

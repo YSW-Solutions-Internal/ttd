@@ -9,6 +9,7 @@ import { addChange, bookItem, bookOwnExtra, correctBooking, markIssued, unbookIt
 import { useKeptForm } from "@/app/kept-form";
 import { FileLink } from "@/app/file-viewer";
 import { Badge, Msg } from "@/app/ui";
+import { todayInSA } from "@/lib/dates";
 
 type Row = Record<string, unknown>;
 export type Booking = Row & { supplier: string };
@@ -76,7 +77,7 @@ function ChangeForm({ quoteId, entityId, kind, item, issued }: { quoteId: string
       <summary className={cancel ? "cursor-pointer font-semibold text-danger" : "cursor-pointer font-semibold text-teal-deep"}>{cancel ? "Cancel this Item" : "Record a Change"}</summary>
       <form {...kept} className="mt-3">
         <div className="flex flex-wrap items-end gap-x-3">
-          <Text label="Date" name="happened_on" type="date" value={new Date().toISOString().slice(0, 10)} required />
+          <Text label="Date" name="happened_on" type="date" value={todayInSA()} required />
           <Text label="What happened" name="description" />
           <CurrencyRate />
           {!cancel && <Text label="Extra fare" name="extra_fare" type="number" />}

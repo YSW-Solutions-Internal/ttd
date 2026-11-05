@@ -39,7 +39,9 @@ export async function uploadImage(quoteId: string, formData: FormData): Promise<
   if (existing) {
     if (!existing.removed_at) return "duplicate";
     // Previously removed: bring it back, keeping its stored extraction.
-    await supabase.from("images").update({ removed_at: null }).eq("id", existing.id);
+    const { data: back } = await supabase.from("images").update({ removed_at: null }).eq("id", existing.id).select("id");
+    // RLS filters rather than errors, so zero rows means it was refused.
+    if (!back?.length) return { rejected: "could not restore" };
     revalidatePath("/", "layout");
     return "restored";
   }
@@ -72,12 +74,14 @@ export async function removeImage(quoteId: string, imageId: string) {
   if (!user) redirect("/login");
 
   // Soft remove: the extraction and any corrections stay in the database.
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("images")
     .update({ removed_at: new Date().toISOString() })
     .eq("id", imageId)
-    .eq("quote_id", quoteId);
+    .eq("quote_id", quoteId)
+    .select("id");
   if (error) throw new Error(`Could not remove the image: ${error.message}`);
+  if (!data?.length) throw new Error("Could not remove the image: you cannot edit this Quote.");
 
   revalidatePath("/", "layout");
 }

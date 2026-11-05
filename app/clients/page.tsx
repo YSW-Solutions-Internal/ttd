@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { canEdit, getProfile } from "@/lib/auth";
-import { one } from "@/lib/relations";
+import { everyRow, one } from "@/lib/relations";
 import { ClientFilters } from "./client-filters";
 import { Badge, BUTTON, Msg } from "@/app/ui";
 
@@ -15,13 +15,21 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const consultant = ((await searchParams).consultant ?? (me.role === "user" ? me.id : "all")).replace(/^all$/, "");
 
   const supabase = await createClient();
-  let query = supabase
-    .from("clients")
-    .select("id, client_code, full_name, email, phone, active, profiles!clients_consultant_id_fkey(full_name, email)")
-    .order("sort_name");
-  if (consultant) query = query.eq("consultant_id", consultant);
+  // Paged past PostgREST's 1000-row cap, so no Client goes missing.
+  const clientPage = (from: number, to: number) => {
+    let query = supabase
+      .from("clients")
+      .select("id, client_code, full_name, email, phone, active, profiles!clients_consultant_id_fkey(full_name, email)")
+      .order("sort_name")
+      .order("id");
+    if (consultant) query = query.eq("consultant_id", consultant);
+    return query.range(from, to);
+  };
   const [{ data: clients, error }, { data: consultants }] = await Promise.all([
-    query,
+    everyRow(clientPage).then(
+      (data) => ({ data, error: null }),
+      (e: Error) => ({ data: null, error: e }),
+    ),
     supabase.from("profiles").select("id, full_name, email").in("role", ["user", "admin"]).order("full_name"),
   ]);
 

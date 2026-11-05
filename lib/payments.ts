@@ -76,5 +76,12 @@ export function statementMonth(raw: string | undefined, today: string): { month:
   return { month, from: `${month}-01`, to: `${next}-01` }; // to is exclusive
 }
 
-/** One CSV line: every value quoted, quotes doubled. */
-export const csvLine = (values: (string | number | null)[]) => values.map((v) => `"${String(v ?? "").replaceAll('"', '""')}"`).join(",");
+/** Text Excel would run as a formula; a negative amount is left alone. */
+const formula = (s: string) => /^[=+@\t\r]/.test(s) || (s.startsWith("-") && Number.isNaN(Number(s)));
+
+/** One CSV line: every value quoted, quotes doubled, a leading ' keeps typed text from running as a formula. */
+export const csvLine = (values: (string | number | null)[]) =>
+  values
+    .map((v) => String(v ?? ""))
+    .map((s) => `"${(formula(s) ? `'${s}` : s).replaceAll('"', '""')}"`)
+    .join(",");

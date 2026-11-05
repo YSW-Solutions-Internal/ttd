@@ -36,3 +36,7 @@ test("statement months run to the first of the next month, December included", (
 test("CSV values are quoted with quotes doubled", () => {
   assert.equal(csvLine(["Ore \"and\" Metal", 12.5, null]), '"Ore ""and"" Metal","12.5",""');
 });
+
+test("csvLine keeps typed text from running as a formula, but not negative amounts", () => {
+  assert.equal(csvLine(["=HYPERLINK(1)", "+27", "@SUM", "-1+2", "-12.50", -3]), `"'=HYPERLINK(1)","'+27","'@SUM","'-1+2","-12.50","-3"`);
+});

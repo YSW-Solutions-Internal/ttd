@@ -12,6 +12,7 @@ import { Badge, BUTTON } from "@/app/ui";
 import { PAYMENT_KIND_LABEL, type PaymentKind } from "@/lib/payments";
 import { REFUND_STATUS_LABEL, type RefundStatus } from "@/lib/refunds";
 import { loadCommissionQueue, loadRefundQueue } from "./refunds-data";
+import { todayInSA } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +94,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
     )
   ).flat();
 
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
+  const today = todayInSA();
   const awaiting = awaitingQueue(rows);
   const toInvoice = rows.filter((b) => b.toInvoice !== 0).sort((a, b) => a.trip.reference.localeCompare(b.trip.reference));
   // Invoices and Payments, in one shape for the lists they share.
