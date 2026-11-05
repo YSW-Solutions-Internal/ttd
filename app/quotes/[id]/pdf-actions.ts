@@ -9,6 +9,7 @@ import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { assembleQuote, problems, type AssembleInput } from "@/lib/pdf/assemble";
 import { renderQuotePdf } from "@/lib/pdf/render";
 import type { QuoteJson } from "@/lib/pdf/types";
+import { todayInSA } from "@/lib/dates";
 
 export type PdfState = { error?: string; problems?: string[] };
 
@@ -89,15 +90,17 @@ export async function generateVersion(quoteId: string, _prev: PdfState, form: Fo
   const client = one(trip.clients) as Record<string, any> | null;
   const consultant = one(client?.profiles) as { full_name: string | null; email: string } | null;
 
-  const [{ data: active }, { data: stays }, { data: checks }, { data: travellers }, ...tables] = await Promise.all([
+  const [activeRes, staysRes, checksRes, travellersRes, ...tables] = await Promise.all([
     supabase.from("quote_items").select("entity_id").eq("quote_id", quoteId),
     supabase.from("trip_stops").select("*").eq("trip_id", trip.id).order("position"),
     supabase.from("trip_checks").select("check_key, note").eq("trip_id", trip.id),
     supabase.from("trip_travellers").select("traveller_id, travellers(first_name, last_name)").eq("trip_id", trip.id),
     ...ITEM_TABLES.map((t) => supabase.from(t).select("*").eq("quote_id", quoteId).order("created_at")),
   ]);
-  const failed = tables.find((t) => t.error);
-  if (failed) return { error: `Could not load the Items: ${failed.error!.message}` };
+  // A Version is frozen for good, so a half-loaded Quote must never become one.
+  const failed = [activeRes, staysRes, checksRes, travellersRes, ...tables].find((t) => t.error);
+  if (failed) return { error: `Could not load the Quote: ${failed.error!.message}` };
+  const [active, stays, checks, travellers] = [activeRes.data, staysRes.data, checksRes.data, travellersRes.data];
 
   // quote_items leaves out archived Items (migration 0033).
   const keep = new Set((active ?? []).map((r) => r.entity_id));
@@ -109,17 +112,19 @@ export async function generateVersion(quoteId: string, _prev: PdfState, form: Fo
   if (blockers.length > 0) return { problems: blockers };
 
   const optionIds = items.flight_options.map((o) => o.id);
-  const { data: flights } = optionIds.length
+  const { data: flights, error: flightsErr } = optionIds.length
     ? await supabase.from("flights").select("*").in("flight_option_id", optionIds)
-    : { data: [] };
+    : { data: [], error: null };
+  if (flightsErr) return { error: `Could not load the flights: ${flightsErr.message}` };
   const codes = [...new Set((flights ?? []).map((f) => String(f.airline ?? "").toUpperCase()).filter(Boolean))];
-  const { data: airlines } = codes.length
+  const { data: airlines, error: airlinesErr } = codes.length
     ? await supabase.from("airlines").select("iata, name").in("iata", codes).eq("confirmed", true)
-    : { data: [] };
+    : { data: [], error: null };
+  if (airlinesErr) return { error: `Could not load the airline names: ${airlinesErr.message}` };
 
   const { quote: json, items: versionItems } = assembleQuote({
     accepted,
-    today: new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }),
+    today: todayInSA(),
     reference: trip.reference,
     consultant: { name: consultant?.full_name || consultant?.email || "", email: consultant?.email },
     client: { name: client?.full_name ?? "", code: client?.client_code ?? "" },

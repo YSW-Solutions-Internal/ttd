@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { everyRow, one } from "@/lib/relations";
 import { moneyIn, PAYMENT_KIND_LABEL, statementMonth, type PaymentKind } from "@/lib/payments";
+import { todayInSA } from "@/lib/dates";
 
 /** One statement account's Payments in one month, across all Trips (ADR 0013). Null if there is no such account. */
 export async function loadStatement(accountId: string, rawMonth: string | undefined) {
   const supabase = await createClient();
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
+  const today = todayInSA();
   const { month, from, to } = statementMonth(rawMonth, today);
   const { data: account } = await supabase.from("payment_accounts").select("id, nickname, kind, clients(full_name)").eq("id", accountId).maybeSingle();
   if (!account) return null;

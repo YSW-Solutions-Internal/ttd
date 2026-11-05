@@ -13,9 +13,10 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 /** The Supplier named, from the shared list; a name not on it is added (any User may add one). */
 async function supplierId(supabase: Supabase, name: string): Promise<string> {
-  const key = name.toLowerCase();
-  // shortcut: reads the whole list; filter in SQL once there are thousands of Suppliers.
-  const { data } = await supabase.from("suppliers").select("id, name");
+  const key = name.trim().toLowerCase();
+  // Narrowed in SQL (a "*" in a name is a wildcard to PostgREST, so the exact match is made here).
+  const { data, error: findErr } = await supabase.from("suppliers").select("id, name").ilike("name", name.trim().replace(/[\\%_]/g, "\\$&"));
+  if (findErr) throw new Error(`Could not look up the Supplier: ${findErr.message}`);
   const found = data?.find((s) => s.name.trim().toLowerCase() === key);
   if (found) return found.id;
   const { data: added, error } = await supabase.from("suppliers").insert({ name }).select("id").single();

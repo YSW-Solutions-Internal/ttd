@@ -8,6 +8,7 @@ import { KINDS, PAYMENT_KIND_LABEL, type PaymentKind, type PaymentStatus } from 
 import type { KindTarget } from "./payments";
 import { Button, Msg } from "@/app/ui";
 import { addPayment, addPaymentLink, deletePayment, removePaymentLink, reversePayment, setPaymentStatus, type PaymentFormState } from "./payment-actions";
+import { todayInSA as today } from "@/lib/dates";
 
 export type Option = { id: string; label: string; lands?: boolean }; // lands: a Client's EFT or Cash, which lands in an agency account
 
@@ -44,7 +45,6 @@ export function Select({ label, name, options, required, empty, defaultValue, on
   );
 }
 
-const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" });
 
 export function AddPaymentForm({
   tripId,

@@ -5,30 +5,24 @@ import { everyRow, one } from "@/lib/relations";
 import { callCost } from "@/lib/ai-cost";
 import { AnswerButton } from "./answer-button";
 import { Msg } from "@/app/ui";
+import { shiftMonth, todayInSA } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 4 : 2)}`;
 const int = (n: number | null) => (n === null ? "—" : n.toLocaleString("en-ZA"));
 
-/** The month before or after "YYYY-MM". */
-function step(month: string, by: number): string {
-  const [y, m] = month.split("-").map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + by, 1));
-  return d.toISOString().slice(0, 7);
-}
-
 /** Every call to Claude in one month, for developers (ADR 0005): what it cost and what it answered. */
 export default async function AiLogPage({ searchParams }: { searchParams: Promise<{ month?: string; errors?: string }> }) {
   await requireAdminPage();
   const params = await searchParams;
-  const thisMonth = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }).slice(0, 7);
+  const thisMonth = todayInSA().slice(0, 7);
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month ?? "") ? params.month! : thisMonth;
   const errorsOnly = params.errors === "1";
 
   const supabase = await createClient();
   // Months in South African time, as everywhere else in the app.
-  const [from, to] = [`${month}-01T00:00:00+02:00`, `${step(month, 1)}-01T00:00:00+02:00`];
+  const [from, to] = [`${month}-01T00:00:00+02:00`, `${shiftMonth(month, 1)}-01T00:00:00+02:00`];
   let calls: Awaited<ReturnType<typeof load>> = [];
   let failed: string | null = null;
   function load() {
@@ -69,9 +63,9 @@ export default async function AiLogPage({ searchParams }: { searchParams: Promis
         in US dollars; the real bill is in the Anthropic console. An image&apos;s calls go when the image is deleted for good.
       </p>
       <form className="mb-4 flex flex-wrap items-center gap-3">
-        <Link href={monthHref(step(month, -1))} aria-label="Previous month">‹</Link>
+        <Link href={monthHref(shiftMonth(month, -1))} aria-label="Previous month">‹</Link>
         <input type="month" name="month" aria-label="Month" defaultValue={month} />
-        <Link href={monthHref(step(month, 1))} aria-label="Next month">›</Link>
+        <Link href={monthHref(shiftMonth(month, 1))} aria-label="Next month">›</Link>
         <label className="flex items-center gap-1.5">
           <input type="checkbox" name="errors" value="1" defaultChecked={errorsOnly} /> Errors only
         </label>

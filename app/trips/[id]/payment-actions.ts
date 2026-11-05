@@ -31,7 +31,11 @@ export async function addPayment(tripId: string, quoteId: string, side: Side, _p
     if (target) {
       const { error: linkError } = await supabase.from("payment_links").insert({ payment_id: data.id, amount: v.amount, ...linkTarget(target, side, quoteId) });
       if (linkError) {
-        await supabase.from("payments").delete().eq("id", data.id);
+        const { data: gone } = await supabase.from("payments").delete().eq("id", data.id).select("id");
+        if (!gone?.length) {
+          done();
+          return { error: `Recorded, but not linked: ${linkError.message} Link it from the Payments list; do not enter it again.` };
+        }
         return { error: `Not recorded: ${linkError.message} Choose "Link later" to record it unlinked.` };
       }
     }

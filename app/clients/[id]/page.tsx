@@ -11,6 +11,7 @@ import { FileLink } from "@/app/file-viewer";
 import { isImage } from "@/lib/files";
 import { BUTTON, TripStatusBadge } from "@/app/ui";
 import { AccountList } from "@/app/admin/payment-accounts/account-list";
+import { todayInSA } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const flags = rawFlags as { traveller_id: string; identified: boolean }[] | null;
   // RLS keeps documents to the Consultant and Administrators (ADR 0010); this only hides the empty section.
   const seesDocuments = me.role === "admin" || client.consultant_id === me.id;
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }); // YYYY-MM-DD
+  const today = todayInSA();
   const consultants = profiles?.map((p) => ({ id: p.id, label: p.full_name ?? p.email }));
 
   return (

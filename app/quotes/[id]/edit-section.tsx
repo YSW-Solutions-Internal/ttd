@@ -7,7 +7,7 @@ import { confirmAirline, restoreItem } from "./item-actions";
 import { BUTTON } from "@/app/ui";
 import { EditTabs, type EditTab } from "./edit-tabs";
 import { BookingPanel, type Booking } from "./booking-panel";
-import { one } from "@/lib/relations";
+import { everyRow, one } from "@/lib/relations";
 import { ITEM_LABEL } from "./item-fields";
 import { loadBillables } from "@/app/trips/[id]/invoicing-data";
 
@@ -55,7 +55,10 @@ export async function EditSection({
     supabase.from("trip_travellers").select("traveller_id, travellers(first_name, last_name)").eq("trip_id", tripId),
     supabase.from("item_bookings").select("*, suppliers(name)").eq("quote_id", quoteId),
     supabase.from("item_changes").select("*").eq("quote_id", quoteId).order("happened_on").order("created_at"),
-    supabase.from("suppliers").select("name").order("name"),
+    everyRow((from, to) => supabase.from("suppliers").select("name").order("name").order("id").range(from, to)).then(
+      (data) => ({ data }),
+      () => ({ data: [] }), // only the name suggestions; the booking still works without them
+    ),
     ...tables.map((t) => supabase.from(t).select("*").eq("quote_id", quoteId).order("created_at")),
   ]);
   const all = tables.flatMap((table, i) => ((results[i].data ?? []) as Row[]).map((row) => ({ table, row })));
