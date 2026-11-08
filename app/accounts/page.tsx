@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isAccounts } from "@/lib/auth";
 import { everyRow, one } from "@/lib/relations";
 import { awaitingQueue, STAGE_LABEL } from "@/lib/invoicing";
 import { TABLE_KIND } from "@/lib/extraction/tables";
@@ -38,7 +38,7 @@ const round = (n: number) => Math.round(n * 100) / 100;
 export default async function AccountsPage({ searchParams }: { searchParams: Promise<{ queue?: string }> }) {
   const me = await getProfile();
   if (!me) redirect("/login");
-  if (me.role !== "admin" && me.role !== "accountant") redirect("/");
+  if (!isAccounts(me.role)) redirect("/");
   const asked = (await searchParams).queue;
   const queue: Queue = QUEUES.some((q) => q.key === asked) ? (asked as Queue) : "awaiting";
 

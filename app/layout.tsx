@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Marcellus, Public_Sans } from "next/font/google";
 import Image from "next/image";
 import { cookies } from "next/headers";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isAccounts } from "@/lib/auth";
 import { signOut } from "./login/actions";
 import { AutosaveProvider } from "./autosave";
 import { NavShell } from "./side-nav";
@@ -12,6 +12,10 @@ import "./globals.css";
 
 const display = Marcellus({ weight: "400", subsets: ["latin"], variable: "--font-marcellus" });
 const sans = Public_Sans({ subsets: ["latin"], variable: "--font-public-sans" });
+
+// Every page: the Trip modal opens over any of them, and its actions (extraction after the
+// response, PDF rendering) run in the page underneath. Extraction is sized to fit (extract-actions.ts).
+export const maxDuration = 300;
 
 export const metadata: Metadata = {
   title: "TTD Quotes",
@@ -35,7 +39,7 @@ export default async function RootLayout({
         {profile ? (
           <NavShell
             isAdmin={profile.role === "admin"}
-            isAccounts={profile.role === "admin" || profile.role === "accountant"}
+            isAccounts={isAccounts(profile.role)}
             initialOpen={navOpen}
             who={
               <div className="flex items-center gap-3.5 text-[13px] text-muted">

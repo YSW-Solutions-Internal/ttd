@@ -4,13 +4,15 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { PROMPT_VERSION } from "@/lib/extraction/prompts";
 import { readQueued } from "@/lib/extraction/run";
 
 export type ExtractState = { message?: string; error?: string };
 
-// The page allows 800 s (page.tsx); the last image to start still has its 240 s to finish.
-const START_BUDGET_MS = 520_000;
+// As the cron: the last image to start still has its 240 s within Vercel's default 300 s, whichever
+// page sits under the Trip modal. The per-minute cron reads whatever is left.
+const START_BUDGET_MS = 50_000;
 
 export async function runExtraction(quoteId: string, _prev: ExtractState): Promise<ExtractState> {
   const supabase = await createClient();
@@ -41,8 +43,9 @@ export async function runExtraction(quoteId: string, _prev: ExtractState): Promi
   const ids = new Set((queued ?? []) as string[]);
 
   // 3. Read them after the response is sent, so the Consultant can leave. The per-minute cron
-  //    (app/api/cron/extract) picks up anything this run does not get to.
-  after(() => readQueued(supabase, images.filter((i) => ids.has(i.id)), START_BUDGET_MS));
+  //    (app/api/cron/extract) picks up anything this run does not get to. Service key, as the cron:
+  //    a session refreshed after the response could not be saved, and the browser's would be used up.
+  after(() => readQueued(createAdminClient(), images.filter((i) => ids.has(i.id)), START_BUDGET_MS));
 
   revalidatePath("/", "layout");
   return ids.size === 0

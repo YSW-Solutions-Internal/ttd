@@ -11,9 +11,6 @@ import { Departures } from "./departures";
 import { todayInSA } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
-// Extraction keeps reading after the response (after() in extract-actions.ts); 800 s is the Vercel Pro limit.
-// Set wherever the Quote editor can be open: its actions run in the page under the Trip modal too.
-export const maxDuration = 800;
 
 type Params = { status?: string; client?: string; consultant?: string; sort?: string; dir?: string };
 
