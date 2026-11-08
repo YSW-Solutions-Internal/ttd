@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isAccounts } from "@/lib/auth";
 import { csvLine } from "@/lib/payments";
 import { REFUND_STATUS_LABEL, type RefundStatus } from "@/lib/refunds";
 import { loadRefundQueue } from "../../refunds-data";
@@ -7,7 +7,7 @@ import { loadRefundQueue } from "../../refunds-data";
 /** The open Refunds as CSV: Accountants and Administrators. */
 export async function GET() {
   const me = await getProfile();
-  if (!me || (me.role !== "admin" && me.role !== "accountant")) return new NextResponse("Not allowed", { status: 403 });
+  if (!me || !isAccounts(me.role)) return new NextResponse("Not allowed", { status: 403 });
   const rows = await loadRefundQueue();
   const lines = [
     csvLine(["Trip", "Booking", "Supplier", "Status", "Requested", "Reference", "Approved (R)", "Received (R)", "Due back (R)", "Paid back (R)", "Out of pocket"]),

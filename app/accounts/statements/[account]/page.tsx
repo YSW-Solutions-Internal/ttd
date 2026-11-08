@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isAccounts } from "@/lib/auth";
 import { PAYMENT_STATUS_LABEL, type PaymentStatus } from "@/lib/payments";
 import { PaymentStatusForms } from "@/app/trips/[id]/payment-forms";
 import { loadStatement } from "./data";
@@ -15,7 +15,7 @@ const rand = (n: number) => `R ${n.toFixed(2)}`;
 export default async function StatementPage({ params, searchParams }: { params: Promise<{ account: string }>; searchParams: Promise<{ month?: string }> }) {
   const me = await getProfile();
   if (!me) redirect("/login");
-  if (me.role !== "admin" && me.role !== "accountant") redirect("/");
+  if (!isAccounts(me.role)) redirect("/");
   const s = await loadStatement((await params).account, (await searchParams).month);
   if (!s) notFound();
   const { account, month, payments } = s;

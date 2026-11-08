@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isAccounts } from "@/lib/auth";
 import { csvLine } from "@/lib/payments";
 import { loadCommissionQueue } from "../../refunds-data";
 
 /** The Commissions owed as CSV: Accountants and Administrators. */
 export async function GET() {
   const me = await getProfile();
-  if (!me || (me.role !== "admin" && me.role !== "accountant")) return new NextResponse("Not allowed", { status: 403 });
+  if (!me || !isAccounts(me.role)) return new NextResponse("Not allowed", { status: 403 });
   const rows = await loadCommissionQueue();
   const lines = [
     csvLine(["Trip", "Booking", "Supplier", "Currency", "Commission", "Received", "Owed", "Claimed", "Claim reference", "Due"]),

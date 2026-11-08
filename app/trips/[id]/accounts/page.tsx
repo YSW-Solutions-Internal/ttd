@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isAccounts } from "@/lib/auth";
 import { one } from "@/lib/relations";
 import { TABLE_KIND } from "@/lib/extraction/tables";
 import { TABS } from "@/app/quotes/[id]/edit-section";
@@ -57,7 +57,7 @@ export default async function TripAccountsPage({ params }: { params: Promise<{ i
   const label = (key: string) => billables.find((b) => b.key === key)?.label ?? "An Item no longer on the Quote";
 
   const admin = me?.role === "admin";
-  const accounts = admin || me?.role === "accountant";
+  const accounts = !!me && isAccounts(me.role);
   const canAddInvoice = admin || ["booked", "travelled", "cancelled"].includes(trip.status) || client?.consultant_id === me?.id;
 
   return (

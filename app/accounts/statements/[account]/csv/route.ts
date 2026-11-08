@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getProfile } from "@/lib/auth";
+import { getProfile, isAccounts } from "@/lib/auth";
 import { csvLine, PAYMENT_STATUS_LABEL, type PaymentStatus } from "@/lib/payments";
 import { loadStatement } from "../data";
 
 /** The month-end CSV for one statement account: Accountants and Administrators. */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ account: string }> }) {
   const me = await getProfile();
-  if (!me || (me.role !== "admin" && me.role !== "accountant")) return new NextResponse("Not allowed", { status: 403 });
+  if (!me || !isAccounts(me.role)) return new NextResponse("Not allowed", { status: 403 });
   const s = await loadStatement((await params).account, request.nextUrl.searchParams.get("month") ?? undefined);
   if (!s) return new NextResponse("Not found", { status: 404 });
 
