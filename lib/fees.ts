@@ -3,7 +3,7 @@
 
 export const FEE_REGIONS = ["domestic", "neighbouring", "local_international", "international"] as const;
 export type FeeRegion = (typeof FEE_REGIONS)[number];
-export const VARIANTS = ["", "premium", "side_ticket"] as const;
+export const VARIANTS = ["", "premium_economy", "premium", "side_ticket"] as const;
 export type Variant = (typeof VARIANTS)[number];
 export const FEE_FIELDS = ["transaction_fee", "change_fee", "refund_fee", "prepayment_fee"] as const;
 

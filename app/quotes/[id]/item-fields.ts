@@ -137,6 +137,7 @@ export const REGION_OPTIONS: [string, string][] = [
 ];
 export const VARIANT_OPTIONS: [string, string][] = [
   ["", "Economy"],
+  ["premium_economy", "Premium economy"],
   ["premium", "Business / first"],
   ["side_ticket", "Internal side ticket"],
 ];
