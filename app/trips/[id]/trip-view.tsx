@@ -10,6 +10,7 @@ import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { StayRow } from "./stays-form";
 import { TripForm } from "./trip-form";
 import { Checklist } from "./checklist";
+import { TripTabs } from "./trip-tabs";
 import { AddTravellerForm } from "@/app/clients/travellers";
 import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
 import { FileLink } from "@/app/file-viewer";
@@ -36,7 +37,16 @@ export async function TripView({ id }: { id: string }) {
   if (!trip) notFound();
   const client = one(trip.clients);
 
-  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: rawFlags }, { data: refunds }, { data: checks }] = await Promise.all([
+  const [
+    { data: quote },
+    { data: stays },
+    { data: destinations },
+    { data: travellers },
+    { data: onTrip },
+    { data: rawFlags },
+    { data: refunds },
+    { data: checks },
+  ] = await Promise.all([
     supabase
       .from("quotes")
       .select("id, quote_versions(id, version_no, pdf_path, created_at)")
@@ -81,9 +91,10 @@ export async function TripView({ id }: { id: string }) {
   const others = (travellers ?? []).filter((t) => !going.has(t.id));
   const headCount = trip.adults + trip.children;
   const keep = new Set((active ?? []).map((r) => r.entity_id));
-  const items = Object.fromEntries(
-    TABS.map(([t], i) => [t, (tables[i]?.data ?? []).filter((r) => keep.has(r.entity_id))]),
-  ) as Record<(typeof TABS)[number][0], Record<string, unknown>[]>;
+  const items = Object.fromEntries(TABS.map(([t], i) => [t, (tables[i]?.data ?? []).filter((r) => keep.has(r.entity_id))])) as Record<
+    (typeof TABS)[number][0],
+    Record<string, unknown>[]
+  >;
   const counts = TABS.flatMap(([t]) => {
     const n = items[t].length;
     return n > 0 ? [`${n} ${ITEM_LABEL[t]}${n === 1 ? "" : "s"}`] : [];
@@ -120,17 +131,21 @@ export async function TripView({ id }: { id: string }) {
         </div>
         <h1 className="mt-1">{trip.title ?? "Untitled trip"}</h1>
         <p className="text-muted">
-          For <Link href={`/clients/${client?.id}`}>{client?.full_name} ({client?.client_code})</Link>.{" "}
-          {trip.starts_on ? `${date(trip.starts_on)} to ${date(trip.ends_on) ?? "?"}` : "No dates yet"}
+          For{" "}
+          <Link href={`/clients/${client?.id}`}>
+            {client?.full_name} ({client?.client_code})
+          </Link>
+          . {trip.starts_on ? `${date(trip.starts_on)} to ${date(trip.ends_on) ?? "?"}` : "No dates yet"}
           {trip.nights ? `, ${trip.nights} night${trip.nights === 1 ? "" : "s"}` : ""}.
         </p>
-        <StaysArc
-          stays={(stays ?? []).map((s) => ({ ...s, name: destinationName.get(s.destination_code ?? "") ?? "Destination to choose" }))}
-        />
+        <StaysArc stays={(stays ?? []).map((s) => ({ ...s, name: destinationName.get(s.destination_code ?? "") ?? "Destination to choose" }))} />
       </header>
 
       {quote && (
-        <section aria-label="Quote summary" className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-md border border-line bg-white p-4">
+        <section
+          aria-label="Quote summary"
+          className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-md border border-line bg-white p-4"
+        >
           <div className="min-w-0">
             <p className="font-semibold">{counts.length > 0 ? counts.join(", ") : "No Items yet"}</p>
             {blockers.length > 0 && (
@@ -150,86 +165,119 @@ export async function TripView({ id }: { id: string }) {
       )}
 
       {/* Accountants see the Trip but cannot change it (ADR 0010). */}
-      <fieldset className="min-w-0" disabled={!editable}>
-      <TripForm trip={trip} company={client?.kind === "company"} />
+      <TripTabs
+        tabs={[
+          {
+            id: "details",
+            label: "Details",
+            content: (
+              <>
+                <fieldset className="min-w-0" disabled={!editable}>
+                  <TripForm trip={trip} company={client?.kind === "company"} />
 
-      <h2>Checklist</h2>
-      <Checklist tripId={trip.id} rows={checks ?? []} names={names} readOnly={!editable} />
+                  <h2>Checklist</h2>
+                  <Checklist tripId={trip.id} rows={checks ?? []} names={names} readOnly={!editable} />
+                </fieldset>
 
-      <h2 id="stays" className="scroll-mt-4">Stays</h2>
-      <p className="mb-3 text-muted">The Trip's itinerary. Accommodation options are placed in these.</p>
-      <table className="[&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top">
-        <thead>
-          <tr>
-            <th>Destination</th>
-            <th>Arrive</th>
-            <th>Depart</th>
-            <th>Highlight</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {(stays ?? []).map((s) => (
-            <StayRow key={s.id} tripId={trip.id} stay={s} destinations={destinationOptions} />
-          ))}
-          {editable && <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />}
-        </tbody>
-      </table>
-
-      <h2>Travellers</h2>
-      {tripTravellers.length !== headCount && (
-        <Msg tone="warn" className="mb-3">
-          {tripTravellers.length} Traveller{tripTravellers.length === 1 ? "" : "s"} on this Trip, but {trip.adults} adult
-          {trip.adults === 1 ? "" : "s"} and {trip.children} child{trip.children === 1 ? "" : "ren"} above.
-        </Msg>
-      )}
-      {tripTravellers.length === 0 && <p className="py-3 text-muted">No Travellers on this Trip yet.</p>}
-      {tripTravellers.length > 0 && (
-        <table>
-          <tbody>
-            {tripTravellers.map((t) => (
-              <tr key={t.id}>
-                <td>
-                  {t.first_name} {t.last_name}
-                </td>
-                <td>{t.date_of_birth ? date(t.date_of_birth) : "—"}</td>
-                <td>{unidentified.has(t.id) && <Badge tone="danger">No ID or Passport</Badge>}</td>
-                <td className="text-right">
-                  <form action={removeFromTrip.bind(null, trip.id, t.id)}>
-                    <Button type="submit" variant="danger">
-                      Take off this Trip
-                    </Button>
+                <h2>Accounts</h2>
+                <p className="mb-3">
+                  Supplier and Client invoices and Payments are on the <Link href={`/trips/${trip.id}/accounts`}>Trip&apos;s accounts page</Link>.
+                </p>
+              </>
+            ),
+          },
+          {
+            id: "itinerary",
+            label: `Itinerary (${stays?.length ?? 0})`,
+            content: (
+              <fieldset className="min-w-0" disabled={!editable}>
+                <h2 id="stays" className="scroll-mt-4">
+                  Stays
+                </h2>
+                <p className="mb-3 text-muted">The Trip's itinerary. Accommodation options are placed in these.</p>
+                <table className="[&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top">
+                  <thead>
+                    <tr>
+                      <th>Destination</th>
+                      <th>Arrive</th>
+                      <th>Depart</th>
+                      <th>Highlight</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(stays ?? []).map((s) => (
+                      <StayRow key={s.id} tripId={trip.id} stay={s} destinations={destinationOptions} />
+                    ))}
+                    {editable && <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />}
+                  </tbody>
+                </table>
+              </fieldset>
+            ),
+          },
+          {
+            id: "travellers",
+            label: `Travellers (${tripTravellers.length})`,
+            warn: tripTravellers.length !== headCount ? "Travellers do not match the adults and children on this Trip" : undefined,
+            content: (
+              <fieldset className="min-w-0" disabled={!editable}>
+                <h2>Travellers</h2>
+                {tripTravellers.length !== headCount && (
+                  <Msg tone="warn" className="mb-3">
+                    {tripTravellers.length} Traveller{tripTravellers.length === 1 ? "" : "s"} on this Trip, but {trip.adults} adult
+                    {trip.adults === 1 ? "" : "s"} and {trip.children} child{trip.children === 1 ? "" : "ren"} above.
+                  </Msg>
+                )}
+                {tripTravellers.length === 0 && <p className="py-3 text-muted">No Travellers on this Trip yet.</p>}
+                {tripTravellers.length > 0 && (
+                  <table>
+                    <tbody>
+                      {tripTravellers.map((t) => (
+                        <tr key={t.id}>
+                          <td>
+                            {t.first_name} {t.last_name}
+                          </td>
+                          <td>{t.date_of_birth ? date(t.date_of_birth) : "—"}</td>
+                          <td>{unidentified.has(t.id) && <Badge tone="danger">No ID or Passport</Badge>}</td>
+                          <td className="text-right">
+                            <form action={removeFromTrip.bind(null, trip.id, t.id)}>
+                              <Button type="submit" variant="danger">
+                                Take off this Trip
+                              </Button>
+                            </form>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {editable && others.length > 0 && (
+                  <form action={addToTrip.bind(null, trip.id)} className="mt-3 flex items-center gap-2">
+                    <select name="traveller_id" aria-label="Traveller to add" required className="w-auto">
+                      {others.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.first_name} {t.last_name}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit">Add to this Trip</button>
                   </form>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {editable && others.length > 0 && (
-        <form action={addToTrip.bind(null, trip.id)} className="mt-3 flex items-center gap-2">
-          <select name="traveller_id" aria-label="Traveller to add" required className="w-auto">
-            {others.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.first_name} {t.last_name}
-              </option>
-            ))}
-          </select>
-          <button type="submit">Add to this Trip</button>
-        </form>
-      )}
-      {editable && client && <AddTravellerForm clientId={client.id} tripId={trip.id} />}
-      <p className="mt-3 text-muted">
-        IDs and Passports are kept on the <Link href={`/clients/${client?.id}`}>Client page</Link>.
-      </p>
-      </fieldset>
-
-      {quote && <QuoteEditor quoteId={quote.id} trip={trip} />}
-
-      <h2>Accounts</h2>
-      <p className="mb-3">
-        Supplier and Client invoices and Payments are on the <Link href={`/trips/${trip.id}/accounts`}>Trip&apos;s accounts page</Link>.
-      </p>
+                )}
+                {editable && client && <AddTravellerForm clientId={client.id} tripId={trip.id} />}
+                <p className="mt-3 text-muted">
+                  IDs and Passports are kept on the <Link href={`/clients/${client?.id}`}>Client page</Link>.
+                </p>
+              </fieldset>
+            ),
+          },
+          {
+            id: "quote-tab",
+            label: "Quote",
+            warn: blockers.length > 0 ? "something stops Generate version" : undefined,
+            content: quote ? <QuoteEditor quoteId={quote.id} trip={trip} /> : <p className="py-3 text-muted">This Trip has no Quote yet.</p>,
+          },
+        ]}
+      />
 
       <History tripId={trip.id} />
     </>
