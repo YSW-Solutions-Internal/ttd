@@ -141,29 +141,6 @@ export async function TripView({ id }: { id: string }) {
         <StaysArc stays={(stays ?? []).map((s) => ({ ...s, name: destinationName.get(s.destination_code ?? "") ?? "Destination to choose" }))} />
       </header>
 
-      {quote && (
-        <section
-          aria-label="Quote summary"
-          className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-md border border-line bg-white p-4"
-        >
-          <div className="min-w-0">
-            <p className="font-semibold">{counts.length > 0 ? counts.join(", ") : "No Items yet"}</p>
-            {blockers.length > 0 && (
-              <ul className="mt-1 list-none text-danger">
-                {blockers.map((b, i) => (
-                  <li key={i}>{b}</li>
-                ))}
-              </ul>
-            )}
-            {/* A div: FileLink holds its viewer <dialog>, which a <p> cannot contain. */}
-            <div className="mt-1 text-muted">{versions.length > 0 ? <>Latest: {versionLine(versions[0])}</> : "No versions yet."}</div>
-          </div>
-          <a href="#quote" className={BUTTON.primary}>
-            Go to the quote
-          </a>
-        </section>
-      )}
-
       {/* Accountants see the Trip but cannot change it (ADR 0010). */}
       <TripTabs
         tabs={[
@@ -172,6 +149,29 @@ export async function TripView({ id }: { id: string }) {
             label: "Details",
             content: (
               <>
+                {quote && (
+                  <section
+                    aria-label="Quote summary"
+                    className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-md border border-line bg-white p-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold">{counts.length > 0 ? counts.join(", ") : "No Items yet"}</p>
+                      {blockers.length > 0 && (
+                        <ul className="mt-1 list-none text-danger">
+                          {blockers.map((b, i) => (
+                            <li key={i}>{b}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {/* A div: FileLink holds its viewer <dialog>, which a <p> cannot contain. */}
+                      <div className="mt-1 text-muted">{versions.length > 0 ? <>Latest: {versionLine(versions[0])}</> : "No versions yet."}</div>
+                    </div>
+                    <a href="#quote" className={BUTTON.primary}>
+                      Go to the quote
+                    </a>
+                  </section>
+                )}
+
                 <fieldset className="min-w-0" disabled={!editable}>
                   <TripForm trip={trip} company={client?.kind === "company"} />
 

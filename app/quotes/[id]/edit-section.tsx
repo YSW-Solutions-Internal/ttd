@@ -6,9 +6,14 @@ import { AddItemForm, ItemForm, type ItemSource, type StayOption } from "./item-
 import { confirmAirline, restoreItem } from "./item-actions";
 import { BUTTON } from "@/app/ui";
 import { EditTabs, type EditTab } from "./edit-tabs";
-import { BookingPanel, type Booking } from "./booking-panel";
+import { BookButton, BookingPanel, type Booking } from "./booking-panel";
 import { everyRow, one } from "@/lib/relations";
 import { ITEM_LABEL } from "./item-fields";
+import { OptionTable, type OptionRow } from "./option-table";
+import { summariseFlights } from "@/lib/flight-summary";
+import { itemTotal, money } from "@/lib/pdf/money";
+import type { Priced } from "@/lib/pdf/types";
+import { Badge } from "@/app/ui";
 import { loadBillables } from "@/app/trips/[id]/invoicing-data";
 
 type Row = Record<string, unknown>;
@@ -121,7 +126,7 @@ export async function EditSection({
 
   const imageById = new Map(images.map((img, i) => [img.id, { ...img, order: i }]));
 
-  const form = ({ table, row }: { table: ItemTable; row: Row }) => {
+  const form = ({ table, row }: { table: ItemTable; row: Row }, inDialog = false) => {
     const entityId = String(row.entity_id);
     const booking = bookings.get(entityId) ?? null;
     const img = row.image_id == null ? undefined : imageById.get(String(row.image_id));
@@ -129,7 +134,7 @@ export async function EditSection({
     return (
       // Never re-mounts after a save: autosave puts the values the server filled in into the card.
       // data-image: a Source image thumbnail jumps to and highlights its Items (image-links.tsx).
-      <div key={String(row.id)} data-image={img?.id} className="rounded-md">
+      <div key={String(row.id)} data-image={inDialog ? undefined : img?.id} className="rounded-md">
         <ItemForm
           quoteId={quoteId}
           table={table}
@@ -156,11 +161,58 @@ export async function EditSection({
           suppliers={suppliers}
           billing={billables.filter((b) => b.entityId === entityId)}
           readOnly={readOnly}
+          bookInHeader={inDialog && table === "flight_options"}
         />
         </fieldset>
       </div>
     );
   };
+
+  const shortDate = (d: string | null) => {
+    if (!d) return null;
+    const [y, m, day] = d.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, day)).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  };
+
+  /** The Flights tab: one table row per Flight option, each opening its form in a dialog. */
+  const flightRows = (ofKind: { table: ItemTable; row: Row }[]): OptionRow[] =>
+    ofKind.map((item, i) => {
+      const { row } = item;
+      const own = ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id);
+      const sum = summariseFlights(own);
+      const total = itemTotal(row as Priced);
+      const stops = problems({ ...(Object.fromEntries(tables.map((t) => [t, [] as Row[]])) as Record<ItemTable, Row[]>), flight_options: [row], flights: [] });
+      const title = String(row.label ?? "") || sum.airlines.join(", ") || `Flight option ${i + 1}`;
+      const img = row.image_id == null ? undefined : imageById.get(String(row.image_id));
+      const dates = [shortDate(sum.from), shortDate(sum.to)].filter(Boolean).join(" – ");
+      return {
+        id: String(row.id),
+        imageId: img?.id,
+        title,
+        cells: {
+          option: title,
+          destination: sum.destination ?? "—",
+          dates: dates || "—",
+          nights: sum.nights ?? "—",
+          total: total === null ? <span className="text-muted">On request</span> : money(total),
+          status: (
+            <span className="flex flex-wrap gap-1.5">
+              {bookings.has(String(row.entity_id)) && <Badge tone="tealSolid">Booked</Badge>}
+              {stops.length > 0 && (
+                <span title={stops.join(" ")}>
+                  <Badge tone="danger">Needs attention</Badge>
+                </span>
+              )}
+            </span>
+          ),
+        },
+        action:
+          !readOnly && !bookings.has(String(row.entity_id)) ? (
+            <BookButton quoteId={quoteId} entityId={String(row.entity_id)} kind={TABLE_KIND[item.table]} item={row} suppliers={suppliers} />
+          ) : undefined,
+        content: form(item, true),
+      };
+    });
 
   const airlines = toConfirm.length > 0 && (
     <section className="rounded-md border border-amber bg-white p-4">
@@ -202,9 +254,26 @@ export async function EditSection({
       content: (
         <div className="flex flex-col gap-4">
           {table === "flight_options" && !readOnly && airlines}
-          {ofKind.map(form)}
+          {table === "flight_options" ? (
+            <OptionTable
+              columns={[
+                { key: "option", label: "Option" },
+                { key: "destination", label: "Destination" },
+                { key: "dates", label: "Dates" },
+                { key: "nights", label: "Nights", align: "right" },
+                { key: "total", label: "Total", align: "right" },
+                { key: "status", label: "" },
+              ]}
+              rows={flightRows(ofKind)}
+              add={!readOnly && <AddItemForm quoteId={quoteId} table={table} label="Add Flight Option" />}
+            />
+          ) : (
+            <>
+              {ofKind.map((r) => form(r))}
+              {!readOnly && <AddItemForm quoteId={quoteId} table={table} />}
+            </>
+          )}
           {ofKind.length === 0 && <p className="text-muted">No {label.toLowerCase()} yet.</p>}
-          {!readOnly && <AddItemForm quoteId={quoteId} table={table} />}
         </div>
       ),
     };

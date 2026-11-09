@@ -442,11 +442,11 @@ export function ItemForm({
   );
 }
 
-export function AddItemForm({ quoteId, table }: { quoteId: string; table: ItemTable }) {
+export function AddItemForm({ quoteId, table, label = "Manual Capture" }: { quoteId: string; table: ItemTable; label?: string }) {
   return (
     <form action={addItem.bind(null, quoteId)}>
       <input type="hidden" name="table" value={table} />
-      <button type="submit">Manual Capture</button>
+      <button type="submit">{label}</button>
     </form>
   );
 }

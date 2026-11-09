@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useId, useRef, useState } from "react";
 import { ConfirmButton } from "@/app/confirm-button";
 import { cancellationFee, changeTotal } from "@/lib/booking";
 import { STAGE_LABEL, STATUS_LABEL } from "@/lib/invoicing";
@@ -8,7 +8,7 @@ import type { Billable } from "@/app/trips/[id]/invoicing-data";
 import { addChange, bookItem, bookOwnExtra, correctBooking, markIssued, unbookItem, type BookingFormState } from "./booking-actions";
 import { useKeptForm } from "@/app/kept-form";
 import { FileLink } from "@/app/file-viewer";
-import { Badge, Msg } from "@/app/ui";
+import { Badge, BUTTON, Msg } from "@/app/ui";
 import { todayInSA } from "@/lib/dates";
 
 type Row = Record<string, unknown>;
@@ -65,6 +65,64 @@ function BookingFields({ booking, suppliers, flight }: { booking?: Booking; supp
       {flight && <Text label="Ticket numbers (comma separated)" name="ticket_numbers" value={(booking?.ticket_numbers as string[] | undefined)?.join(", ")} />}
       <Text label="Notes" name="notes" value={booking?.notes} />
     </div>
+  );
+}
+
+/** The form that books an Item: Supplier, reference, amount and so on. */
+function BookForm({ quoteId, entityId, kind, suppliers }: { quoteId: string; entityId: string; kind: string; suppliers: string[] }) {
+  const [state, book, pending] = useActionState(bookItem.bind(null, quoteId, entityId, kind), {});
+  const kept = useKeptForm(book, state);
+  return (
+    <form {...kept} className="mt-3">
+      <BookingFields suppliers={suppliers} flight={kind === "flight"} />
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="mb-0 flex items-center gap-2 font-normal">
+          <input type="checkbox" name="issued" /> Already issued
+        </label>
+        <button type="submit" disabled={pending}>Book</button>
+        <Message state={state} />
+      </div>
+    </form>
+  );
+}
+
+/**
+ * "Book this Item" as a green button (for a Flight option's dialog header) that opens the booking form
+ * in its own dialog. Disabled until the Item has a price. Not shown once booked, or to Accountants.
+ */
+export function BookButton({ quoteId, entityId, kind, item, suppliers }: { quoteId: string; entityId: string; kind: string; item: Row; suppliers: string[] }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  if (item.price == null || item.price === "")
+    return (
+      <button type="button" disabled title="Give it a price to book it" className={BUTTON.primary}>
+        Book this Item
+      </button>
+    );
+  return (
+    <>
+      <button type="button" className={BUTTON.primary} onClick={() => dialog.current?.showModal()}>
+        Book this Item
+      </button>
+      <dialog
+        ref={dialog}
+        aria-label="Book this Item"
+        onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
+        className="m-auto w-[min(860px,94vw)] rounded-md border border-line bg-white p-5 backdrop:bg-ink/60"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <b className="font-display text-xl font-normal">Book this Item</b>
+          <button
+            type="button"
+            aria-label="Close"
+            className="bg-transparent p-0 text-xl leading-none text-muted hover:bg-transparent hover:text-ink"
+            onClick={() => dialog.current?.close()}
+          >
+            ✕
+          </button>
+        </div>
+        <BookForm quoteId={quoteId} entityId={entityId} kind={kind} suppliers={suppliers} />
+      </dialog>
+    </>
   );
 }
 
@@ -144,6 +202,7 @@ export function BookingPanel({
   suppliers,
   billing,
   readOnly,
+  bookInHeader = false,
 }: {
   quoteId: string;
   entityId: string;
@@ -154,19 +213,19 @@ export function BookingPanel({
   suppliers: string[];
   billing: Billable[];
   readOnly: boolean;
+  /** The Book this Item button is elsewhere (BookButton), so an unbooked Item shows nothing here. */
+  bookInHeader?: boolean;
 }) {
   const flight = kind === "flight";
-  const [bookState, book, bookPending] = useActionState(bookItem.bind(null, quoteId, entityId, kind), {});
   const [ownState, bookOwn, ownPending] = useActionState(bookOwnExtra.bind(null, quoteId, entityId), {});
   const [fixState, fix, fixing] = useActionState(correctBooking.bind(null, quoteId, entityId), {});
   const [issueState, issue, issuing] = useActionState(markIssued.bind(null, quoteId, entityId, kind), {});
   const [unbookState, unbook] = useActionState(unbookItem.bind(null, quoteId, entityId), {});
-  const keptBook = useKeptForm(book, bookState);
   const keptFix = useKeptForm(fix, fixState);
   const keptIssue = useKeptForm(issue, issueState);
 
   if (!booking) {
-    if (readOnly) return null;
+    if (readOnly || bookInHeader) return null;
     if (item.price == null || item.price === "") return <p className="mt-2 text-[13px] text-muted">Give it a price to book it.</p>;
     if (kind === "extra" && Number(item.price) === 0)
       return (
@@ -178,16 +237,7 @@ export function BookingPanel({
     return (
       <details className="mt-2 rounded-md border border-dashed border-field bg-white px-4 py-3 open:border-solid open:border-line">
         <summary className="cursor-pointer font-semibold text-teal-deep">Book this Item</summary>
-        <form {...keptBook} className="mt-3">
-          <BookingFields suppliers={suppliers} flight={flight} />
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="mb-0 flex items-center gap-2 font-normal">
-              <input type="checkbox" name="issued" /> Already issued
-            </label>
-            <button type="submit" disabled={bookPending}>Book</button>
-            <Message state={bookState} />
-          </div>
-        </form>
+        <BookForm quoteId={quoteId} entityId={entityId} kind={kind} suppliers={suppliers} />
       </details>
     );
   }
