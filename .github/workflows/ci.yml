@@ -24,6 +24,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # next-env.d.ts is not in git; it declares image imports such as logo.png.
+      - name: Generate Next types
+        run: npx next typegen
       - name: Typecheck
         run: npm run typecheck
       - name: Test
