@@ -6,7 +6,7 @@ import { AddItemForm, ItemForm, type ItemSource, type StayOption } from "./item-
 import { confirmAirline, restoreItem } from "./item-actions";
 import { BUTTON } from "@/app/ui";
 import { EditTabs, type EditTab } from "./edit-tabs";
-import { BookingPanel, type Booking } from "./booking-panel";
+import { BookButton, BookingPanel, type Booking } from "./booking-panel";
 import { everyRow, one } from "@/lib/relations";
 import { ITEM_LABEL } from "./item-fields";
 import { OptionTable, type OptionRow } from "./option-table";
@@ -161,6 +161,7 @@ export async function EditSection({
           suppliers={suppliers}
           billing={billables.filter((b) => b.entityId === entityId)}
           readOnly={readOnly}
+          bookInHeader={inDialog && table === "flight_options"}
         />
         </fieldset>
       </div>
@@ -205,6 +206,10 @@ export async function EditSection({
             </span>
           ),
         },
+        action:
+          !readOnly && !bookings.has(String(row.entity_id)) ? (
+            <BookButton quoteId={quoteId} entityId={String(row.entity_id)} kind={TABLE_KIND[item.table]} item={row} suppliers={suppliers} />
+          ) : undefined,
         content: form(item, true),
       };
     });
@@ -260,7 +265,7 @@ export async function EditSection({
                 { key: "status", label: "" },
               ]}
               rows={flightRows(ofKind)}
-              add={!readOnly && <AddItemForm quoteId={quoteId} table={table} />}
+              add={!readOnly && <AddItemForm quoteId={quoteId} table={table} label="Add Flight Option" />}
             />
           ) : (
             <>

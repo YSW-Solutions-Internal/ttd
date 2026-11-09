@@ -8,6 +8,8 @@ export type OptionRow = {
   /** Source image this Item came from: its thumbnail highlights the row (image-links.tsx). */
   imageId?: string;
   title: string;
+  /** Shown at the top right of the dialog, beside its close button. */
+  action?: ReactNode;
   cells: Record<string, ReactNode>;
   /** The Item's full form, shown in its dialog. */
   content: ReactNode;
@@ -92,14 +94,17 @@ export function OptionTable({ columns, rows, add }: { columns: OptionColumn[]; r
           <div className="p-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <b className="font-display text-xl font-normal">{r.title}</b>
-              <button
-                type="button"
-                aria-label="Close"
-                className="bg-transparent p-0 text-xl leading-none text-muted hover:bg-transparent hover:text-ink"
-                onClick={(e) => e.currentTarget.closest("dialog")?.close()}
-              >
-                ✕
-              </button>
+              <span className="ml-auto flex items-center gap-4">
+                {r.action}
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="bg-transparent p-0 text-xl leading-none text-muted hover:bg-transparent hover:text-ink"
+                  onClick={(e) => e.currentTarget.closest("dialog")?.close()}
+                >
+                  ✕
+                </button>
+              </span>
             </div>
             {r.content}
           </div>
