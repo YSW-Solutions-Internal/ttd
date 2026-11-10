@@ -166,6 +166,10 @@ _Avoid_: Client invoicing status, invoice status
 The Accountant's work lists across all Trips. **Awaiting**: booked Items and Changes with no Supplier invoice linked and not marked "No supplier invoice expected", whatever their Invoicing stage (an Item invoiced to the Client first still waits here), overdue first, then by expected date. **To verify**: Supplier invoices still Received, oldest first. **To invoice**: Items and Changes with Rand still to invoice, or with a credit note due because more was invoiced than they now charge, whatever their supplier side. **To reconcile**: Payments still Unreconciled, oldest first. **Queries**: Supplier invoices and Payments in Query, with the reason. **Unlinked documents**: Supplier or Client invoices whose linked amounts do not add up to the whole invoice, and Payments with an amount not yet linked (a Client's shown as a deposit). **Refunds**: Refunds still open, out of pocket first, then oldest requested. **Commissions owed**: claimed Commissions with something still owed, overdue first, then by due date. Refunds and Commissions owed can each be exported.
 _Avoid_: Inbox, worklist, dashboard
 
+**Trip accounts**:
+One Trip's money: its Supplier and Client invoices, Refunds, Commissions and Payments. Every User sees them on the Trip; the Accounts queues gather the work across all Trips.
+_Avoid_: Trip finances, money page
+
 **Refund fee**:
 What the agency charges if the Client cancels an Item after it has been issued. Taken from the Fee schedule; the Consultant can change it. Shown on the Quote as the cancellation / refund fee, never added to the Item total.
 _Avoid_: Cancellation fee, cxl fee

@@ -11,6 +11,7 @@ import { StayRow } from "./stays-form";
 import { TripForm } from "./trip-form";
 import { Checklist } from "./checklist";
 import { TripTabs } from "./trip-tabs";
+import { TripAccounts } from "./trip-accounts";
 import { AddTravellerForm } from "@/app/clients/travellers";
 import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
 import { FileLink } from "@/app/file-viewer";
@@ -118,6 +119,7 @@ export async function TripView({ id }: { id: string }) {
     </>
   );
 
+  const refundOpen = openRefundTrips(refunds ?? []).size > 0;
   const destinationName = new Map((destinations ?? []).map((d) => [d.code, d.name]));
   const destinationOptions = (destinations ?? []).map((d) => ({ code: d.code, label: `${d.name}, ${d.country}` }));
 
@@ -127,7 +129,7 @@ export async function TripView({ id }: { id: string }) {
         <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold text-muted tabular-nums">{trip.reference}</span>
           <TripStatusBadge status={trip.status} />
-          {openRefundTrips(refunds ?? []).size > 0 && <Badge tone="amber">Refund open</Badge>}
+          {refundOpen && <Badge tone="amber">Refund open</Badge>}
         </div>
         <h1 className="mt-1">{trip.title ?? "Untitled trip"}</h1>
         <p className="text-muted">
@@ -178,11 +180,6 @@ export async function TripView({ id }: { id: string }) {
                   <h2>Checklist</h2>
                   <Checklist tripId={trip.id} rows={checks ?? []} names={names} readOnly={!editable} />
                 </fieldset>
-
-                <h2>Accounts</h2>
-                <p className="mb-3">
-                  Supplier and Client invoices and Payments are on the <Link href={`/trips/${trip.id}/accounts`}>Trip&apos;s accounts page</Link>.
-                </p>
               </>
             ),
           },
@@ -275,6 +272,13 @@ export async function TripView({ id }: { id: string }) {
             label: "Quote",
             warn: blockers.length > 0 ? "something stops Generate version" : undefined,
             content: quote ? <QuoteEditor quoteId={quote.id} trip={trip} /> : <p className="py-3 text-muted">This Trip has no Quote yet.</p>,
+          },
+          {
+            id: "accounts-tab",
+            label: "Accounts",
+            warn: refundOpen ? "a Refund is open" : undefined,
+            // Not in a disabled fieldset: Accountants work here.
+            content: <TripAccounts tripId={trip.id} status={trip.status} quoteId={quote?.id ?? null} client={client} />,
           },
         ]}
       />

@@ -56,7 +56,7 @@ export default async function StatementPage({ params, searchParams }: { params: 
                 <td>{p.paid_on}</td>
                 <td>{p.kind}</td>
                 <td>{p.party}</td>
-                <td>{p.trip && <Link href={`/trips/${p.trip.id}/accounts`}>{p.trip.reference}</Link>}</td>
+                <td>{p.trip && <Link href={`/trips/${p.trip.id}#accounts`}>{p.trip.reference}</Link>}</td>
                 <td className="text-right tabular-nums">
                   {p.currency} {Number(p.amount).toFixed(2)}
                 </td>

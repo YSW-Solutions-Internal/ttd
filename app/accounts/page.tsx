@@ -148,7 +148,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   };
 
   const tripLink = (t: { id: string; reference: string; title: string | null } | null) =>
-    t ? <Link href={`/trips/${t.id}/accounts`}>{[t.reference, t.title].filter(Boolean).join(" · ")}</Link> : null;
+    t ? <Link href={`/trips/${t.id}#accounts`}>{[t.reference, t.title].filter(Boolean).join(" · ")}</Link> : null;
 
   return (
     <main className="mx-auto my-8 max-w-[1200px] px-5">
