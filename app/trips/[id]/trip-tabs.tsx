@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
-import { flushSync } from "react-dom";
 
 export type TripTab = { id: string; label: string; warn?: string; content: ReactNode };
 
@@ -22,8 +21,9 @@ export function TripTabs({ tabs }: { tabs: TripTab[] }) {
       const el = hash ? document.getElementById(decodeURIComponent(hash)) : null;
       const tab = el?.closest<HTMLElement>("[data-trip-panel]")?.dataset.tripPanel;
       if (!el || !tab) return false;
-      flushSync(() => setOpen(tab));
-      el.scrollIntoView();
+      setOpen(tab);
+      // flushSync cannot render from inside an effect (the first reveal), so scroll once the tab is drawn.
+      requestAnimationFrame(() => el.scrollIntoView());
       return true;
     };
     reveal(window.location.hash.slice(1));
