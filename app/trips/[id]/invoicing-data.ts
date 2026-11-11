@@ -1,0 +1,135 @@
+import type { createClient } from "@/lib/supabase/server";
+import { feeUnits, itemTotal } from "@/lib/pdf/money";
+import { one } from "@/lib/relations";
+import { supplierCharges } from "@/lib/booking";
+import { changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, itemExpectsInvoice, type InvoiceStatus, type Side, type Stage } from "@/lib/invoicing";
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+type Row = Record<string, unknown>;
+
+export type LinkedInvoice = {
+  linkId: string;
+  invoiceId: string;
+  side: Side;
+  number: string;
+  amount: number; // the part linked here
+  currency: string;
+  status: InvoiceStatus | null;
+  url?: string;
+};
+
+/** One booked Item or one of its Changes, as invoicing sees it. Key: "entityId" or "entityId|changeId". */
+export type Billable = {
+  key: string;
+  entityId: string;
+  changeId: string | null;
+  supplierId: string;
+  supplierName: string;
+  label: string;
+  stage: Stage;
+  toInvoice: number;
+  noneExpectedFlag: boolean;
+  expectsInvoice: boolean; // a Supplier invoice is due: not flagged, and has Supplier charges
+  expectedOn: string | null; // when the Supplier invoice is expected
+  currency: string; // the Supplier's, as booked
+  supplierDue: number; // what the Supplier is paid for it, in that currency (less a deducted Commission)
+  links: LinkedInvoice[];
+};
+
+/**
+ * Every booked Item and Change on a Quote with its Invoicing stage, the Rand amount still
+ * to invoice and its linked invoices. `items` are the Quote's Item rows by entity_id, with
+ * a label each; their prices give the Item total.
+ */
+export async function loadBillables(
+  supabase: Supabase,
+  quoteId: string,
+  items: Map<string, { row: Row; label: string; kind: string }>,
+  sign = true, // signed PDF links; /accounts shows none
+): Promise<Billable[]> {
+  const [{ data: bookings }, { data: changes }, { data: links }] = await Promise.all([
+    supabase.from("item_bookings").select("entity_id, supplier_id, booking_reference, no_supplier_invoice, expected_invoice_on, issued_at, currency, amount, commission, commission_deducted, suppliers(name)").eq("quote_id", quoteId),
+    supabase.from("item_changes").select("*").eq("quote_id", quoteId).order("happened_on").order("created_at"),
+    supabase
+      .from("invoice_links")
+      .select("id, entity_id, change_id, amount, invoices(id, side, number, currency, status, file_path)")
+      .eq("quote_id", quoteId)
+      .order("created_at"),
+  ]);
+
+  // Private bucket: short-lived signed links for the PDFs.
+  const paths = [...new Set((links ?? []).flatMap((l) => one(l.invoices)?.file_path ?? []))];
+  const urls = new Map<string, string>();
+  if (sign && paths.length > 0) {
+    const { data: signed } = await supabase.storage.from("invoice-files").createSignedUrls(paths, 3600);
+    signed?.forEach((s) => s.path && s.signedUrl && urls.set(s.path, s.signedUrl));
+  }
+
+  const linked = (entityId: string, changeId: string | null): LinkedInvoice[] =>
+    (links ?? [])
+      .filter((l) => l.entity_id === entityId && (l.change_id ?? null) === changeId)
+      .flatMap((l) => {
+        const i = one(l.invoices);
+        if (!i) return [];
+        return [{ linkId: l.id, invoiceId: i.id, side: i.side, number: i.number, amount: Number(l.amount), currency: i.currency, status: i.status, url: urls.get(i.file_path) }];
+      });
+
+  const billable = (
+    b: NonNullable<typeof bookings>[number],
+    changeId: string | null,
+    label: string,
+    charge: number,
+    flag: boolean,
+    expects: boolean,
+    expectedOn: string | null,
+    currency: string,
+    supplierDue: number,
+  ): Billable => {
+    const ls = linked(b.entity_id, changeId);
+    return {
+      key: changeId ? `${b.entity_id}|${changeId}` : b.entity_id,
+      entityId: b.entity_id,
+      changeId,
+      supplierId: b.supplier_id,
+      supplierName: one(b.suppliers)?.name ?? "",
+      label,
+      noneExpectedFlag: flag,
+      expectsInvoice: expects && !flag,
+      expectedOn,
+      currency,
+      supplierDue,
+      links: ls,
+      ...invoicingStage({
+        charge,
+        clientInvoiced: ls.filter((l) => l.side === "client").map((l) => l.amount),
+        supplierStatuses: ls.filter((l) => l.side === "supplier").map((l) => l.status as InvoiceStatus),
+        noneExpected: flag || !expects,
+      }),
+    };
+  };
+
+  return (bookings ?? []).flatMap((b) => {
+    const item = items.get(b.entity_id);
+    const head = [item?.label ?? "Item", one(b.suppliers)?.name, b.booking_reference].filter(Boolean).join(" · ");
+    const mine = (changes ?? []).filter((c) => c.entity_id === b.entity_id);
+    const total = item ? itemTotal(item.row, feeUnits(item.kind, item.row)) ?? 0 : 0;
+    const state = { issued: b.issued_at != null, cancelled: mine.some((c) => c.kind === "cancellation") };
+    // A deducted Commission is what the Supplier is not paid.
+    const due = Number(b.amount) - (b.commission_deducted ? Number(b.commission) : 0);
+    const own = billable(b, null, head, itemCharge(total, state), b.no_supplier_invoice, itemExpectsInvoice(state), b.expected_invoice_on, b.currency, due);
+    const ofItem = mine.map((c) =>
+      billable(
+        b,
+        c.id,
+        `${head} · ${c.kind === "cancellation" ? "Cancellation" : "Change"} ${c.happened_on}${c.description ? `: ${c.description}` : ""}`,
+        changeCharge(c, state.issued),
+        c.no_supplier_invoice,
+        expectsSupplierInvoice(c),
+        c.expected_invoice_on,
+        c.currency,
+        supplierCharges(c),
+      ),
+    );
+    return [own, ...ofItem];
+  });
+}

@@ -21,12 +21,12 @@ export default async function NewClientPage({ searchParams }: { searchParams: Pr
   }
 
   return (
-    <main className="container">
-      <p className="sub">
-        <Link href={next === "trip" ? "/trips/new" : "/clients"}>← Back</Link>
+    <main className="mx-auto my-8 max-w-[1200px] px-5">
+      <p className="mb-3">
+        <Link href={next === "trip" ? "/trips/new" : "/clients"}>Back</Link>
       </p>
       <h1>Add client</h1>
-      <p className="sub">The client code is made from the name when you save, and never changes.</p>
+      <p className="mb-4 text-muted">The client code is made from the name when you save, and never changes.</p>
       <ClientForm consultants={consultants} defaultConsultantId={me.id} next={next === "trip" ? "trip" : undefined} />
     </main>
   );

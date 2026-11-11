@@ -1,17 +1,21 @@
 // The deterministic assembler (ADR 0002): a Quote's rows -> the quote JSON a Version freezes.
-// Pure, with type-only imports, so assemble.test.ts runs under plain `node`.
+// Pure, with .ts / type-only imports, so assemble.test.ts runs under plain `node`.
 import type { AccommodationStay, FlightOption, Priced, QuoteJson } from "./types";
+import { feeUnits, money, tripTotal } from "./money.ts";
+import { EXTRA_FIELDS, EXTRA_TYPES } from "../extraction/tables.ts";
 
 type Row = Record<string, any>;
 
 export type AssembleInput = {
   /** YYYY-MM-DD, the day the Version is generated. */
   today: string;
+  /** An Accepted version (GLOSSARY): everything on it is taken, so it gets a Trip total. */
+  accepted?: boolean;
   /** The Trip's reference; generate_version appends " V<n>". */
   reference: string;
   consultant: { name: string; email?: string };
   client: { name: string; code: string };
-  trip: Row; // title, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, terms_profile, custom_notes
+  trip: Row; // title, starts_on, ends_on, nights, adults, children, terms_profile, custom_notes
   stays: Row[]; // trip_stops in position order
   /** Item rows of the Quote, removed images' Items already left out, in creation order. */
   items: {
@@ -22,9 +26,17 @@ export type AssembleInput = {
     rail_journeys: Row[];
     car_rentals: Row[];
     excursions: Row[];
+    packages: Row[];
+    visas: Row[];
+    insurance_policies: Row[];
+    extras: Row[];
   };
   /** IATA code -> airline name, confirmed names only (migration 0012). */
   airlines: Map<string, string>;
+  /** Traveller id -> "First Last", the Trip's Travellers. */
+  travellers: Map<string, string>;
+  /** Trip checklist key -> note (trip_checks). */
+  checks: Record<string, string | null>;
 };
 
 export type VersionItem = { entity_id: string; kind: string; option_no: number };
@@ -62,11 +74,13 @@ function priced(r: Row): Priced {
     prepaid: r.prepaid,
     change_fee: r.change_fee,
     refund_fee: r.refund_fee,
+    card_paid: r.card_paid,
+    card_surcharge: r.card_surcharge,
   };
 }
 
-/** What stops this Quote becoming a Version (GLOSSARY: Stay, Generate version). Empty means go ahead. */
-export function problems(items: AssembleInput["items"]): string[] {
+/** What stops this Quote becoming a Version (GLOSSARY: Stay, Generate version, Accepted version). Empty means go ahead. */
+export function problems(items: AssembleInput["items"], accepted = false): string[] {
   const out: string[] = [];
   for (const h of items.accommodation_options) {
     if (!h.stay_id) out.push(`${h.hotel_name || "An Accommodation option"} is not placed in a Stay.`);
@@ -78,12 +92,21 @@ export function problems(items: AssembleInput["items"]): string[] {
     [items.rail_journeys, "service", "A Rail journey"],
     [items.car_rentals, "company", "A car rental"],
     [items.excursions, "description", "An Experience"],
+    [items.packages, "name", "A Package"],
+    [items.visas, "country", "A Visa"],
+    [items.insurance_policies, "insurer", "An Insurance policy"],
+    [items.extras, "description", "An Extra"],
   ];
   for (const [rows, field, fallback] of named) {
     for (const r of rows) {
       // A missing fee would print as R 0 and undercharge; a missing price prints "On request".
       if (r.price != null && r.transaction_fee == null) out.push(`${r[field] || fallback} has a price but no Transaction fee.`);
+      // Recommended experiences are priced separately, never in the Trip total.
+      if (accepted && r.price == null && rows !== items.excursions) out.push(`${r[field] || fallback} is On request. Price every Item before generating an Accepted version.`);
     }
+  }
+  for (const x of items.extras) {
+    if (x.extra_type === "conference" && x.people == null) out.push("A Conference has no number of people.");
   }
   return out;
 }
@@ -91,6 +114,7 @@ export function problems(items: AssembleInput["items"]): string[] {
 export function assembleQuote(input: AssembleInput): { quote: QuoteJson; items: VersionItem[] } {
   const { trip, stays, items } = input;
   const versionItems: VersionItem[] = [];
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   const number = (rows: Row[], kind: string) =>
     rows.forEach((r, i) => versionItems.push({ entity_id: r.entity_id, kind, option_no: i + 1 }));
 
@@ -104,7 +128,7 @@ export function assembleQuote(input: AssembleInput): { quote: QuoteJson; items: 
     const airlines = [...new Set(flights.map((f) => airline(f.airline)).filter(Boolean))].join(", ");
     return {
       ...priced(o),
-      label: `Option ${i + 1}`,
+      label: `${input.accepted ? "Flight" : "Option"} ${i + 1}`,
       headline: o.label || airlines,
       airlines,
       fare_rules: o.fare_rules,
@@ -206,9 +230,62 @@ export function assembleQuote(input: AssembleInput): { quote: QuoteJson; items: 
   }));
   number(items.excursions, "excursion");
 
+  const packages = items.packages.map((p) => ({
+    ...priced(p),
+    units: feeUnits("package", p),
+    name: p.name,
+    operator: p.operator,
+    destination: p.destination,
+    dates: range(p.start_date, p.end_date),
+    deposit_line:
+      p.deposit == null ? null : [`Deposit ${money(p.deposit)} now`, p.balance_due_on && `balance by ${day(p.balance_due_on, true)}`].filter(Boolean).join(", "),
+  }));
+  number(items.packages, "package");
+
+  const visas = items.visas.map((v) => ({
+    ...priced(v),
+    units: feeUnits("visa", v),
+    country: v.country,
+    visa_type: v.visa_type,
+    traveller: input.travellers.get(v.traveller_id) ?? null,
+  }));
+  number(items.visas, "visa");
+
+  const insurance = items.insurance_policies.map((p) => ({
+    ...priced(p),
+    units: feeUnits("insurance", p),
+    insurer: p.insurer,
+    policy_type: p.policy_type,
+    dates: range(p.start_date, p.end_date),
+    travellers: ((p.traveller_ids ?? []) as string[]).map((id) => input.travellers.get(id)).filter(Boolean).join(", "),
+  }));
+  number(items.insurance_policies, "insurance");
+
+  const extraLabels = new Map(EXTRA_TYPES);
+  const extras = items.extras.map((x) => {
+    const mine = (f: string) => (EXTRA_FIELDS[x.extra_type] ?? []).includes(f);
+    return {
+    ...priced(x),
+    units: feeUnits("extra", x),
+    type: extraLabels.get(x.extra_type) ?? x.extra_type,
+    description: x.description,
+    // The edit screen hides other types' fields without clearing them, so print only this type's.
+    detail: [
+      mine("date") && at(x.date, x.time),
+      mine("airport") && x.airport,
+      mine("seats") && x.seats && `Seats ${x.seats}`,
+      mine("bags") && x.bags && `Bags ${x.bags}`,
+      mine("people") && x.people && plural(Number(x.people), "person", "people"),
+      mine("period") && x.period,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+  });
+  number(items.extras, "extra");
+
   const adults = Number(trip.adults ?? 0);
   const children = Number(trip.children ?? 0);
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
   const quote: QuoteJson = {
     reference: input.reference,
@@ -237,14 +314,19 @@ export function assembleQuote(input: AssembleInput): { quote: QuoteJson; items: 
     rail,
     car_rentals: carRentals,
     experiences,
-    visa_info: trip.visa_info,
-    health_info: trip.health_info,
-    insurance_info: trip.insurance_info,
+    packages,
+    visas,
+    insurance,
+    extras,
+    visa_info: input.checks.visa ?? null,
+    health_info: input.checks.health ?? null,
+    insurance_info: input.checks.insurance ?? null,
     terms_profile: trip.terms_profile ?? undefined,
     custom_notes: String(trip.custom_notes ?? "")
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean),
   };
+  if (input.accepted) quote.trip_total = tripTotal(quote);
   return { quote, items: versionItems };
 }

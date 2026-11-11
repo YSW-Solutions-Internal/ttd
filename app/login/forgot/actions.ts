@@ -14,7 +14,8 @@ export async function requestReset(_prev: ForgotState, formData: FormData): Prom
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) return { error: "Enter your email address." };
 
-  // Used by the default template's link; Supabase ignores it unless it is in Redirect URLs.
+  // The link goes to whichever deployment asked (staging or production), via {{ .RedirectTo }}
+  // in the template. Supabase falls back to Site URL unless it is in Redirect URLs.
   const origin = (await headers()).get("origin");
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {

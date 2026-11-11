@@ -28,13 +28,13 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Checks the login token here when the project signs logins with its newer keys, and asks Supabase Auth otherwise.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims;
 
   const isLogin = request.nextUrl.pathname.startsWith("/login");
   // Invite and reset links arrive before the user has a session.
-  const isEmailLink = request.nextUrl.pathname === "/auth/confirm";
+  const isEmailLink = request.nextUrl.pathname === "/auth/confirm" || request.nextUrl.pathname === "/auth/continue";
   // Vercel Cron has no session; the route checks CRON_SECRET itself.
   const isCron = request.nextUrl.pathname.startsWith("/api/cron/");
   if (!user && !isLogin && !isEmailLink && !isCron) {

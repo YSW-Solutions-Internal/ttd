@@ -5,25 +5,20 @@ import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { one } from "@/lib/relations";
+import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { assembleQuote, problems, type AssembleInput } from "@/lib/pdf/assemble";
 import { renderQuotePdf } from "@/lib/pdf/render";
 import type { QuoteJson } from "@/lib/pdf/types";
+import { todayInSA } from "@/lib/dates";
 
 export type PdfState = { error?: string; problems?: string[] };
 
-const ITEM_TABLES = [
-  "flight_options",
-  "accommodation_options",
-  "transfers",
-  "rail_journeys",
-  "car_rentals",
-  "excursions",
-] as const;
+const ITEM_TABLES = Object.keys(TABLE_KIND) as ItemTable[];
 
 /** Renders the frozen JSON, uploads the PDF and records its path. Throws on failure. */
 async function storePdf(supabase: SupabaseClient, quoteId: string, versionId: string, versionNo: number, quote: QuoteJson) {
-  // The frozen reference is the Trip's (docs/adr/0007).
-  const path = `${quoteId}/pdf/${quote.reference}-v${versionNo}.pdf`;
+  // The frozen reference is the Trip's (docs/adr/0007), ending in " V<n>" since 0018; never twice.
+  const path = `${quoteId}/pdf/${quote.reference.replace(/ V\d+$/, "")} V${versionNo}.pdf`;
   const pdf = await renderQuotePdf(quote);
   const { error: upErr } = await supabase.storage
     .from("quote-files")
@@ -67,7 +62,7 @@ export async function renderVersionPdf(quoteId: string, versionId: string, _prev
     return { error: e instanceof Error ? e.message : "PDF render failed." };
   }
 
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   return {};
 }
 
@@ -75,7 +70,8 @@ export async function renderVersionPdf(quoteId: string, versionId: string, _prev
  * Generate version (GLOSSARY): check, assemble the Working content in code, freeze it with its
  * Items as the next Version, then render its PDF. A failed PDF leaves the Version for Retry.
  */
-export async function generateVersion(quoteId: string, _prev: PdfState): Promise<PdfState> {
+export async function generateVersion(quoteId: string, _prev: PdfState, form: FormData): Promise<PdfState> {
+  const accepted = form.get("accepted") === "on";
   const supabase = await createClient();
   const {
     data: { user },
@@ -85,7 +81,7 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
   const { data: quote } = await supabase
     .from("quotes")
     .select(
-      "id, trips(id, reference, title, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, terms_profile, custom_notes, clients(client_code, full_name, profiles!clients_consultant_id_fkey(full_name, email)))",
+      "id, trips(id, reference, title, starts_on, ends_on, nights, adults, children, terms_profile, custom_notes, clients(client_code, full_name, profiles!clients_consultant_id_fkey(full_name, email)))",
     )
     .eq("id", quoteId)
     .maybeSingle();
@@ -94,34 +90,41 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
   const client = one(trip.clients) as Record<string, any> | null;
   const consultant = one(client?.profiles) as { full_name: string | null; email: string } | null;
 
-  const [{ data: active }, { data: stays }, ...tables] = await Promise.all([
+  const [activeRes, staysRes, checksRes, travellersRes, ...tables] = await Promise.all([
     supabase.from("quote_items").select("entity_id").eq("quote_id", quoteId),
     supabase.from("trip_stops").select("*").eq("trip_id", trip.id).order("position"),
+    supabase.from("trip_checks").select("check_key, note").eq("trip_id", trip.id),
+    supabase.from("trip_travellers").select("traveller_id, travellers(first_name, last_name)").eq("trip_id", trip.id),
     ...ITEM_TABLES.map((t) => supabase.from(t).select("*").eq("quote_id", quoteId).order("created_at")),
   ]);
-  const failed = tables.find((t) => t.error);
-  if (failed) return { error: `Could not load the Items: ${failed.error!.message}` };
+  // A Version is frozen for good, so a half-loaded Quote must never become one.
+  const failed = [activeRes, staysRes, checksRes, travellersRes, ...tables].find((t) => t.error);
+  if (failed) return { error: `Could not load the Quote: ${failed.error!.message}` };
+  const [active, stays, checks, travellers] = [activeRes.data, staysRes.data, checksRes.data, travellersRes.data];
 
-  // quote_items leaves out Items whose image was removed.
+  // quote_items leaves out archived Items (migration 0033).
   const keep = new Set((active ?? []).map((r) => r.entity_id));
   const items = Object.fromEntries(
     ITEM_TABLES.map((t, i) => [t, (tables[i].data ?? []).filter((r) => keep.has(r.entity_id))]),
   ) as Omit<AssembleInput["items"], "flights">;
 
-  const blockers = problems({ ...items, flights: [] });
+  const blockers = problems({ ...items, flights: [] }, accepted);
   if (blockers.length > 0) return { problems: blockers };
 
   const optionIds = items.flight_options.map((o) => o.id);
-  const { data: flights } = optionIds.length
+  const { data: flights, error: flightsErr } = optionIds.length
     ? await supabase.from("flights").select("*").in("flight_option_id", optionIds)
-    : { data: [] };
+    : { data: [], error: null };
+  if (flightsErr) return { error: `Could not load the flights: ${flightsErr.message}` };
   const codes = [...new Set((flights ?? []).map((f) => String(f.airline ?? "").toUpperCase()).filter(Boolean))];
-  const { data: airlines } = codes.length
+  const { data: airlines, error: airlinesErr } = codes.length
     ? await supabase.from("airlines").select("iata, name").in("iata", codes).eq("confirmed", true)
-    : { data: [] };
+    : { data: [], error: null };
+  if (airlinesErr) return { error: `Could not load the airline names: ${airlinesErr.message}` };
 
   const { quote: json, items: versionItems } = assembleQuote({
-    today: new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Johannesburg" }),
+    accepted,
+    today: todayInSA(),
     reference: trip.reference,
     consultant: { name: consultant?.full_name || consultant?.email || "", email: consultant?.email },
     client: { name: client?.full_name ?? "", code: client?.client_code ?? "" },
@@ -129,6 +132,13 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
     stays: stays ?? [],
     items: { ...items, flights: flights ?? [] },
     airlines: new Map((airlines ?? []).map((a) => [a.iata, a.name])),
+    travellers: new Map(
+      (travellers ?? []).map((t) => {
+        const p = one(t.travellers) as { first_name: string | null; last_name: string | null } | null;
+        return [t.traveller_id, [p?.first_name, p?.last_name].filter(Boolean).join(" ")];
+      }),
+    ),
+    checks: Object.fromEntries((checks ?? []).map((c) => [c.check_key, c.note])),
   });
 
   const { data: versionId, error } = await supabase.rpc("generate_version", {
@@ -145,7 +155,7 @@ export async function generateVersion(quoteId: string, _prev: PdfState): Promise
   }
 
   // The Version now exists; read back its frozen JSON (with " V<n>") and number to render.
-  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/", "layout");
   const { data: version } = await supabase
     .from("quote_versions")
     .select("version_no, assembled")

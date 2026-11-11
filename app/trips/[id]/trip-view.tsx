@@ -9,8 +9,16 @@ import { TABS } from "@/app/quotes/[id]/edit-section";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
 import { StayRow } from "./stays-form";
 import { TripForm } from "./trip-form";
+import { Checklist } from "./checklist";
+import { TripTabs } from "./trip-tabs";
+import { TripAccounts } from "./trip-accounts";
 import { AddTravellerForm } from "@/app/clients/travellers";
 import { addToTrip, removeFromTrip } from "@/app/clients/traveller-actions";
+import { FileLink } from "@/app/file-viewer";
+import { Badge, BUTTON, Button, Msg, TripStatusBadge } from "@/app/ui";
+import { openRefundTrips } from "@/lib/refunds";
+import { StaysArc } from "./stays-arc";
+import { QuoteEditor } from "@/app/quotes/[id]/quote-view";
 
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") : null);
 
@@ -23,14 +31,23 @@ export async function TripView({ id }: { id: string }) {
   const { data: trip } = await supabase
     .from("trips")
     .select(
-      "id, reference, title, status, starts_on, ends_on, nights, adults, children, visa_info, health_info, insurance_info, custom_notes, ta_number, cost_centre, authorising_person, clients(id, client_code, full_name, kind)",
+      "id, reference, title, status, starts_on, ends_on, nights, adults, children, custom_notes, ta_number, cost_centre, authorising_person, clients(id, client_code, full_name, kind, consultant_id)",
     )
     .eq("id", id)
     .maybeSingle();
   if (!trip) notFound();
   const client = one(trip.clients);
 
-  const [{ data: quote }, { data: stays }, { data: destinations }, { data: travellers }, { data: onTrip }, { data: flags }] = await Promise.all([
+  const [
+    { data: quote },
+    { data: stays },
+    { data: destinations },
+    { data: travellers },
+    { data: onTrip },
+    { data: rawFlags },
+    { data: refunds },
+    { data: checks },
+  ] = await Promise.all([
     supabase
       .from("quotes")
       .select("id, quote_versions(id, version_no, pdf_path, created_at)")
@@ -46,171 +63,225 @@ export async function TripView({ id }: { id: string }) {
     supabase.from("destinations").select("code, name, country").order("name"),
     supabase.from("travellers").select("id, first_name, last_name, date_of_birth").eq("client_id", client?.id).order("last_name").order("first_name"),
     supabase.from("trip_travellers").select("traveller_id").eq("trip_id", id).order("created_at"),
-    supabase.from("traveller_flags").select("traveller_id, identified").eq("client_id", client?.id),
+    supabase.rpc("traveller_flags", { p_client_id: client?.id }),
+    supabase.from("refund_totals").select("trip_id, refund_status, issued, approved, agency_fee, received, paid_back").eq("trip_id", id),
+    supabase.from("trip_checks").select("check_key, done_at, done_by, note").eq("trip_id", id),
   ]);
+  const doneBy = [...new Set((checks ?? []).flatMap((c) => (c.done_by ? [c.done_by] : [])))];
+  const versions = quote?.quote_versions ?? [];
+  // Private bucket: a short-lived signed link for the latest Version's PDF (the editor lists them all).
+  const pdfPaths = versions.slice(0, 1).flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
+
+  // None of these needs another, so they load together.
+  const [{ data: people }, [{ data: active }, ...tables], { data: signed }] = await Promise.all([
+    doneBy.length > 0 ? supabase.from("profiles").select("id, full_name").in("id", doneBy) : { data: [] },
+    // The Quote's Items, as Generate version sees them: quote_items leaves out archived Items.
+    quote
+      ? Promise.all([
+          supabase.from("quote_items").select("entity_id").eq("quote_id", quote.id),
+          ...TABS.map(([t]) => supabase.from(t).select("*").eq("quote_id", quote.id).order("created_at")),
+        ])
+      : [{ data: [] }],
+    pdfPaths.length > 0 ? supabase.storage.from("quote-files").createSignedUrls(pdfPaths, 3600) : { data: [] },
+  ]);
+  const names = Object.fromEntries((people ?? []).map((p) => [p.id, p.full_name ?? ""]));
+  const flags = rawFlags as { traveller_id: string; identified: boolean }[] | null;
   const going = new Set((onTrip ?? []).map((r) => r.traveller_id));
   const unidentified = new Set((flags ?? []).filter((f) => !f.identified).map((f) => f.traveller_id));
   const tripTravellers = (travellers ?? []).filter((t) => going.has(t.id));
   const others = (travellers ?? []).filter((t) => !going.has(t.id));
   const headCount = trip.adults + trip.children;
-  const versions = quote?.quote_versions ?? [];
-
-  // The Quote's Items, as Generate version sees them: quote_items leaves out removed images' Items.
-  const [{ data: active }, ...tables] = quote
-    ? await Promise.all([
-        supabase.from("quote_items").select("entity_id").eq("quote_id", quote.id),
-        ...TABS.map(([t]) => supabase.from(t).select("*").eq("quote_id", quote.id).order("created_at")),
-      ])
-    : [{ data: [] }];
   const keep = new Set((active ?? []).map((r) => r.entity_id));
-  const items = Object.fromEntries(
-    TABS.map(([t], i) => [t, (tables[i]?.data ?? []).filter((r) => keep.has(r.entity_id))]),
-  ) as Record<(typeof TABS)[number][0], Record<string, unknown>[]>;
+  const items = Object.fromEntries(TABS.map(([t], i) => [t, (tables[i]?.data ?? []).filter((r) => keep.has(r.entity_id))])) as Record<
+    (typeof TABS)[number][0],
+    Record<string, unknown>[]
+  >;
   const counts = TABS.flatMap(([t]) => {
     const n = items[t].length;
     return n > 0 ? [`${n} ${ITEM_LABEL[t]}${n === 1 ? "" : "s"}`] : [];
   });
   const blockers = quote ? problems({ ...items, flights: [] }) : [];
 
-  // Private bucket: short-lived signed links for the Version PDFs.
   const pdfUrls = new Map<string, string>();
-  const pdfPaths = versions.flatMap((v) => (v.pdf_path ? [v.pdf_path] : []));
-  if (pdfPaths.length > 0) {
-    const { data: signed } = await supabase.storage.from("quote-files").createSignedUrls(pdfPaths, 3600);
-    signed?.forEach((s) => {
-      if (s.path && s.signedUrl) pdfUrls.set(s.path, s.signedUrl);
-    });
-  }
+  signed?.forEach((s) => {
+    if (s.path && s.signedUrl) pdfUrls.set(s.path, s.signedUrl);
+  });
   const versionLine = (v: (typeof versions)[number]) => (
     <>
-      {trip.reference} V{v.version_no} · {new Date(v.created_at).toLocaleDateString("en-ZA")} ·{" "}
+      {trip.reference} V{v.version_no}, {new Date(v.created_at).toLocaleDateString("en-ZA")}.{" "}
       {v.pdf_path && pdfUrls.get(v.pdf_path) ? (
-        <a href={pdfUrls.get(v.pdf_path)} target="_blank" rel="noreferrer">
+        <FileLink href={pdfUrls.get(v.pdf_path)!} title={`${trip.reference} V${v.version_no}`}>
           Open PDF
-        </a>
+        </FileLink>
       ) : (
         "No PDF yet"
       )}
     </>
   );
 
+  const refundOpen = openRefundTrips(refunds ?? []).size > 0;
+  const destinationName = new Map((destinations ?? []).map((d) => [d.code, d.name]));
   const destinationOptions = (destinations ?? []).map((d) => ({ code: d.code, label: `${d.name}, ${d.country}` }));
 
   return (
     <>
-      <h1>
-        {trip.reference}
-        {trip.title ? ` · ${trip.title}` : ""}
-      </h1>
-      <p className="sub">
-        For <Link href={`/clients/${client?.id}`}>{client?.full_name} ({client?.client_code})</Link> ·{" "}
-        {trip.starts_on ? `${date(trip.starts_on)} – ${date(trip.ends_on) ?? "?"}` : "No dates yet"}
-      </p>
+      <header className="mb-6 border-b border-line pb-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="font-semibold text-muted tabular-nums">{trip.reference}</span>
+          <TripStatusBadge status={trip.status} />
+          {refundOpen && <Badge tone="amber">Refund open</Badge>}
+        </div>
+        <h1 className="mt-1">{trip.title ?? "Untitled trip"}</h1>
+        <p className="text-muted">
+          For{" "}
+          <Link href={`/clients/${client?.id}`}>
+            {client?.full_name} ({client?.client_code})
+          </Link>
+          . {trip.starts_on ? `${date(trip.starts_on)} to ${date(trip.ends_on) ?? "?"}` : "No dates yet"}
+          {trip.nights ? `, ${trip.nights} night${trip.nights === 1 ? "" : "s"}` : ""}.
+        </p>
+        <StaysArc stays={(stays ?? []).map((s) => ({ ...s, name: destinationName.get(s.destination_code ?? "") ?? "Destination to choose" }))} />
+      </header>
 
       {/* Accountants see the Trip but cannot change it (ADR 0010). */}
-      <fieldset className="plain" disabled={!editable}>
-      <TripForm trip={trip} company={client?.kind === "company"} />
+      <TripTabs
+        tabs={[
+          {
+            id: "details",
+            label: "Details",
+            content: (
+              <>
+                {quote && (
+                  <section
+                    aria-label="Quote summary"
+                    className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-md border border-line bg-white p-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold">{counts.length > 0 ? counts.join(", ") : "No Items yet"}</p>
+                      {blockers.length > 0 && (
+                        <ul className="mt-1 list-none text-danger">
+                          {blockers.map((b, i) => (
+                            <li key={i}>{b}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {/* A div: FileLink holds its viewer <dialog>, which a <p> cannot contain. */}
+                      <div className="mt-1 text-muted">{versions.length > 0 ? <>Latest: {versionLine(versions[0])}</> : "No versions yet."}</div>
+                    </div>
+                    <a href="#quote" className={BUTTON.primary}>
+                      Go to the quote
+                    </a>
+                  </section>
+                )}
 
-      <h2>Stays</h2>
-      <p className="sub">The Trip's itinerary. Accommodation options are placed in these.</p>
-      <table className="stays">
-        <thead>
-          <tr>
-            <th>Destination</th>
-            <th>Arrive</th>
-            <th>Depart</th>
-            <th>Highlight</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {(stays ?? []).map((s) => (
-            <StayRow key={s.id} tripId={trip.id} stay={s} destinations={destinationOptions} />
-          ))}
-          {editable && <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />}
-        </tbody>
-      </table>
+                <fieldset className="min-w-0" disabled={!editable}>
+                  <TripForm trip={trip} company={client?.kind === "company"} />
 
-      <h2>Travellers</h2>
-      {tripTravellers.length !== headCount && (
-        <p className="msg">
-          ⚠ {tripTravellers.length} Traveller{tripTravellers.length === 1 ? "" : "s"} on this Trip, but {trip.adults} adult
-          {trip.adults === 1 ? "" : "s"} and {trip.children} child{trip.children === 1 ? "" : "ren"} above.
-        </p>
-      )}
-      {tripTravellers.length === 0 && <p className="empty">No Travellers on this Trip yet.</p>}
-      {tripTravellers.length > 0 && (
-        <table>
-          <tbody>
-            {tripTravellers.map((t) => (
-              <tr key={t.id}>
-                <td>
-                  {t.first_name} {t.last_name}
-                </td>
-                <td>{t.date_of_birth ? date(t.date_of_birth) : "—"}</td>
-                <td>{unidentified.has(t.id) && <span className="badge bad">No ID or Passport</span>}</td>
-                <td>
-                  <form action={removeFromTrip.bind(null, trip.id, t.id)}>
-                    <button type="submit" className="danger">
-                      Take off this Trip
-                    </button>
+                  <h2>Checklist</h2>
+                  <Checklist tripId={trip.id} rows={checks ?? []} names={names} readOnly={!editable} />
+                </fieldset>
+              </>
+            ),
+          },
+          {
+            id: "itinerary",
+            label: `Itinerary (${stays?.length ?? 0})`,
+            content: (
+              <fieldset className="min-w-0" disabled={!editable}>
+                <h2 id="stays" className="scroll-mt-4">
+                  Stays
+                </h2>
+                <p className="mb-3 text-muted">The Trip's itinerary. Accommodation options are placed in these.</p>
+                <table className="[&_td]:px-2 [&_td]:py-1.5 [&_td]:align-top">
+                  <thead>
+                    <tr>
+                      <th>Destination</th>
+                      <th>Arrive</th>
+                      <th>Depart</th>
+                      <th>Highlight</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(stays ?? []).map((s) => (
+                      <StayRow key={s.id} tripId={trip.id} stay={s} destinations={destinationOptions} />
+                    ))}
+                    {editable && <StayRow key={`new-${stays?.length ?? 0}`} tripId={trip.id} destinations={destinationOptions} />}
+                  </tbody>
+                </table>
+              </fieldset>
+            ),
+          },
+          {
+            id: "travellers",
+            label: `Travellers (${tripTravellers.length})`,
+            warn: tripTravellers.length !== headCount ? "Travellers do not match the adults and children on this Trip" : undefined,
+            content: (
+              <fieldset className="min-w-0" disabled={!editable}>
+                <h2>Travellers</h2>
+                {tripTravellers.length !== headCount && (
+                  <Msg tone="warn" className="mb-3">
+                    {tripTravellers.length} Traveller{tripTravellers.length === 1 ? "" : "s"} on this Trip, but {trip.adults} adult
+                    {trip.adults === 1 ? "" : "s"} and {trip.children} child{trip.children === 1 ? "" : "ren"} above.
+                  </Msg>
+                )}
+                {tripTravellers.length === 0 && <p className="py-3 text-muted">No Travellers on this Trip yet.</p>}
+                {tripTravellers.length > 0 && (
+                  <table>
+                    <tbody>
+                      {tripTravellers.map((t) => (
+                        <tr key={t.id}>
+                          <td>
+                            {t.first_name} {t.last_name}
+                          </td>
+                          <td>{t.date_of_birth ? date(t.date_of_birth) : "—"}</td>
+                          <td>{unidentified.has(t.id) && <Badge tone="danger">No ID or Passport</Badge>}</td>
+                          <td className="text-right">
+                            <form action={removeFromTrip.bind(null, trip.id, t.id)}>
+                              <Button type="submit" variant="danger">
+                                Take off this Trip
+                              </Button>
+                            </form>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {editable && others.length > 0 && (
+                  <form action={addToTrip.bind(null, trip.id)} className="mt-3 flex items-center gap-2">
+                    <select name="traveller_id" aria-label="Traveller to add" required className="w-auto">
+                      {others.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.first_name} {t.last_name}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="submit">Add to this Trip</button>
                   </form>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {editable && others.length > 0 && (
-        <form action={addToTrip.bind(null, trip.id)} className="inline-form">
-          <select name="traveller_id" aria-label="Traveller to add" required>
-            {others.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.first_name} {t.last_name}
-              </option>
-            ))}
-          </select>
-          <button type="submit">Add to this Trip</button>
-        </form>
-      )}
-      {editable && client && <AddTravellerForm clientId={client.id} tripId={trip.id} />}
-      <p className="sub">
-        IDs and Passports are kept on the <Link href={`/clients/${client?.id}`}>Client page</Link>.
-      </p>
-      </fieldset>
-
-      <h2>Quote</h2>
-      <div className="quote-summary">
-        {quote && (
-          <>
-            <p>{counts.length > 0 ? counts.join(" · ") : "No Items yet"}</p>
-            {blockers.length > 0 && (
-              <ul className="problems">
-                {blockers.map((b) => (
-                  <li key={b}>⚠ {b}</li>
-                ))}
-              </ul>
-            )}
-            <p>
-              <Link href={`/quotes/${quote.id}`} className="btn">
-                {editable ? "Edit quote" : "Open quote"}
-              </Link>
-            </p>
-          </>
-        )}
-        {versions.length === 0 && <p className="empty">No versions yet.</p>}
-        {versions.length > 0 && <p>Latest: {versionLine(versions[0])}</p>}
-        {versions.length > 1 && (
-          <details>
-            <summary>Previous versions ({versions.length - 1})</summary>
-            <ul>
-              {versions.slice(1).map((v) => (
-                <li key={v.id}>{versionLine(v)}</li>
-              ))}
-            </ul>
-          </details>
-        )}
-      </div>
+                )}
+                {editable && client && <AddTravellerForm clientId={client.id} tripId={trip.id} />}
+                <p className="mt-3 text-muted">
+                  IDs and Passports are kept on the <Link href={`/clients/${client?.id}`}>Client page</Link>.
+                </p>
+              </fieldset>
+            ),
+          },
+          {
+            id: "quote-tab",
+            label: "Quote",
+            warn: blockers.length > 0 ? "something stops Generate version" : undefined,
+            content: quote ? <QuoteEditor quoteId={quote.id} trip={trip} /> : <p className="py-3 text-muted">This Trip has no Quote yet.</p>,
+          },
+          {
+            id: "accounts-tab",
+            label: "Accounts",
+            warn: refundOpen ? "a Refund is open" : undefined,
+            // Not in a disabled fieldset: Accountants work here.
+            content: <TripAccounts tripId={trip.id} status={trip.status} quoteId={quote?.id ?? null} client={client} />,
+          },
+        ]}
+      />
 
       <History tripId={trip.id} />
     </>

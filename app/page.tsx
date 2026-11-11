@@ -2,9 +2,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { canEdit, getProfile } from "@/lib/auth";
-import { one } from "@/lib/relations";
-import { isTripStatus, OPEN_STATUSES, tripStatusLabel } from "@/lib/trip-status";
+import { isTripStatus, OPEN_STATUSES } from "@/lib/trip-status";
+import { Badge, BUTTON, Msg, TripStatusBadge } from "./ui";
+import { openRefundTrips } from "@/lib/refunds";
+import { everyRow, one } from "@/lib/relations";
 import { TripFilters } from "./trip-filters";
+import { Departures } from "./departures";
+import { todayInSA } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +28,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const me = await getProfile();
   if (!me) redirect("/login");
-  const status = params.status === "all" || isTripStatus(params.status) ? params.status : "open";
+  const status = params.status === "all" || params.status === "open" || isTripStatus(params.status) ? params.status : "current";
   // Standard users start on their own Clients' Trips; "all" is everyone's.
   const consultant = (params.consultant ?? (me.role === "user" ? me.id : "all")).replace(/^all$/, "");
   const sort = COLUMNS.some((c) => c.key === params.sort && !("unsortable" in c)) ? params.sort! : "created_at";
@@ -32,26 +36,48 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const supabase = await createClient();
   // Inactive clients included, so their older trips can still be found.
-  let clientQuery = supabase.from("clients").select("id, client_code, full_name").order("sort_name");
-  if (consultant) clientQuery = clientQuery.eq("consultant_id", consultant);
-  const [{ data: clients }, { data: consultants }] = await Promise.all([
-    clientQuery,
+  const clientPage = (from: number, to: number) => {
+    let query = supabase.from("clients").select("id, client_code, full_name").order("sort_name").order("id");
+    if (consultant) query = query.eq("consultant_id", consultant);
+    return query.range(from, to);
+  };
+  const [clients, { data: consultants }] = await Promise.all([
+    everyRow(clientPage).catch(() => []), // as before: the filter is empty rather than the page failing
     supabase.from("profiles").select("id, full_name, email").in("role", ["user", "admin"]).order("full_name"),
   ]);
   // A client that isn't the chosen Consultant's would only ever show an empty list, so drop it.
-  const client = (clients ?? []).some((c) => c.id === params.client) ? params.client! : "";
+  const client = clients.some((c) => c.id === params.client) ? params.client! : "";
 
   // A Trip's Consultant is its Client's current Consultant (GLOSSARY), not trips.consultant_id.
-  let query = supabase
-    .from("trips")
-    .select(
-      "id, reference, title, status, starts_on, created_at, clients!inner(client_code, full_name, consultant_id, profiles!clients_consultant_id_fkey(full_name, email))",
-    );
-  if (status === "open") query = query.in("status", OPEN_STATUSES);
-  else if (status !== "all") query = query.eq("status", status);
-  if (client) query = query.eq("client_id", client);
-  if (consultant) query = query.eq("clients.consultant_id", consultant);
-  const { data: trips, error } = await query;
+  const today = todayInSA();
+  // Current: open, plus Travelled or Cancelled ending (else starting, else created) in the last 90 days.
+  const cut = new Date(Date.parse(today) - 90 * 864e5).toISOString().slice(0, 10);
+  // A fresh query per page of 1000 (PostgREST's cap), so "All" never stops short.
+  const tripPage = (from: number, to: number) => {
+    let query = supabase
+      .from("trips")
+      .select(
+        "id, reference, title, status, starts_on, created_at, clients!inner(client_code, full_name, consultant_id, profiles!clients_consultant_id_fkey(full_name, email))",
+      );
+    if (status === "current")
+      query = query.or(
+        `status.in.(${OPEN_STATUSES}),ends_on.gte.${cut},and(ends_on.is.null,starts_on.gte.${cut}),and(ends_on.is.null,starts_on.is.null,created_at.gte.${cut})`,
+      );
+    else if (status === "open") query = query.in("status", OPEN_STATUSES);
+    else if (status !== "all") query = query.eq("status", status);
+    if (client) query = query.eq("client_id", client);
+    if (consultant) query = query.eq("clients.consultant_id", consultant);
+    return query.order("id").range(from, to);
+  };
+  // Every Refund row, paged (PostgREST stops at 1000), rather than a long list of this page's trip ids.
+  const [{ trips, error }, refunds] = await Promise.all([
+    everyRow(tripPage).then(
+      (trips) => ({ trips, error: null }),
+      (e: Error) => ({ trips: [], error: e }),
+    ),
+    everyRow((from, to) => supabase.from("refund_totals").select("change_id, trip_id, refund_status, issued, approved, agency_fee, received, paid_back").order("change_id").range(from, to)),
+  ]);
+  const refundOpen = openRefundTrips(refunds);
 
   const consultantName = (t: NonNullable<typeof trips>[number]) => {
     const p = one(one(t.clients)?.profiles);
@@ -79,16 +105,20 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   };
 
   return (
-    <main className="container">
-      <h1>Trips</h1>
-      {canEdit(me.role) && (
-        <p className="sub">
-          <Link href="/trips/new">+ New trip</Link>
-        </p>
-      )}
+    <main className="mx-auto my-8 max-w-[1200px] px-5">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <h1 className="mb-0">Trips</h1>
+        {canEdit(me.role) && (
+          <Link href="/trips/new" className={BUTTON.primary}>
+            New trip
+          </Link>
+        )}
+      </div>
+
+      <Departures today={today} consultant={consultant} />
 
       <TripFilters
-        clients={clients ?? []}
+        clients={clients}
         consultants={(consultants ?? []).map((p) => ({ id: p.id, label: p.full_name ?? p.email }))}
         status={status}
         client={client}
@@ -97,8 +127,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         dir={dir}
       />
 
-      {error && <div className="msg error">Could not load trips: {error.message}</div>}
-      {trips && rows.length === 0 && <p className="empty">No trips match.</p>}
+      {error && <Msg tone="error">Could not load trips: {error.message}</Msg>}
+      {trips && rows.length === 0 && <p className="py-4 text-muted">No trips match these filters.</p>}
       {rows.length > 0 && (
         <table>
           <thead>
@@ -108,7 +138,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   {"unsortable" in c ? (
                     c.label
                   ) : (
-                    <Link href={href(c.key)} className="sort">
+                    <Link href={href(c.key)} className="text-inherit">
                       {c.label}
                       {sort === c.key ? (dir === "asc" ? " ▲" : " ▼") : ""}
                     </Link>
@@ -121,7 +151,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             {rows.map((t) => {
               const c = one(t.clients);
               return (
-                <tr key={t.id}>
+                <tr key={t.id} className="hover:bg-paper">
                   <td>
                     <Link href={`/trips/${t.id}`}>
                       <b>{t.reference}</b>
@@ -130,10 +160,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                   <td>{t.title ?? "—"}</td>
                   <td>
                     {c?.full_name ?? "—"}
-                    <div className="sub" style={{ margin: 0, fontSize: 12 }}>{c?.client_code}</div>
+                    <div className="text-xs text-muted">{c?.client_code}</div>
                   </td>
                   <td>{consultantName(t) || "—"}</td>
-                  <td>{tripStatusLabel(t.status)}</td>
+                  <td>
+                    <TripStatusBadge status={t.status} />
+                    {refundOpen.has(t.id) && <Badge tone="amber" className="ml-1">Refund open</Badge>}
+                  </td>
                   <td>{t.starts_on ? new Date(t.starts_on).toLocaleDateString("en-ZA") : "—"}</td>
                   <td>{new Date(t.created_at).toLocaleDateString("en-ZA")}</td>
                 </tr>

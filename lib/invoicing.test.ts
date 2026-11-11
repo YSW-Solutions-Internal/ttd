@@ -1,0 +1,70 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { awaitingQueue, changeCharge, expectsSupplierInvoice, invoicingStage, itemCharge, itemExpectsInvoice, parseInvoice, parseLinkAmount, type Side } from "./invoicing.ts";
+
+const form = (o: Record<string, string>) => {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(o)) fd.set(k, v);
+  return fd;
+};
+
+test("a credit note is stored negative; a Client invoice is always in Rand", () => {
+  const base = { number: "INV1", issued_on: "2026-11-01", amount: "1500,00", currency: "usd" };
+  assert.equal(parseInvoice(form(base), "supplier").currency, "USD");
+  assert.equal(parseInvoice(form({ ...base, credit_note: "on" }), "supplier").amount, -1500);
+  assert.equal(parseInvoice(form(base), "client").currency, "ZAR");
+  assert.throws(() => parseInvoice(form({ ...base, amount: "0" }), "client"), { field: "amount" });
+  assert.equal(parseLinkAmount("200", true), -200);
+});
+
+test("a Cancellation with no refund, or a Declined one, invoices its penalty and fee", () => {
+  const c = { kind: "cancellation" as const, extra_fare: 0, extra_taxes: 0, supplier_penalty: 10, rate: 18, agency_fee: 300, markup: 0, expected_refund: 4000 };
+  assert.equal(changeCharge({ ...c, expected_refund: 0 }, true), 480);
+  assert.equal(changeCharge({ ...c, refund_status: "declined" }, true), 480); // nothing for the fee to come off
+});
+
+test("after issue, a Refund's Cancellation credits the Client the approved amount less the fee; before issue, it invoices its charges", () => {
+  const c = { kind: "cancellation" as const, extra_fare: 0, extra_taxes: 0, supplier_penalty: 10, rate: 18, agency_fee: 300, markup: 0, expected_refund: 4000 };
+  assert.equal(changeCharge(c, true), -3700); // a credit note due
+  assert.equal(changeCharge({ ...c, refund_approved: 200 }, true), 100); // approved below the fee: the rest is invoiced
+  assert.equal(changeCharge(c, false), 480); // the Item's own credit gives the Client their money back
+  assert.equal(changeCharge({ ...c, refund_status: "declined" }, true), 480);
+  assert.equal(expectsSupplierInvoice({ ...c, supplier_penalty: 0 }), false);
+});
+
+test("the stage: Invoiced first, then flag, then Supplier side", () => {
+  const s = (o: Partial<Parameters<typeof invoicingStage>[0]>) =>
+    invoicingStage({ charge: 1000, clientInvoiced: [], supplierStatuses: [], noneExpected: false, ...o });
+  assert.deepEqual(s({}), { stage: "awaiting", toInvoice: 1000 });
+  assert.equal(s({ supplierStatuses: ["verified", "query"] }).stage, "received");
+  assert.equal(s({ supplierStatuses: ["verified"] }).stage, "verified");
+  assert.equal(s({ noneExpected: true, supplierStatuses: ["verified"] }).stage, "none_expected");
+  // Invoiced before the Supplier invoice arrives.
+  assert.deepEqual(s({ clientInvoiced: [600, 400] }), { stage: "invoiced", toInvoice: 0 });
+  // A credit note puts it back to invoice.
+  assert.deepEqual(s({ clientInvoiced: [1000, -250], supplierStatuses: ["verified"] }), { stage: "verified", toInvoice: 250 });
+  // Nothing to charge and nothing invoiced is not Invoiced.
+  assert.equal(s({ charge: 0 }).stage, "awaiting");
+});
+
+test("an Item cancelled before issue leaves only the Cancellation to invoice", () => {
+  assert.equal(itemCharge(12000, { issued: false, cancelled: true }), 0);
+  assert.equal(itemCharge(12000, { issued: true, cancelled: true }), 12000);
+  assert.equal(itemCharge(12000, { issued: false, cancelled: false }), 12000);
+  assert.equal(itemExpectsInvoice({ issued: false, cancelled: true }), false);
+  assert.equal(itemExpectsInvoice({ issued: true, cancelled: true }), true);
+  assert.equal(itemExpectsInvoice({ issued: false, cancelled: false }), true);
+});
+
+test("more invoiced than charged leaves a credit note due", () => {
+  const r = invoicingStage({ charge: 0, clientInvoiced: [12000], supplierStatuses: [], noneExpected: true });
+  assert.deepEqual(r, { stage: "invoiced", toInvoice: -12000 });
+});
+
+test("Awaiting: no Supplier invoice linked, even once invoiced to the Client; soonest first", () => {
+  const r = (expectedOn: string, side?: Side, expectsInvoice = true) => ({ expectedOn, expectsInvoice, links: side ? [{ side }] : [] });
+  const late = r("2026-11-01", "client");
+  const later = r("2026-11-20");
+  const q = awaitingQueue([later, r("2026-10-01", "supplier"), r("2026-10-02", undefined, false), late]);
+  assert.deepEqual(q, [late, later]);
+});

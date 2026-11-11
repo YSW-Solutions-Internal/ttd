@@ -2,10 +2,19 @@ import { createClient } from "@/lib/supabase/server";
 import { loadFeeContext } from "@/lib/fee-context";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { problems } from "@/lib/pdf/assemble";
-import { AddItemForm, ItemForm, type StayOption } from "./item-form";
-import { confirmAirline } from "./item-actions";
+import { AddItemForm, ItemForm, type ItemSource, type StayOption } from "./item-form";
+import { confirmAirline, restoreItem } from "./item-actions";
+import { BUTTON } from "@/app/ui";
 import { EditTabs, type EditTab } from "./edit-tabs";
-import { ImageViewer } from "./image-links";
+import { BookButton, BookingPanel, type Booking } from "./booking-panel";
+import { everyRow, one } from "@/lib/relations";
+import { ITEM_LABEL } from "./item-fields";
+import { OptionTable, type OptionRow } from "./option-table";
+import { summariseFlights } from "@/lib/flight-summary";
+import { itemTotal, money } from "@/lib/pdf/money";
+import type { Priced } from "@/lib/pdf/types";
+import { Badge } from "@/app/ui";
+import { loadBillables } from "@/app/trips/[id]/invoicing-data";
 
 type Row = Record<string, unknown>;
 type Image = { id: string; filename: string; url?: string };
@@ -18,51 +27,81 @@ export const TABS: [ItemTable, string, string][] = [
   ["transfers", "transfers", "Transfers"],
   ["rail_journeys", "rail-journeys", "Rail journeys"],
   ["car_rentals", "car-rentals", "Car rentals"],
+  ["packages", "packages", "Packages"],
+  ["visas", "visas", "Visas"],
+  ["insurance_policies", "insurance", "Insurance"],
+  ["extras", "extras", "Extras"],
 ];
 
 /**
- * The Working content of a Quote, editable: one tab per kind of Item, each with one
- * block per image (the image beside its Items of that kind) and one block for Items
- * of that kind entered by hand (ADR 0005).
+ * The Working content of a Quote, editable: one tab per kind of Item, each listing its Items
+ * from images in upload order, then those entered by hand (ADR 0005). Each Item links to the
+ * image it was read from, or says it was added by hand.
  */
 export async function EditSection({
   quoteId,
   tripId,
   images,
   readOnly,
+  admin,
 }: {
   quoteId: string;
   tripId: string;
   images: Image[];
   readOnly: boolean; // Accountants (ADR 0010)
+  admin: boolean; // corrects booked Items (ADR 0011)
 }) {
   const supabase = await createClient();
   const tables = Object.keys(TABLE_KIND) as ItemTable[];
 
-  const [ctx, { data: stops }, ...results] = await Promise.all([
+  const [ctx, { data: stops }, { data: travellerRows }, { data: bookingRows }, { data: changeRows }, { data: supplierRows }, ...results] = await Promise.all([
     loadFeeContext(supabase, quoteId),
     supabase.from("trip_stops").select("id, position, destination, starts_on, ends_on").eq("trip_id", tripId).order("position"),
+    supabase.from("trip_travellers").select("traveller_id, travellers(first_name, last_name)").eq("trip_id", tripId),
+    supabase.from("item_bookings").select("*, suppliers(name)").eq("quote_id", quoteId),
+    supabase.from("item_changes").select("*").eq("quote_id", quoteId).order("happened_on").order("created_at"),
+    everyRow((from, to) => supabase.from("suppliers").select("name").order("name").order("id").range(from, to)).then(
+      (data) => ({ data }),
+      () => ({ data: [] }), // only the name suggestions; the booking still works without them
+    ),
     ...tables.map((t) => supabase.from(t).select("*").eq("quote_id", quoteId).order("created_at")),
   ]);
-  const rows = tables.flatMap((table, i) => ((results[i].data ?? []) as Row[]).map((row) => ({ table, row })));
-
+  const all = tables.flatMap((table, i) => ((results[i].data ?? []) as Row[]).map((row) => ({ table, row })));
+  // Archived Items leave the Working content, as Generate version leaves them out (migration 0033).
+  const rows = all.filter((r) => r.row.archived_at == null);
+  const archived = all
+    .filter((r) => r.row.archived_at != null)
+    .sort((a, b) => String(b.row.archived_at).localeCompare(String(a.row.archived_at)));
+  const archivers = [...new Set(archived.flatMap((r) => (r.row.archived_by ? [String(r.row.archived_by)] : [])))];
   const optionIds = rows.filter((r) => r.table === "flight_options").map((r) => String(r.row.id));
-  const { data: flights } = optionIds.length
-    ? await supabase.from("flights").select("*").in("flight_option_id", optionIds).order("direction_no").order("seq")
-    : { data: [] };
-
-  // Airline codes on this Quote whose name no Consultant has confirmed yet (migration 0012).
-  const airlineCodes = [
-    ...new Set(
-      ((flights ?? []) as Row[])
-        .flatMap((f) => [f.airline, f.operated_by])
-        .filter((c): c is string => typeof c === "string" && /^[A-Za-z0-9]{2}$/.test(c.trim()))
-        .map((c) => c.trim().toUpperCase()),
+  // The archivers' names, the flights (then their airlines) and what can be billed need nothing from each other.
+  const [{ data: people }, { flights, airlineCodes, known }, billables] = await Promise.all([
+    archivers.length ? supabase.from("profiles").select("id, full_name, email").in("id", archivers) : { data: [] },
+    (async () => {
+      const { data: flights } = optionIds.length
+        ? await supabase.from("flights").select("*").in("flight_option_id", optionIds).order("direction_no").order("seq")
+        : { data: [] };
+      // Airline codes on this Quote whose name no Consultant has confirmed yet (migration 0012).
+      const airlineCodes = [
+        ...new Set(
+          ((flights ?? []) as Row[])
+            .flatMap((f) => [f.airline, f.operated_by])
+            .filter((c): c is string => typeof c === "string" && /^[A-Za-z0-9]{2}$/.test(c.trim()))
+            .map((c) => c.trim().toUpperCase()),
+        ),
+      ];
+      const { data: known } = airlineCodes.length
+        ? await supabase.from("airlines").select("iata, name, confirmed").in("iata", airlineCodes)
+        : { data: [] };
+      return { flights, airlineCodes, known };
+    })(),
+    loadBillables(
+      supabase,
+      quoteId,
+      new Map(rows.map(({ table, row }) => [String(row.entity_id), { row, label: ITEM_LABEL[table], kind: TABLE_KIND[table] }])),
     ),
-  ];
-  const { data: known } = airlineCodes.length
-    ? await supabase.from("airlines").select("iata, name, confirmed").in("iata", airlineCodes)
-    : { data: [] };
+  ]);
+  const who = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
   const toConfirm = airlineCodes
     .map((code) => ({ code, suggestion: known?.find((a) => a.iata === code) }))
     .filter((a) => !a.suggestion?.confirmed);
@@ -72,34 +111,119 @@ export async function EditSection({
     label: [s.destination, s.starts_on && s.ends_on ? `${s.starts_on} to ${s.ends_on}` : null].filter(Boolean).join(", "),
   }));
 
-  const form = ({ table, row }: { table: ItemTable; row: Row }) => (
-    <ItemForm
-      // Never re-mounts after a save: autosave puts the values the server filled in into the card.
-      key={String(row.id)}
-      quoteId={quoteId}
-      table={table}
-      row={row}
-      flights={table === "flight_options" ? ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id) : undefined}
-      stays={stays}
-      rates={ctx.rates}
-      lastOfImage={row.image_id != null && rows.filter((r) => r.row.image_id === row.image_id).length === 1}
-    />
-  );
+  const travellers: StayOption[] = (travellerRows ?? []).map((t) => {
+    const p = one(t.travellers) as { first_name: string | null; last_name: string | null } | null;
+    return { id: t.traveller_id as string, label: [p?.first_name, p?.last_name].filter(Boolean).join(" ") || "Unnamed traveller" };
+  });
+  const flightOptions: StayOption[] = rows
+    .filter((r) => r.table === "flight_options")
+    .map(({ row }, i) => ({ id: String(row.entity_id), label: String(row.label ?? "") || `Flight option ${i + 1}` }));
 
-  const shown = new Set(images.map((i) => i.id));
-  // Items from removed images are left out here, as Generate version leaves them out.
-  const visible = rows.filter((r) => r.row.image_id == null || shown.has(String(r.row.image_id)));
+  const bookings = new Map(
+    (bookingRows ?? []).map((b) => [b.entity_id as string, { ...b, supplier: one(b.suppliers)?.name ?? "" } as Booking]),
+  );
+  const suppliers = (supplierRows ?? []).map((s) => s.name as string);
+
+  const imageById = new Map(images.map((img, i) => [img.id, { ...img, order: i }]));
+
+  const form = ({ table, row }: { table: ItemTable; row: Row }, inDialog = false) => {
+    const entityId = String(row.entity_id);
+    const booking = bookings.get(entityId) ?? null;
+    const img = row.image_id == null ? undefined : imageById.get(String(row.image_id));
+    const source: ItemSource = img ? { filename: img.filename, url: img.url } : null;
+    return (
+      // Never re-mounts after a save: autosave puts the values the server filled in into the card.
+      // data-image: a Source image thumbnail jumps to and highlights its Items (image-links.tsx).
+      <div key={String(row.id)} data-image={inDialog ? undefined : img?.id} className="rounded-md">
+        <ItemForm
+          quoteId={quoteId}
+          table={table}
+          row={row}
+          source={source}
+          readOnly={readOnly}
+          flights={table === "flight_options" ? ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id) : undefined}
+          stays={stays}
+          travellers={travellers}
+          flightOptions={flightOptions}
+          rates={ctx.rates}
+          booked={!!booking}
+          locked={!!booking && !admin}
+        />
+        {/* Accountants see the booking but cannot change it (ADR 0010). */}
+        <fieldset className="min-w-0" disabled={readOnly}>
+        <BookingPanel
+          quoteId={quoteId}
+          entityId={entityId}
+          kind={TABLE_KIND[table]}
+          item={row}
+          booking={booking}
+          changes={(changeRows ?? []).filter((c) => c.entity_id === entityId)}
+          suppliers={suppliers}
+          billing={billables.filter((b) => b.entityId === entityId)}
+          readOnly={readOnly}
+          bookInHeader={inDialog && table === "flight_options"}
+        />
+        </fieldset>
+      </div>
+    );
+  };
+
+  const shortDate = (d: string | null) => {
+    if (!d) return null;
+    const [y, m, day] = d.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, day)).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  };
+
+  /** The Flights tab: one table row per Flight option, each opening its form in a dialog. */
+  const flightRows = (ofKind: { table: ItemTable; row: Row }[]): OptionRow[] =>
+    ofKind.map((item, i) => {
+      const { row } = item;
+      const own = ((flights ?? []) as Row[]).filter((f) => f.flight_option_id === row.id);
+      const sum = summariseFlights(own);
+      const total = itemTotal(row as Priced);
+      const stops = problems({ ...(Object.fromEntries(tables.map((t) => [t, [] as Row[]])) as Record<ItemTable, Row[]>), flight_options: [row], flights: [] });
+      const title = String(row.label ?? "") || sum.airlines.join(", ") || `Flight option ${i + 1}`;
+      const img = row.image_id == null ? undefined : imageById.get(String(row.image_id));
+      const dates = [shortDate(sum.from), shortDate(sum.to)].filter(Boolean).join(" – ");
+      return {
+        id: String(row.id),
+        imageId: img?.id,
+        title,
+        cells: {
+          option: title,
+          destination: sum.destination ?? "—",
+          dates: dates || "—",
+          nights: sum.nights ?? "—",
+          total: total === null ? <span className="text-muted">On request</span> : money(total),
+          status: (
+            <span className="flex flex-wrap gap-1.5">
+              {bookings.has(String(row.entity_id)) && <Badge tone="tealSolid">Booked</Badge>}
+              {stops.length > 0 && (
+                <span title={stops.join(" ")}>
+                  <Badge tone="danger">Needs attention</Badge>
+                </span>
+              )}
+            </span>
+          ),
+        },
+        action:
+          !readOnly && !bookings.has(String(row.entity_id)) ? (
+            <BookButton quoteId={quoteId} entityId={String(row.entity_id)} kind={TABLE_KIND[item.table]} item={row} suppliers={suppliers} />
+          ) : undefined,
+        content: form(item, true),
+      };
+    });
 
   const airlines = toConfirm.length > 0 && (
-    <section className="card confirm-airlines">
+    <section className="rounded-md border border-amber bg-white p-4">
       <b>Airline names to confirm</b>
-      <p className="sub">
+      <p className="mt-1 mb-3 text-muted">
         Confirm or correct each name once; it is then used on every Quote. Until then the PDF shows only the code.
       </p>
       {toConfirm.map(({ code, suggestion }) => (
-        <form key={code} action={confirmAirline.bind(null, quoteId)} className="inline-form">
+        <form key={code} action={confirmAirline.bind(null, quoteId)} className="mb-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="iata" value={code} />
-          <label htmlFor={`airline-${code}`}>{code}</label>
+          <label htmlFor={`airline-${code}`} className="mb-0 w-8 font-semibold">{code}</label>
           <input
             id={`airline-${code}`}
             type="text"
@@ -107,17 +231,19 @@ export async function EditSection({
             required
             defaultValue={suggestion?.name ?? ""}
             placeholder="Airline name"
+            className="max-w-80"
           />
           <button type="submit">Confirm</button>
-          {!suggestion && <small>Not in the list</small>}
+          {!suggestion && <small className="text-muted">Not in the list</small>}
         </form>
       ))}
     </section>
   );
 
   const tabs: EditTab[] = TABS.map(([table, id, label]) => {
-    const ofKind = visible.filter((r) => r.table === table);
-    const byHand = ofKind.filter((r) => r.row.image_id == null);
+    // Items from images in upload order, then those entered by hand; each group in the order added.
+    const rank = (r: { row: Row }) => (r.row.image_id == null ? images.length : (imageById.get(String(r.row.image_id))?.order ?? images.length));
+    const ofKind = rows.filter((r) => r.table === table).sort((a, b) => rank(a) - rank(b));
     const onlyThis = Object.fromEntries(tables.map((t) => [t, t === table ? ofKind.map((r) => r.row) : []]));
     return {
       id,
@@ -126,33 +252,29 @@ export async function EditSection({
       // The same check Generate version makes, for this kind only.
       warn: problems({ ...(onlyThis as Record<ItemTable, Row[]>), flights: [] }).length > 0,
       content: (
-        <>
+        <div className="flex flex-col gap-4">
           {table === "flight_options" && !readOnly && airlines}
-          {images.map((img) => {
-            const items = ofKind.filter((r) => r.row.image_id === img.id);
-            if (items.length === 0) return null;
-            return (
-              <section className="edit-block" key={img.id} id={`block-${id}-${img.id}`}>
-                <div className="edit-image">
-                  {img.url && <ImageViewer src={img.url} alt={img.filename} />}
-                  <small>{img.filename}</small>
-                </div>
-                <fieldset className="edit-items plain" disabled={readOnly}>
-                  {items.map(form)}
-                </fieldset>
-              </section>
-            );
-          })}
-          <section className="edit-block">
-            <div className="edit-image">
-              <b>Manual Capture</b>
-            </div>
-            <fieldset className="edit-items plain" disabled={readOnly}>
-              {byHand.map(form)}
+          {table === "flight_options" ? (
+            <OptionTable
+              columns={[
+                { key: "option", label: "Option" },
+                { key: "destination", label: "Destination" },
+                { key: "dates", label: "Dates" },
+                { key: "nights", label: "Nights", align: "right" },
+                { key: "total", label: "Total", align: "right" },
+                { key: "status", label: "" },
+              ]}
+              rows={flightRows(ofKind)}
+              add={!readOnly && <AddItemForm quoteId={quoteId} table={table} label="Add Flight Option" />}
+            />
+          ) : (
+            <>
+              {ofKind.map((r) => form(r))}
               {!readOnly && <AddItemForm quoteId={quoteId} table={table} />}
-            </fieldset>
-          </section>
-        </>
+            </>
+          )}
+          {ofKind.length === 0 && <p className="text-muted">No {label.toLowerCase()} yet.</p>}
+        </div>
       ),
     };
   });
@@ -160,8 +282,39 @@ export async function EditSection({
   return (
     <>
       <EditTabs tabs={tabs} />
-      {rows.length > visible.length && (
-        <p className="empty">Items from removed images are left out. Uploading the same image again within 90 days brings them back.</p>
+      {archived.length > 0 && (
+        <details className="mt-4">
+          <summary className="cursor-pointer font-semibold text-teal-deep">Archived Items ({archived.length})</summary>
+          <p className="mt-1 text-muted">
+            Removing an image archives its Items; uploading the same image again within 90 days restores them.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Archived</th>
+                <th>By</th>
+                {!readOnly && <th />}
+              </tr>
+            </thead>
+            <tbody>
+              {archived.map(({ table, row }) => (
+                <tr key={String(row.id)}>
+                  <td>{[ITEM_LABEL[table], row.label ?? row.name].filter(Boolean).join(": ")}</td>
+                  <td>{new Date(String(row.archived_at)).toLocaleString("en-ZA")}</td>
+                  <td>{row.archived_by ? (who.get(String(row.archived_by)) ?? "Former user") : "System"}</td>
+                  {!readOnly && (
+                    <td>
+                      <form action={restoreItem.bind(null, table, String(row.id))}>
+                        <button type="submit" className={BUTTON.quiet}>Restore</button>
+                      </form>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
       )}
     </>
   );

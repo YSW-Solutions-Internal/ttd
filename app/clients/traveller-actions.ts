@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { SaveResult } from "@/lib/form-values";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_TEXT } from "@/lib/files";
+import { text, type SaveResult } from "@/lib/form-values";
 
 // Who may do what is decided by the database (migration 0022): every User but an
 // Accountant edits Travellers; IDs and Passports only the Client's Consultant and
@@ -10,14 +11,12 @@ import type { SaveResult } from "@/lib/form-values";
 
 export type TravellerFormState = { error?: string; notice?: string };
 
-const text = (fd: FormData, key: string) => String(fd.get(key) ?? "").trim();
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 const TRAVELLER_TEXT = ["title", "email", "phone"];
 const IDENTITY_TEXT = ["nationality", "name_as_printed"];
 const DATES = ["date_of_birth", "issued_on", "expires_on"];
 const IMAGE_EXT: Record<string, string> = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png" };
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 /** The fields sent (autosave sends only those that changed), checked. */
 function fields(fd: FormData, required: string[], optional: string[]): Record<string, unknown> | SaveResult {
@@ -40,7 +39,7 @@ const failed = (r: Record<string, unknown> | SaveResult): r is SaveResult => typ
 async function storeImage(clientId: string, file: FormDataEntryValue | null): Promise<{ path?: string; error?: string }> {
   if (!(file instanceof File) || file.size === 0) return {};
   if (!IMAGE_EXT[file.type]) return { error: "Only PDF, JPG or PNG images." };
-  if (file.size > MAX_IMAGE_BYTES) return { error: "The image is over 10 MB." };
+  if (file.size > MAX_UPLOAD_BYTES) return { error: `The image is over ${MAX_UPLOAD_TEXT}.` };
   const supabase = await createClient();
   const path = `${clientId}/travellers/${crypto.randomUUID()}.${IMAGE_EXT[file.type]}`;
   const { error } = await supabase.storage.from("client-files").upload(path, file, { contentType: file.type, upsert: false });
@@ -76,7 +75,6 @@ export async function saveTraveller(id: string, fd: FormData): Promise<SaveResul
   const { data, error } = await supabase.from("travellers").update(row).eq("id", id).select("id");
   if (error) return { error: `Could not save: ${error.message}` };
   if (!data || data.length === 0) return { error: "Could not save: not permitted." };
-  revalidatePath("/", "layout");
   return {};
 }
 
@@ -139,7 +137,6 @@ export async function saveIdentity(id: string, fd: FormData): Promise<SaveResult
   // 23514: a Passport's nationality and dates cannot be emptied.
   if (error) return { error: error.code === "23514" ? "A Passport needs its nationality, issue and expiry dates." : `Could not save: ${error.message}` };
   if (!data || data.length === 0) return { error: "Could not save: not permitted." };
-  revalidatePath("/", "layout");
   return {};
 }
 

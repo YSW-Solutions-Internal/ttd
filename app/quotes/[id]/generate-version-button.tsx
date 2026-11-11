@@ -3,6 +3,7 @@
 import { useActionState, useState, startTransition } from "react";
 import { useSaves } from "@/app/autosave";
 import { generateVersion, type PdfState } from "./pdf-actions";
+import { Msg } from "@/app/ui";
 
 /** Saves every change on screen first; generates nothing if one could not be saved. */
 export function GenerateVersionButton({ quoteId }: { quoteId: string }) {
@@ -13,32 +14,37 @@ export function GenerateVersionButton({ quoteId }: { quoteId: string }) {
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const data = new FormData(e.currentTarget);
     setSaving(true);
     const failed = await waitForSaves();
     setSaving(false);
     setUnsaved(failed);
-    if (failed.length === 0) startTransition(() => action(new FormData()));
+    if (failed.length === 0) startTransition(() => action(data));
   }
 
   return (
-    <form onSubmit={submit} style={{ marginBottom: 14 }}>
+    <form onSubmit={submit} className="mb-3.5 flex flex-col items-start gap-2.5">
+      <label className="flex items-center gap-2">
+        <input type="checkbox" name="accepted" />
+        Everything on this Version is accepted by the Client
+      </label>
       <button type="submit" disabled={running || saving}>
         {saving ? "Saving…" : running ? "Generating…" : "Generate version"}
       </button>
       {unsaved.length > 0 && (
-        <div className="msg error">Couldn&apos;t save these, so nothing was generated: {unsaved.join(", ")}</div>
+        <Msg tone="error">Couldn&apos;t save these, so nothing was generated: {unsaved.join(", ")}</Msg>
       )}
       {state.problems && (
-        <div className="msg error">
+        <Msg tone="error">
           Fix these first:
-          <ul>
+          <ul className="mt-1 list-disc pl-5">
             {state.problems.map((p, i) => (
               <li key={i}>{p}</li>
             ))}
           </ul>
-        </div>
+        </Msg>
       )}
-      {state.error && <div className="msg error">{state.error}</div>}
+      {state.error && <Msg tone="error">{state.error}</Msg>}
     </form>
   );
 }

@@ -1,6 +1,6 @@
 # Extraction runs in the background: after() plus a per-minute cron, no queue service
 
-Clicking Extract data only queues the images (`queue_extractions` marks them `pending`) and returns. The same function then reads them with Next's `after()`, using the Consultant's own session, and stops starting new images after about 520 s so it ends within the 800 s Vercel Pro limit. A Vercel Cron job (`/api/cron/extract`, every minute) reads anything still `pending`, or `running` past the 5-minute lock, using the service key. `extractions` is the queue: a row's status is the job's state, and `claim_extraction` is the atomic take. Failed images are not retried automatically; the next click queues them again.
+Clicking Extract data only queues the images (`queue_extractions` marks them `pending`) and returns. The same function then reads them with Next's `after()`, using the service key (a session refreshed after the response cannot be saved, and would use up the browser's), and stops starting new images after 50 s so it ends within the 300 s set on the root layout, whichever page sits under the Trip modal. A Vercel Cron job (`/api/cron/extract`, every minute) reads anything still `pending`, or `running` past the 5-minute lock, using the service key. `extractions` is the queue: a row's status is the job's state, and `claim_extraction` is the atomic take. Failed images are not retried automatically; the next click queues them again.
 
 ## Considered Options
 

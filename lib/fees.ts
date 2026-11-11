@@ -3,7 +3,7 @@
 
 export const FEE_REGIONS = ["domestic", "neighbouring", "local_international", "international"] as const;
 export type FeeRegion = (typeof FEE_REGIONS)[number];
-export const VARIANTS = ["", "premium", "side_ticket"] as const;
+export const VARIANTS = ["", "premium_economy", "premium", "side_ticket"] as const;
 export type Variant = (typeof VARIANTS)[number];
 export const FEE_FIELDS = ["transaction_fee", "change_fee", "refund_fee", "prepayment_fee"] as const;
 
@@ -72,8 +72,12 @@ export type FeeRate = {
   prepayment_fee: number;
 };
 
-/** The schedule row for an Item. Only international flights have variants. */
+/** Kinds with one fee in every region and no Fee region; an Extra's variant is its extra_type. */
+export const FLAT_KINDS = new Set(["package", "visa", "insurance", "extra"]);
+
+/** The schedule row for an Item. Only international flights have variants; flat kinds ignore the region. */
 export function rateFor(rates: FeeRate[], kind: string, region: unknown, variant: unknown): FeeRate | undefined {
+  if (FLAT_KINDS.has(kind)) return rates.find((r) => r.kind === kind && r.variant === (variant ?? ""));
   const v = kind === "flight" && region === "international" ? (variant ?? "") : "";
   return rates.find((r) => r.kind === kind && r.fee_region === region && r.variant === v);
 }
@@ -182,14 +186,20 @@ export function applyFees(
   auto: { region: FeeRegion | null; variant: Variant },
   rates: FeeRate[],
 ): Row {
-  // A worked-out region is kept when nothing can be worked out now, rather than wiping its fees.
-  if (!row.fee_region || (row.fee_region_auto && auto.region)) {
+  const flat = FLAT_KINDS.has(kind);
+  if (flat) {
+    row.fee_region = null;
+    row.variant = "";
+    row.fee_region_auto = false;
+  } else if (!row.fee_region || (row.fee_region_auto && auto.region)) {
     row.fee_region = auto.region;
     row.variant = kind === "flight" ? auto.variant : "";
     row.fee_region_auto = true;
   }
-  const rate = rateFor(rates, kind, row.fee_region, row.variant);
-  const keyChanged = !prev || prev.fee_region !== row.fee_region || prev.variant !== row.variant;
+  const extra = kind === "extra";
+  const rate = rateFor(rates, kind, row.fee_region, extra ? row.extra_type : row.variant);
+  const keyChanged =
+    !prev || prev.fee_region !== row.fee_region || prev.variant !== row.variant || (extra && prev.extra_type !== row.extra_type);
   for (const f of FEE_FIELDS) {
     if (keyChanged || row[f] == null) row[f] = rate?.[f] ?? null;
   }

@@ -15,6 +15,9 @@ export const ROLE_LABELS: Record<Role, string> = {
 /** Accountants see everything but edit no Client, Trip or Quote (ADR 0010); the database enforces it too. */
 export const canEdit = (role: Role) => role !== "accountant";
 
+/** Who sees the Accounts pages and their exports; the database's is_accounts() (migration 0024). */
+export const isAccounts = (role: Role) => role === "admin" || role === "accountant";
+
 export function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);
 }

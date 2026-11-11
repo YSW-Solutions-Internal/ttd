@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/roles";
@@ -5,10 +6,13 @@ import type { Profile } from "@/lib/roles";
 // Client Components must import these from @/lib/roles instead: this module
 // pulls in next/headers and cannot be bundled for the browser.
 export type { Profile, Role } from "@/lib/roles";
-export { ROLES, ROLE_LABELS, isRole, canEdit } from "@/lib/roles";
+export { ROLES, ROLE_LABELS, isRole, canEdit, isAccounts } from "@/lib/roles";
 
-/** The signed-in user's profile, or null if nobody is signed in. */
-export async function getProfile(): Promise<Profile | null> {
+/**
+ * The signed-in user's profile, or null if nobody is signed in. Read once per
+ * request: the layout and each part of a page share the answer.
+ */
+export const getProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,7 +26,7 @@ export async function getProfile(): Promise<Profile | null> {
     .single();
 
   return (data as Profile) ?? null;
-}
+});
 
 /**
  * Guard for admin-only pages: sends anyone else away rather than rendering.

@@ -2,10 +2,12 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Supabase client holding the service-role key. It bypasses RLS entirely, so
- * it is used for two things only: sending invites, which needs Supabase's admin
- * auth API (call it only after requireAdminAction in lib/auth.ts has passed), and
- * the cron jobs (extraction, purging old removed images), which have no signed-in
- * user and check CRON_SECRET first.
+ * it is used for three things only: sending invites, which needs Supabase's admin
+ * auth API (call it only after requireAdminAction in lib/auth.ts has passed); the
+ * cron jobs (extraction, purging old removed images), which have no signed-in
+ * user and check CRON_SECRET first; and reading the images the Extract button
+ * queued, after the response, when the user's session can no longer be refreshed
+ * (the button reads and queues them with the user's own rights first).
  *
  * SUPABASE_SERVICE_ROLE_KEY has no NEXT_PUBLIC_ prefix, so Next.js keeps it
  * out of the client bundle; the guard below turns a mistaken client import

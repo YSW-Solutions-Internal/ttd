@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminAction } from "@/lib/auth";
@@ -55,8 +56,12 @@ export async function inviteUser(
     return { error: `Could not record the invitation: ${invError?.message ?? "unknown error"}` };
   }
 
+  // The link goes to the deployment the admin invited from; see requestReset.
+  const origin = (await headers()).get("origin");
   const admin = createAdminClient();
-  const { error } = await admin.auth.admin.inviteUserByEmail(email);
+  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${origin}/auth/confirm?type=invite`,
+  });
 
   if (error) {
     // Nothing was created in auth, so withdraw the invitation rather than

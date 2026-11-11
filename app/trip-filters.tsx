@@ -24,10 +24,11 @@ export function TripFilters({
   dir: string;
 }) {
   return (
-    <Form action="/" className="filters" onChange={(e) => e.currentTarget.requestSubmit()}>
+    <Form action="/" className="mb-4 flex flex-wrap gap-3 [&>div]:min-w-[200px]" onChange={(e) => e.currentTarget.requestSubmit()}>
       <div>
         <label htmlFor="f-status">Status</label>
         <select id="f-status" name="status" defaultValue={status}>
+          <option value="current">Current (open, plus Travelled or Cancelled in the last 90 days)</option>
           <option value="open">Open (Enquiry, Quoted, Booked)</option>
           <option value="all">All</option>
           {TRIP_STATUSES.map((s) => (

@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth";
-import type { SaveResult } from "@/lib/form-values";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_TEXT } from "@/lib/files";
+import { text, type SaveResult } from "@/lib/form-values";
 
 export type ClientFormState = { error?: string; notice?: string };
 
-const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 
 /*
  * The database decides who may do what (migrations 0007, 0021): every User but
@@ -36,7 +36,6 @@ export async function updateClient(id: string, formData: FormData): Promise<Save
   if (error) return { error: `Could not save: ${error.message}` };
   // RLS filters rather than errors, so zero rows means the update was refused.
   if (!data || data.length === 0) return { error: "Could not save: not permitted." };
-  revalidatePath(`/clients/${id}`);
   return {};
 }
 
@@ -75,7 +74,6 @@ export async function addClient(formData: FormData): Promise<SaveResult> {
 }
 
 const DOC_EXT: Record<string, string> = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png" };
-const MAX_DOC_BYTES = 10 * 1024 * 1024;
 
 export async function uploadDocument(
   clientId: string,
@@ -88,7 +86,7 @@ export async function uploadDocument(
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) return { error: "Choose a file." };
   if (!DOC_EXT[file.type]) return { error: "Only PDF, JPG or PNG files." };
-  if (file.size > MAX_DOC_BYTES) return { error: "The file is over 10 MB." };
+  if (file.size > MAX_UPLOAD_BYTES) return { error: `The file is over ${MAX_UPLOAD_TEXT}.` };
 
   const supabase = await createClient();
   const path = `${clientId}/${crypto.randomUUID()}.${DOC_EXT[file.type]}`;

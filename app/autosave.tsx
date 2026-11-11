@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge, Button, Msg } from "@/app/ui";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { SaveResult } from "@/lib/form-values";
@@ -21,6 +22,18 @@ class Registry {
     await Promise.all([...this.entries.values()].map((e) => e.queue.idle()));
     return [...this.entries.values()].filter((e) => e.queue.state === "failed").map((e) => e.label);
   }
+
+  refresh = () => {};
+  private timer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Totals, counts and names elsewhere on screen catch up once saves pause: a refresh rebuilds the whole screen, so not one per field. */
+  refreshSoon() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(async () => {
+      await this.waitForSaves();
+      this.refresh();
+    }, 1000);
+  }
 }
 
 const AutosaveContext = createContext<Registry | null>(null);
@@ -34,6 +47,7 @@ function useRegistry(): Registry {
 export function AutosaveProvider({ children }: { children: ReactNode }) {
   const [registry] = useState(() => new Registry());
   const router = useRouter();
+  registry.refresh = router.refresh;
 
   useEffect(() => {
     const beforeUnload = (e: BeforeUnloadEvent) => {
@@ -111,6 +125,7 @@ export function useAutosave({
       new SaveQueue(async (fd) => {
         const r = await saveRef.current(fd);
         apply(r);
+        if (!r.error) registry.refreshSoon();
         return r;
       }, rerender),
   );
@@ -182,22 +197,22 @@ export type Autosave = ReturnType<typeof useAutosave>;
 export function AutosaveStatus({ autosave }: { autosave: Autosave }) {
   const { state, error, saved, unsaved, retry } = autosave;
   return (
-    <span className="autosave-status">
-      {unsaved && state !== "saving" && <span className="badge">Not saved</span>}
-      {state === "saving" && <span className="msg">Saving…</span>}
+    <span className="inline-flex items-center gap-2 text-[13px]" aria-live="polite">
+      {unsaved && state !== "saving" && <Badge tone="amber">Not saved</Badge>}
+      {state === "saving" && <span className="text-muted">Saving…</span>}
       {state === "failed" && (
-        <span className="msg error">
+        <Msg as="span" tone="error">
           Couldn&apos;t save: {error?.error}{" "}
-          <button type="button" className="link" onClick={retry}>
+          <Button variant="quiet" onClick={retry}>
             Retry
-          </button>
-        </span>
+          </Button>
+        </Msg>
       )}
-      {saved && !unsaved && <span className="msg">Saved</span>}
+      {saved && !unsaved && <span className="text-teal-deep">Saved</span>}
     </span>
   );
 }
 
 export function FieldError({ autosave, name }: { autosave: Autosave; name: string }) {
-  return autosave.error?.field === name ? <small className="msg error">{autosave.error.error}</small> : null;
+  return autosave.error?.field === name ? <small className="mt-0.5 block text-xs text-danger">{autosave.error.error}</small> : null;
 }

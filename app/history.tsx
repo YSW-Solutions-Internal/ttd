@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ITEM_LABEL } from "@/app/quotes/[id]/item-fields";
+import { Msg } from "@/app/ui";
 
 const LABEL: Record<string, string> = {
   ...ITEM_LABEL,
@@ -11,6 +12,8 @@ const LABEL: Record<string, string> = {
   quote_versions: "Version",
   images: "Image",
   item_bookings: "Booking",
+  item_changes: "Change",
+  suppliers: "Supplier",
   flights: "Flight",
   travellers: "Traveller",
   trip_travellers: "Traveller on this Trip",
@@ -43,10 +46,10 @@ export async function History(filter: { tripId: string } | { clientId: string })
   const who = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
 
   return (
-    <details className="history">
-      <summary>History ({entries?.length ?? 0})</summary>
-      {error && <div className="msg error">Could not load History: {error.message}</div>}
-      {entries && entries.length === 0 && <p className="empty">No edits recorded yet.</p>}
+    <details className="mt-8">
+      <summary className="cursor-pointer font-semibold text-teal-deep">History ({entries?.length ?? 0})</summary>
+      {error && <Msg tone="error">Could not load History: {error.message}</Msg>}
+      {entries && entries.length === 0 && <p className="py-3 text-muted">No edits recorded yet.</p>}
       {entries && entries.length > 0 && (
         <table>
           <thead>
