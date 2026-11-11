@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { ConfirmButton } from "@/app/confirm-button";
 import { mergeSupplier, renameSupplier, type SupplierFormState } from "./actions";
 import { Msg } from "@/app/ui";
+import { Select } from "@/app/select";
 
 function Message({ state }: { state: SupplierFormState }) {
   if (state.error) return <Msg tone="error">{state.error}</Msg>;
@@ -29,10 +30,7 @@ export function MergeForm({ id, others }: { id: string; others: { id: string; na
   return (
     <form action={action} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="id" value={id} />
-      <select name="into" aria-label="Merge into" defaultValue="">
-        <option value="">Merge into…</option>
-        {others.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-      </select>
+      <Select name="into" aria-label="Merge into" placeholder="Merge into…" options={others.map((o) => [o.id, o.name])} />
       <ConfirmButton confirmLabel="Sure? This one is removed">
         Merge
       </ConfirmButton>

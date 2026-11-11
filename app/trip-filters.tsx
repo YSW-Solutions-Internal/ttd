@@ -1,6 +1,7 @@
 "use client";
 
 import Form from "next/form";
+import { Select } from "@/app/select";
 import { TRIP_STATUSES, tripStatusLabel } from "@/lib/trip-status";
 
 type ClientOption = { id: string; client_code: string; full_name: string };
@@ -27,38 +28,35 @@ export function TripFilters({
     <Form action="/" className="mb-4 flex flex-wrap gap-3 [&>div]:min-w-[200px]" onChange={(e) => e.currentTarget.requestSubmit()}>
       <div>
         <label htmlFor="f-status">Status</label>
-        <select id="f-status" name="status" defaultValue={status}>
-          <option value="current">Current (open, plus Travelled or Cancelled in the last 90 days)</option>
-          <option value="open">Open (Enquiry, Quoted, Booked)</option>
-          <option value="all">All</option>
-          {TRIP_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {tripStatusLabel(s)}
-            </option>
-          ))}
-        </select>
+        <Select
+          id="f-status"
+          name="status"
+          defaultValue={status}
+          options={[
+            ["current", "Current (open, plus Travelled or Cancelled in the last 90 days)"],
+            ["open", "Open (Enquiry, Quoted, Booked)"],
+            ["all", "All"],
+            ...TRIP_STATUSES.map((s): [string, string] => [s, tripStatusLabel(s)]),
+          ]}
+        />
       </div>
       <div>
         <label htmlFor="f-consultant">Consultant</label>
-        <select id="f-consultant" name="consultant" defaultValue={consultant || "all"}>
-          <option value="all">All consultants</option>
-          {consultants.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label}
-            </option>
-          ))}
-        </select>
+        <Select
+          id="f-consultant"
+          name="consultant"
+          defaultValue={consultant || "all"}
+          options={[["all", "All consultants"], ...consultants.map((p): [string, string] => [p.id, p.label])]}
+        />
       </div>
       <div>
         <label htmlFor="f-client">Client</label>
-        <select id="f-client" name="client" defaultValue={client}>
-          <option value="">All clients</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.client_code} · {c.full_name}
-            </option>
-          ))}
-        </select>
+        <Select
+          id="f-client"
+          name="client"
+          defaultValue={client}
+          options={[["", "All clients"], ...clients.map((c): [string, string] => [c.id, `${c.client_code} · ${c.full_name}`])]}
+        />
       </div>
       <input type="hidden" name="sort" value={sort} />
       <input type="hidden" name="dir" value={dir} />

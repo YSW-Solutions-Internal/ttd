@@ -18,6 +18,7 @@ import {
   type TravellerFormState,
 } from "./traveller-actions";
 import { Badge, Msg } from "@/app/ui";
+import { Select } from "@/app/select";
 
 export type TravellerValues = {
   id: string;
@@ -188,10 +189,7 @@ function AddIdentityForm({ clientId, travellerId, hasId }: { clientId: string; t
         ) : (
           <div className="mb-3">
             <label>Kind</label>
-            <select name="kind" defaultValue="passport">
-              <option value="passport">Passport</option>
-              <option value="id">ID</option>
-            </select>
+            <Select name="kind" aria-label="Kind" defaultValue="passport" options={[["passport", "Passport"], ["id", "ID"]]} />
           </div>
         )}
         <Field label="Number" name="number" value={null} />

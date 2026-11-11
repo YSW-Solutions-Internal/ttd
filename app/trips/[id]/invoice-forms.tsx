@@ -6,6 +6,7 @@ import { ConfirmButton } from "@/app/confirm-button";
 import { sizeProblem } from "@/lib/files";
 import type { Side } from "@/lib/invoicing";
 import { Button, Msg } from "@/app/ui";
+import { Select } from "@/app/select";
 import { addInvoice, addLink, deleteInvoice, removeLink, setInvoiceStatus, type InvoiceFormState } from "./invoice-actions";
 
 function Message({ state }: { state: InvoiceFormState }) {
@@ -40,13 +41,7 @@ export function AddInvoiceForm({ tripId, side, suppliers }: { tripId: string; si
           {supplier && (
             <div className="mb-3 min-w-[200px] flex-1">
               <label htmlFor={`${id}-s`}>Supplier</label>
-              <select id={`${id}-s`} name="supplier_id" required>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+              <Select id={`${id}-s`} name="supplier_id" required options={suppliers.map((s) => [s.id, s.name])} />
             </div>
           )}
           <Field label={supplier ? "Invoice number" : "Quicktrav number"} name="number" required />
@@ -90,13 +85,7 @@ export function LinkForm({
   if (targets.length === 0) return null;
   return (
     <form {...kept} className="flex flex-wrap items-center gap-2">
-      <select className="w-auto max-w-full" name="target" aria-label="Item or Change this invoice is for" required>
-        {targets.map((t) => (
-          <option key={t.key} value={t.key}>
-            {t.label}
-          </option>
-        ))}
-      </select>
+      <Select className="inline-block max-w-full" name="target" aria-label="Item or Change this invoice is for" required options={targets.map((t) => [t.key, t.label])} />
       <input className="w-32" name="amount" type="number" step="0.01" aria-label="Amount for it" defaultValue={Math.abs(remaining) || undefined} required />
       <button type="submit" disabled={pending}>Link</button>
       <Message state={state} />
