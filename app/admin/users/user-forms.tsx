@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { inviteUser, setRole, type UserFormState } from "./actions";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/roles";
 import { Button, Msg } from "@/app/ui";
+import { Select } from "@/app/select";
 
 function Message({ state }: { state: UserFormState }) {
   if (state.error) return <Msg tone="error">{state.error}</Msg>;
@@ -28,13 +29,7 @@ export function InviteUserForm() {
 
       <div className="mb-3">
         <label htmlFor="role">Role</label>
-        <select id="role" name="role" defaultValue="user">
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {ROLE_LABELS[r]}
-            </option>
-          ))}
-        </select>
+        <Select id="role" name="role" defaultValue="user" options={ROLES.map((r) => [r, ROLE_LABELS[r]])} />
       </div>
 
       <div className="mb-3 text-xs text-muted">
@@ -56,13 +51,7 @@ export function RoleForm({ userId, role }: { userId: string; role: Role }) {
   return (
     <form action={action} className="flex items-center gap-2">
       <input type="hidden" name="user_id" value={userId} />
-      <select name="role" defaultValue={role} disabled={pending} className="w-auto">
-        {ROLES.map((r) => (
-          <option key={r} value={r}>
-            {ROLE_LABELS[r]}
-          </option>
-        ))}
-      </select>
+      <Select name="role" aria-label="Role" defaultValue={role} disabled={pending} className="inline-block" options={ROLES.map((r) => [r, ROLE_LABELS[r]])} />
       <Button type="submit" variant="quiet" disabled={pending}>
         {pending ? "Saving…" : "Save"}
       </Button>

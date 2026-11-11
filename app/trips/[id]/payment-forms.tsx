@@ -7,6 +7,7 @@ import type { Side } from "@/lib/invoicing";
 import { KINDS, PAYMENT_KIND_LABEL, type PaymentKind, type PaymentStatus } from "@/lib/payments";
 import type { KindTarget } from "./payments";
 import { Button, Msg } from "@/app/ui";
+import { Select as Dropdown } from "@/app/select"; // this file's own Select adds the label
 import { addPayment, addPaymentLink, deletePayment, removePaymentLink, reversePayment, setPaymentStatus, type PaymentFormState } from "./payment-actions";
 import { todayInSA as today } from "@/lib/dates";
 
@@ -33,14 +34,14 @@ export function Select({ label, name, options, required, empty, defaultValue, on
   return (
     <div className="mb-3 min-w-[200px] flex-1">
       <label htmlFor={id}>{label}</label>
-      <select id={id} name={name} required={required} defaultValue={defaultValue} onChange={onChange && ((e) => onChange(e.target.value))}>
-        {empty !== undefined && <option value="">{empty}</option>}
-        {options.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <Dropdown
+        id={id}
+        name={name}
+        required={required}
+        defaultValue={defaultValue}
+        onChange={onChange}
+        options={[...(empty !== undefined ? [["", empty] as [string, string]] : []), ...options.map((o): [string, string] => [o.id, o.label])]}
+      />
     </div>
   );
 }
@@ -138,13 +139,7 @@ export function PaymentLinkForm({ paymentId, quoteId, side, targets, remaining }
   if (targets.length === 0) return null;
   return (
     <form {...kept} className="flex flex-wrap items-center gap-2">
-      <select className="w-auto max-w-full" name="target" aria-label="What it is for" required>
-        {targets.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.label}
-          </option>
-        ))}
-      </select>
+      <Dropdown className="inline-block max-w-full" name="target" aria-label="What it is for" required options={targets.map((t) => [t.id, t.label])} />
       <input className="w-32" name="amount" type="number" step="0.01" aria-label="Amount for it" defaultValue={remaining || undefined} required />
       <button type="submit" disabled={pending}>Link</button>
       <Message state={state} />

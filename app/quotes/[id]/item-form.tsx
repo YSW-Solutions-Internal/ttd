@@ -5,6 +5,7 @@ import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { ConfirmButton } from "@/app/confirm-button";
 import { FileLink } from "@/app/file-viewer";
 import { Button } from "@/app/ui";
+import { Select } from "@/app/select";
 import { TABLE_KIND, type ItemTable } from "@/lib/extraction/tables";
 import { FLAT_KINDS, rateFor, tenPercent, type FeeRate } from "@/lib/fees";
 import { addItem, archiveItem, saveItem } from "./item-actions";
@@ -47,9 +48,7 @@ function Input({ field, value, id }: { field: Field; value: unknown; id: string 
   if (field.type === "textarea") return <textarea id={id} name={field.name} rows={4} defaultValue={v} className="min-h-[6.5em] resize-y [field-sizing:content]" />;
   if (field.type === "select") {
     return (
-      <select id={id} name={field.name} defaultValue={v}>
-        {field.options?.map(([val, label]) => <option key={val} value={val}>{label}</option>)}
-      </select>
+      <Select id={id} name={field.name} defaultValue={v} options={field.options ?? []} />
     );
   }
   return <input id={id} type={inputType(field, v)} name={field.name} defaultValue={v} step={field.type === "money" ? "0.01" : field.type === "number" ? "any" : undefined} />;
@@ -311,10 +310,13 @@ export function ItemForm({
   const stayPicker = table === "accommodation_options" && (
     <div className="mb-3">
       <label htmlFor={`${formId}-stay`}>Stay</label>
-      <select id={`${formId}-stay`} name="stay_id" defaultValue={str(row.stay_id)} disabled={readOnly}>
-        <option value="">Not placed</option>
-        {stays.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-      </select>
+      <Select
+        id={`${formId}-stay`}
+        name="stay_id"
+        defaultValue={str(row.stay_id)}
+        disabled={readOnly}
+        options={[["", "Not placed"], ...stays.map((s): [string, string] => [s.id, s.label])]}
+      />
     </div>
   );
 
@@ -357,19 +359,18 @@ export function ItemForm({
         {!flat && (
         <div className="mb-3">
           <label htmlFor={`${formId}-region`}>Fee region</label>
-          <select id={`${formId}-region`} name="fee_region" defaultValue={str(row.fee_region)}>
-            {REGION_OPTIONS.filter(([v]) => kind === "flight" || v !== "local_international").map(([v, label]) => (
-              <option key={v} value={v}>{label}</option>
-            ))}
-          </select>
+          <Select
+            id={`${formId}-region`}
+            name="fee_region"
+            defaultValue={str(row.fee_region)}
+            options={REGION_OPTIONS.filter(([v]) => kind === "flight" || v !== "local_international")}
+          />
         </div>
         )}
         {kind === "flight" && (
           <div className="mb-3">
             <label htmlFor={`${formId}-variant`}>Fare type</label>
-            <select id={`${formId}-variant`} name="variant" defaultValue={str(row.variant)}>
-              {VARIANT_OPTIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-            </select>
+            <Select id={`${formId}-variant`} name="variant" defaultValue={str(row.variant)} options={VARIANT_OPTIONS} />
           </div>
         )}
         {FEE_LABELS.map(([name, label]) => (
