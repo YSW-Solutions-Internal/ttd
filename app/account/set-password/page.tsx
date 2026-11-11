@@ -23,7 +23,7 @@ export default function SetPasswordPage({
       <form action={action} className="rounded-md border border-line bg-white p-5">
         <div className="mb-3">
           <label htmlFor="password">
-          {isReset ? "New password" : "Password"}
+          {isReset ? "New Password" : "Set Password"}
           </label>
           <input
             id="password"
