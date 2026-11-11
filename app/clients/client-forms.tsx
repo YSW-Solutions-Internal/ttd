@@ -6,6 +6,7 @@ import { AutosaveStatus, FieldError, useAutosave, useSaves } from "@/app/autosav
 import { FileDrop } from "@/app/file-drop";
 import { addClient, updateClient, uploadDocument, type ClientFormState } from "./actions";
 import { Msg } from "@/app/ui";
+import { Select } from "@/app/select";
 
 export type ClientValues = {
   id: string;
@@ -218,17 +219,12 @@ function ClientFields({
       {consultants && (
         <div className="mb-3">
           <label htmlFor="consultant_id">Consultant</label>
-          <select
+          <Select
             id="consultant_id"
             name="consultant_id"
             defaultValue={client?.consultant_id ?? defaultConsultantId}
-          >
-            {consultants.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
+            options={consultants.map((c) => [c.id, c.label])}
+          />
         </div>
       )}
 

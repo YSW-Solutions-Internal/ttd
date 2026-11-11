@@ -146,6 +146,8 @@ export function useAutosave({
       if (!el || el === document.activeElement || queue.has(name)) continue;
       if (el instanceof HTMLInputElement && el.type === "checkbox") el.checked = value === "on";
       else el.value = value;
+      // Tells a <Select> to show the new value; not bubbling, so this form does not save it again.
+      if (el instanceof HTMLSelectElement) el.dispatchEvent(new Event("change"));
     }
   }
 

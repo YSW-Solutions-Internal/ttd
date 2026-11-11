@@ -3,6 +3,7 @@
 import { AutosaveStatus, FieldError, useAutosave } from "@/app/autosave";
 import { TRIP_STATUSES, tripStatusLabel } from "@/lib/trip-status";
 import { saveTrip } from "../actions";
+import { Select } from "@/app/select";
 
 export type TripValues = {
   id: string;
@@ -30,13 +31,7 @@ export function TripForm({ trip, company }: { trip: TripValues; company: boolean
       <div className="grid grid-cols-[200px_1fr] gap-x-4 max-[700px]:grid-cols-1">
       <div className="mb-3">
         <label htmlFor="status">Status</label>
-        <select id="status" name="status" defaultValue={trip.status}>
-          {TRIP_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {tripStatusLabel(s)}
-            </option>
-          ))}
-        </select>
+        <Select id="status" name="status" defaultValue={trip.status} options={TRIP_STATUSES.map((s) => [s, tripStatusLabel(s)])} />
         <FieldError autosave={autosave} name="status" />
       </div>
       <div className="mb-3">

@@ -52,3 +52,6 @@
   /* The browser's suggestion arrow sits badly in these boxes; suggestions still show as you type. */
   .list-arrow-off input::-webkit-calendar-picker-indicator { display: none !important; }
 }
+
+/* A <Select>'s box shows the error autosave marks on its hidden select; unlayered so it beats the box's border utility. */
+[data-select]:has(> select[aria-invalid="true"]) > button { border-color: var(--color-danger); outline: 1px solid var(--color-danger); }

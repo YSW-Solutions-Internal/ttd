@@ -19,6 +19,7 @@ import { Badge, BUTTON, Button, Msg, TripStatusBadge } from "@/app/ui";
 import { openRefundTrips } from "@/lib/refunds";
 import { StaysArc } from "./stays-arc";
 import { QuoteEditor } from "@/app/quotes/[id]/quote-view";
+import { Select } from "@/app/select";
 
 const date = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-ZA") : null);
 
@@ -250,13 +251,7 @@ export async function TripView({ id }: { id: string }) {
                 )}
                 {editable && others.length > 0 && (
                   <form action={addToTrip.bind(null, trip.id)} className="mt-3 flex items-center gap-2">
-                    <select name="traveller_id" aria-label="Traveller to add" required className="w-auto">
-                      {others.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.first_name} {t.last_name}
-                        </option>
-                      ))}
-                    </select>
+                    <Select name="traveller_id" aria-label="Traveller to add" required className="inline-block" options={others.map((t) => [t.id, `${t.first_name} ${t.last_name}`])} />
                     <button type="submit">Add to this Trip</button>
                   </form>
                 )}

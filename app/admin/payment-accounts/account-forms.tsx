@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useKeptForm } from "@/app/kept-form";
 import { ACCOUNT_KIND_LABEL } from "@/lib/payments";
 import { Msg } from "@/app/ui";
+import { Select } from "@/app/select";
 import { addPaymentAccount } from "./actions";
 
 export function AddAccountForm({ clientId, kinds }: { clientId: string | null; kinds: string[] }) {
@@ -11,13 +12,7 @@ export function AddAccountForm({ clientId, kinds }: { clientId: string | null; k
   const kept = useKeptForm(action, state);
   return (
     <form {...kept} className="mt-3 flex flex-wrap items-center gap-2">
-      <select name="kind" aria-label="Kind" className="w-auto" required>
-        {kinds.map((k) => (
-          <option key={k} value={k}>
-            {ACCOUNT_KIND_LABEL[k]}
-          </option>
-        ))}
-      </select>
+      <Select name="kind" aria-label="Kind" className="inline-block" required options={kinds.map((k) => [k, ACCOUNT_KIND_LABEL[k]])} />
       <input className="w-72" name="nickname" aria-label="Nickname" placeholder="Nickname, e.g. Company card" required />
       <button type="submit" disabled={pending}>Add</button>
       {state.error && <Msg tone="error">{state.error}</Msg>}

@@ -5,6 +5,7 @@ import { ConfirmButton } from "@/app/confirm-button";
 import { countryNames } from "@/app/trips/[id]/destination-picker";
 import { correctDestination, mergeDestination, removeDestination, type DestinationFormState } from "./actions";
 import { Msg } from "@/app/ui";
+import { Select } from "@/app/select";
 
 export type DestinationRow = { code: string; name: string; country: string; stays: number };
 
@@ -67,10 +68,14 @@ export function MergeForm({ d, others }: { d: DestinationRow; others: Destinatio
   return (
     <form action={action} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="code" value={d.code} />
-      <select name="into" aria-label="Merge into" value={into} onChange={(e) => setInto(e.target.value)}>
-        <option value="">Merge into…</option>
-        {others.map((o) => <option key={o.code} value={o.code}>{o.name}, {o.country} · {o.code}</option>)}
-      </select>
+      <Select
+        name="into"
+        aria-label="Merge into"
+        placeholder="Merge into…"
+        value={into}
+        onChange={setInto}
+        options={others.map((o) => [o.code, `${o.name}, ${o.country} · ${o.code}`])}
+      />
       <ConfirmButton confirmLabel={moved ? `Sure? ${regionWarning(d.stays)}` : "Sure? This one is removed"}>Merge</ConfirmButton>
       <Message state={state} />
     </form>
